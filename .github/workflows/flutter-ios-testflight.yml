@@ -1,6 +1,11 @@
 name: Flutter iOS validation and TestFlight
 
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "flutter_app/**"
+      - ".github/workflows/flutter-ios-testflight.yml"
   workflow_dispatch:
     inputs:
       upload_to_testflight:
@@ -150,11 +155,23 @@ jobs:
             echo 'Upload stopped: provisioning profile is not an App Store distribution profile.' >&2
             exit 1
           fi
+          if ! security find-identity -v -p codesigning "$KEYCHAIN_FILE" 2>/dev/null | grep -Fq "($TEAM_ID)"; then
+            echo 'Upload stopped: signing identity does not match the profile team.' >&2
+            exit 1
+          fi
           mkdir -p "$PROFILE_DIR"
           cp "$PROFILE_FILE" "$PROFILE_DIR/${PROFILE_ID}.mobileprovision"
           echo "profile_name=$PROFILE_NAME" >> "$GITHUB_OUTPUT"
           echo "profile_uuid=$PROFILE_ID" >> "$GITHUB_OUTPUT"
           echo "team_id=$TEAM_ID" >> "$GITHUB_OUTPUT"
+      - name: Configure Xcode target for manual App Store signing
+        env:
+          PROFILE_NAME: ${{ steps.signing.outputs.profile_name }}
+          TEAM_ID: ${{ steps.signing.outputs.team_id }}
+        run: |
+          for config in ios/Flutter/Release.xcconfig ios/Flutter/Profile.xcconfig; do
+            printf '\\nCODE_SIGN_STYLE = Manual\\nDEVELOPMENT_TEAM = %s\\nCODE_SIGN_IDENTITY = Apple Distribution\\nPROVISIONING_PROFILE_SPECIFIER = %s\\n' "$TEAM_ID" "$PROFILE_NAME" >> "$config"
+          done
       - name: Create manual App Store export options
         env:
           PROFILE_NAME: ${{ steps.signing.outputs.profile_name }}
