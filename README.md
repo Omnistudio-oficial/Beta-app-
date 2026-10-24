@@ -1,8 +1,29 @@
 # OmniStudio
 
-OmniStudio es una suite de productividad y entretenimiento creada para combinar IA, creación de contenido, comunicación en tiempo real y herramientas colaborativas dentro de una misma experiencia digital.
+![Kotlin](https://img.shields.io/badge/Kotlin-2.1.0-7F52FF?logo=kotlin)
+![Android](https://img.shields.io/badge/Android-API%2024%2B-3DDC84?logo=android)
+![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter)
+![Firebase](https://img.shields.io/badge/Firebase-Enabled-FFCA28?logo=firebase)
+![Status](https://img.shields.io/badge/Status-In%20Development-orange)
+![Project](https://img.shields.io/badge/GitHub%20Project-Active-181717?logo=github)
 
-El proyecto se encuentra en desarrollo activo y su planificación se gestiona en el board de GitHub: https://github.com/orgs/Omnistudio-oficial/projects/1
+OmniStudio es una suite de productividad y entretenimiento que combina IA, creación de contenido, mensajería en tiempo real, multimedia y herramientas colaborativas dentro de una misma experiencia digital.
+
+El proyecto se encuentra en desarrollo activo y su planificación se gestiona en el board de GitHub:
+https://github.com/orgs/Omnistudio-oficial/projects/1
+
+## Features
+
+- Editor y gestión de documentos
+- Creación musical, edición de audio y contenido creativo
+- Mensajería instantánea y chat en tiempo real
+- Integración con IA para asistentes, traducción y generación de contenido
+- Soporte para cámara, audio, video y medios compartidos
+- Autenticación con Firebase y experiencia de usuario moderna
+- Geolocalización, mapas y navegación
+- Persistencia de datos con Firebase y Room
+- Notificaciones del sistema y eventos en tiempo real
+- Soporte multimedia con Supabase
 
 ## Estado actual del proyecto
 
@@ -21,7 +42,7 @@ Actualmente el proyecto está en una fase de consolidación funcional, con foco 
 - experiencia móvil moderna
 - integración de mapas, audio y video
 
-## Roadmap y cronograma
+## Roadmap
 
 ### Fase 1 - Base del producto (Completada)
 - infraestructura del repositorio
@@ -42,21 +63,75 @@ Actualmente el proyecto está en una fase de consolidación funcional, con foco 
 - flujo de video, audio y contenido creativo
 
 ### Fase 4 - Multiplataforma y release (Próximo)
-- estabilización de Flutter app
+- estabilización de Flutter
 - pruebas de integración y QA
 - despliegue y validación de producción
-- preparación de release y documentación final
+- preparación final de release y documentación
 
-## Visión del producto
+## Architecture
 
-La intención del proyecto es ofrecer una suite todo-en-uno con:
+```text
+┌───────────────────────────────┐
+│        Mobile Clients         │
+│  Android (Kotlin + Compose)   │
+│  Flutter app (Dart)           │
+└───────────────┬───────────────┘
+                │
+                ▼
+┌───────────────────────────────┐
+│      App Layer / Presentation │
+│  Screens, ViewModels, UI, Nav │
+└───────────────┬───────────────┘
+                │
+                ▼
+┌───────────────────────────────┐
+│       Domain / Business        │
+│  Auth, Chat, AI, Media, Maps  │
+└───────────────┬───────────────┘
+                │
+                ▼
+┌───────────────────────────────┐
+│      Data & Services           │
+│ Firebase | Supabase | APIs    │
+│ Room | Retrofit | WebRTC      │
+└───────────────────────────────┘
+```
 
-- editor y gestión de documentos
-- generación musical y edición de audio
-- mensajería instantánea y realtime
-- asistentes con IA para ayuda, traducción y generación de contenido
-- multimedia, cámara, video y medios compartidos
-- experiencias móviles modernas y colaborativas
+## Sprint status
+
+El proyecto se gestiona por sprints con foco en entregas funcionales y validación continua.
+
+- Backlog: tareas nuevas, mejoras y exploración técnica
+- In Progress: implementación activa en Android, IA y chat
+- Review: validación, QA y revisión de integración
+- Done: funcionalidades estables y listas para consolidar
+
+## Project board columns
+
+El board principal del proyecto sigue un flujo de trabajo visual orientado a producto:
+
+- Backlog
+- Todo
+- In Progress
+- In Review
+- Done
+
+Este enfoque permite priorizar entregas, controlar bloqueos y mantener sincronia entre product, engineering y QA.
+
+## Release checklist
+
+Antes de publicar una versión estable, revisar:
+
+- [ ] autenticación funcionando correctamente
+- [ ] chat en tiempo real estable
+- [ ] carga y almacenamiento de media validado
+- [ ] configuración de Firebase y Supabase correcta
+- [ ] variables de entorno sin secretos expuestos
+- [ ] pruebas de QA en Android y Flutter
+- [ ] manejo de errores y crash reporting activo
+- [ ] release notes y documentación actualizadas
+- [ ] validación de performance y compatibilidad
+- [ ] firma y preparación de build final
 
 ## Stack tecnológico
 
@@ -111,18 +186,6 @@ La intención del proyecto es ofrecer una suite todo-en-uno con:
 ├── README.md
 └── LICENSE               # si se agrega más adelante
 ```
-
-## Funcionalidades principales
-
-- autenticación y seguridad con Firebase
-- chat en tiempo real con mensajes y multimedia
-- integración con IA generativa
-- captura de cámara, video y efectos visuales
-- traducción local y reconocimiento de idioma
-- geolocalización y mapas
-- persistencia de datos con Firebase y Room
-- notificaciones y eventos de sistema
-- soporte para almacenamiento de medios con Supabase
 
 ## Requisitos
 
