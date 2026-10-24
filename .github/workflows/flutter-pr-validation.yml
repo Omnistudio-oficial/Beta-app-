@@ -1,0 +1,32 @@
+name: Flutter PR validation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "flutter_app/**"
+      - ".github/workflows/flutter-pr-validation.yml"
+permissions:
+  contents: read
+
+jobs:
+  flutter:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: flutter_app
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Resolve Flutter packages
+        run: flutter pub get
+      - name: Analyze Flutter sources
+        run: flutter analyze --no-pub
+      - name: Run offline-capable widget tests
+        run: flutter test --no-pub

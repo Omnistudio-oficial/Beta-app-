@@ -1,43 +1,41 @@
 import 'package:flutter/material.dart';
 
-class SocialScreen extends StatelessWidget {
-  const SocialScreen({super.key});
+class ConverterScreen extends StatelessWidget {
+  const ConverterScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Social')),
+      appBar: AppBar(title: const Text('Converter')),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(20),
-          child: ListView(
-            children: const [
-              _SocialCard(name: 'Alicia', status: 'Shared a new album'),
-              _SocialCard(name: 'Mateo', status: 'Started a new project'),
-              _SocialCard(name: 'Sofia', status: 'Joined the team chat'),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Media converter', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              TextField(
+                decoration: InputDecoration(
+                  labelText: 'Input value',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text('Choose output format'),
+              const SizedBox(height: 12),
+              const Wrap(
+                spacing: 10,
+                children: [Chip(label: Text('MP3')), Chip(label: Text('PDF')), Chip(label: Text('PNG')), Chip(label: Text('MP4'))],
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(onPressed: null, icon: const Icon(Icons.sync_alt), label: const Text('Convert')),
+              ),
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _SocialCard extends StatelessWidget {
-  final String name;
-  final String status;
-
-  const _SocialCard({required this.name, required this.status});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: ListTile(
-        leading: CircleAvatar(
-          child: Text(name.substring(0, 1)),
-        ),
-        title: Text(name),
-        subtitle: Text(status),
       ),
     );
   }

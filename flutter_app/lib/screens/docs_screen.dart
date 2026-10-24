@@ -1,41 +1,20 @@
 import 'package:flutter/material.dart';
 
-class AIScreen extends StatelessWidget {
-  const AIScreen({super.key});
+class DocsScreen extends StatelessWidget {
+  const DocsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('AI Assistant')),
+      appBar: AppBar(title: const Text('Docs')),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'AI workspace',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 14),
-              Expanded(
-                child: ListView(
-                  children: const [
-                    _PromptCard(
-                      prompt: 'Summarize this app state',
-                      icon: Icons.auto_awesome,
-                    ),
-                    _PromptCard(
-                      prompt: 'Generate product notes',
-                      icon: Icons.note_alt_outlined,
-                    ),
-                    _PromptCard(
-                      prompt: 'Draft onboarding copy',
-                      icon: Icons.edit_note_outlined,
-                    ),
-                  ],
-                ),
-              ),
+          child: ListView(
+            children: const [
+              _DocCard(title: 'Project migration guide', meta: 'Updated 2h ago'),
+              _DocCard(title: 'Release notes', meta: 'Shared with team'),
+              _DocCard(title: 'User onboarding', meta: 'Ready for review'),
             ],
           ),
         ),
@@ -44,20 +23,19 @@ class AIScreen extends StatelessWidget {
   }
 }
 
-class _PromptCard extends StatelessWidget {
-  final String prompt;
-  final IconData icon;
+class _DocCard extends StatelessWidget {
+  final String title;
+  final String meta;
 
-  const _PromptCard({required this.prompt, required this.icon});
+  const _DocCard({required this.title, required this.meta});
 
   @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: ListTile(
-        leading: Icon(icon, color: Colors.deepPurple),
-        title: Text(prompt),
-        trailing: const Icon(Icons.arrow_forward_ios),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Card(
+        child: ListTile(
+          leading: const Icon(Icons.description_outlined, color: Colors.blue),
+          title: Text(title),
+          subtitle: Text(meta),
+          trailing: const Icon(Icons.chevron_right),
+        ),
+      );
 }
