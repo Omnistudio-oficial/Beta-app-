@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:beta_app/screens/auth_screen.dart';
+import 'package:beta_app/screens/chat_screen.dart';
 import 'package:beta_app/screens/home_screen.dart';
 import 'package:beta_app/screens/profile_screen.dart';
 
@@ -16,6 +17,7 @@ class _NavigationShellState extends State<NavigationShell> {
 
   static const List<Widget> _pages = <Widget>[
     HomeScreen(),
+    ChatScreen(),
     AuthScreen(),
     ProfileScreen(),
   ];
@@ -36,6 +38,10 @@ class _NavigationShellState extends State<NavigationShell> {
           NavigationDestination(
             icon: Icon(Icons.home_outlined),
             label: 'Home',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.chat_bubble_outline),
+            label: 'Chat',
           ),
           NavigationDestination(
             icon: Icon(Icons.login_outlined),
