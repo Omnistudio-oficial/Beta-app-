@@ -68,6 +68,15 @@ jobs:
       IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
       IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
     steps:
+      - name: Require a second explicit upload confirmation
+        shell: bash
+        env:
+          CONFIRMATION: ${{ inputs.confirm_testflight_upload }}
+        run: |
+          if [[ "$CONFIRMATION" != 'I CONFIRM TESTFLIGHT UPLOAD' ]]; then
+            echo 'Upload stopped before secrets or signing are used. Re-run only after explicit approval and type the exact confirmation phrase.' >&2
+            exit 1
+          fi
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
