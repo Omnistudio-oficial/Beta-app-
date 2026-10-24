@@ -1,22 +1,35 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'package:beta_app/models/user_profile.dart';
+
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  Future<void> setUserProfile(String uid, Map<String, dynamic> data) async {
-    await _db.collection('users').doc(uid).set(data, SetOptions(merge: true));
+  CollectionReference<Map<String, dynamic>> get usersCollection =>
+      _db.collection('users');
+
+  Future<void> saveUserProfile(UserProfile profile) async {
+    await usersCollection.doc(profile.uid).set(profile.toMap(), SetOptions(merge: true));
   }
 
-  Future<Map<String, dynamic>?> getUserProfile(String uid) async {
-    final snapshot = await _db.collection('users').doc(uid).get();
-    return snapshot.exists ? snapshot.data() : null;
+  Future<UserProfile?> getUserProfile(String uid) async {
+    final doc = await usersCollection.doc(uid).get();
+    if (!doc.exists || doc.data() == null) return null;
+    return UserProfile.fromMap(uid, doc.data()!);
   }
 
-  Stream<DocumentSnapshot<Map<String, dynamic>>> watchUserProfile(String uid) {
-    return _db.collection('users').doc(uid).snapshots();
+  Stream<UserProfile?> watchUserProfile(String uid) {
+    return usersCollection.doc(uid).snapshots().map((snapshot) {
+      if (!snapshot.exists || snapshot.data() == null) return null;
+      return UserProfile.fromMap(uid, snapshot.data()!);
+    });
   }
 
-  Future<void> addLog(String collection, Map<String, dynamic> payload) async {
-    await _db.collection(collection).add(payload);
+  Future<void> updateUserField(String uid, String field, dynamic value) async {
+    await usersCollection.doc(uid).update({field: value});
+  }
+
+  Future<void> addActivityLog(String uid, Map<String, dynamic> payload) async {
+    await usersCollection.doc(uid).collection('activity').add(payload);
   }
 }

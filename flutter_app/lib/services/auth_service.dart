@@ -1,28 +1,44 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class AuthService {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
 
-  User? get currentUser => _auth.currentUser;
+  User? get currentUser => _firebaseAuth.currentUser;
 
-  Stream<User?> get authStateChanges => _auth.authStateChanges();
+  Stream<User?> get authStateChanges => _firebaseAuth.authStateChanges();
 
   Future<UserCredential> signInWithEmailAndPassword({
     required String email,
     required String password,
   }) async {
-    return _auth.signInWithEmailAndPassword(email: email, password: password);
+    return _firebaseAuth.signInWithEmailAndPassword(
+      email: email.trim(),
+      password: password,
+    );
   }
 
   Future<UserCredential> createUserWithEmailAndPassword({
     required String email,
     required String password,
   }) async {
-    return _auth.createUserWithEmailAndPassword(email: email, password: password);
+    return _firebaseAuth.createUserWithEmailAndPassword(
+      email: email.trim(),
+      password: password,
+    );
   }
 
   Future<void> signOut() async {
-    await _auth.signOut();
+    await _firebaseAuth.signOut();
+  }
+
+  Future<void> sendPasswordResetEmail(String email) async {
+    await _firebaseAuth.sendPasswordResetEmail(email: email.trim());
+  }
+
+  Future<void> updateDisplayName(String displayName) async {
+    final user = _firebaseAuth.currentUser;
+    if (user == null) return;
+
+    await user.updateDisplayName(displayName.trim());
   }
 }
