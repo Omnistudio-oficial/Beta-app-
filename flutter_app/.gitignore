@@ -1,0 +1,2 @@
+# This file ensures the Flutter app is treated as a project root while the original Android app remains intact.
+# The migration work should be done inside this folder.
