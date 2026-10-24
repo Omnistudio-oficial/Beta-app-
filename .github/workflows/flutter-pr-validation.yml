@@ -6,6 +6,8 @@ on:
     paths:
       - "flutter_app/**"
       - ".github/workflows/flutter-pr-validation.yml"
+  workflow_dispatch:
+
 permissions:
   contents: read
 
@@ -24,6 +26,13 @@ jobs:
         with:
           channel: stable
           cache: true
+      - name: Generate iOS scaffold with Firebase configuration
+        run: |
+          flutter create --platforms=ios --project-name=omnistudio_flutter_prototype --org=com.omnistudio --no-pub .ci_scaffold
+          python3 tool/prepare_platforms.py .ci_scaffold
+          rm -rf ios
+          cp -R .ci_scaffold/ios ./ios
+          rm -rf .ci_scaffold
       - name: Resolve Flutter packages
         run: flutter pub get
       - name: Analyze Flutter sources
