@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'package:beta_app/models/music_item.dart';
 import 'package:beta_app/services/music_service.dart';
 
 class MusicScreen extends StatelessWidget {
@@ -33,7 +32,7 @@ class MusicScreen extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
-                  color: Colors.deepPurple.withOpacity(0.12),
+                  color: Colors.deepPurple.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(18),
                 ),
                 child: Row(
