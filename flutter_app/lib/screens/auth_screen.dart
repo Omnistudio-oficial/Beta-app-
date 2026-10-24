@@ -23,7 +23,7 @@ class _AuthScreenState extends State<AuthScreen> {
     final password = _passwordController.text.trim();
 
     if (email.isEmpty || password.isEmpty) {
-      _showMessage('Email and password are required');
+      _showMessage('Email y contraseña son requeridos');
       return;
     }
 
@@ -35,16 +35,16 @@ class _AuthScreenState extends State<AuthScreen> {
           email: email,
           password: password,
         );
-        _showMessage('Account created successfully');
+        _showMessage('Cuenta creada correctamente');
       } else {
         await _authService.signInWithEmailAndPassword(
           email: email,
           password: password,
         );
-        _showMessage('Signed in successfully');
+        _showMessage('Sesión iniciada correctamente');
       }
     } on FirebaseAuthException catch (e) {
-      _showMessage(e.message ?? 'Authentication failed');
+      _showMessage(e.message ?? 'Error de autenticación');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -55,6 +55,13 @@ class _AuthScreenState extends State<AuthScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(text)),
     );
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
   }
 
   @override
@@ -73,7 +80,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    _isRegisterMode ? 'Create account' : 'Welcome back',
+                    _isRegisterMode ? 'Crear cuenta' : 'Iniciar sesión',
                     style: Theme.of(context).textTheme.headlineSmall,
                   ),
                   const SizedBox(height: 24),
@@ -90,7 +97,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     controller: _passwordController,
                     obscureText: true,
                     decoration: const InputDecoration(
-                      labelText: 'Password',
+                      labelText: 'Contraseña',
                       border: OutlineInputBorder(),
                     ),
                   ),
@@ -105,7 +112,7 @@ class _AuthScreenState extends State<AuthScreen> {
                           )
                         : const Icon(Icons.lock_open),
                     label: Text(
-                      _isRegisterMode ? 'Create account' : 'Sign in',
+                      _isRegisterMode ? 'Crear cuenta' : 'Entrar',
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -115,8 +122,8 @@ class _AuthScreenState extends State<AuthScreen> {
                     },
                     child: Text(
                       _isRegisterMode
-                          ? 'Already have an account? Sign in'
-                          : 'Need an account? Register',
+                          ? '¿Ya tienes cuenta? Inicia sesión'
+                          : '¿No tienes cuenta? Regístrate',
                     ),
                   ),
                 ],

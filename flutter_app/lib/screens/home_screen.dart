@@ -11,6 +11,14 @@ class HomeScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('OmniStudio'),
+        actions: [
+          IconButton(
+            onPressed: () async {
+              await FirebaseAuth.instance.signOut();
+            },
+            icon: const Icon(Icons.logout),
+          ),
+        ],
       ),
       body: SafeArea(
         child: Padding(
@@ -20,13 +28,13 @@ class HomeScreen extends StatelessWidget {
             children: [
               Text(
                 user == null
-                    ? 'Welcome to the migration base'
-                    : 'Welcome back, ${user.displayName ?? 'Customer'}',
+                    ? 'Bienvenido al inicio migrated'
+                    : 'Bienvenido, ${user.displayName ?? 'usuario'}',
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 20),
               const Text(
-                'This screen is the first Flutter version of the original app dashboard.',
+                'Esta pantalla representa la migración del dashboard principal de la app Android a Flutter.',
               ),
               const SizedBox(height: 28),
               Card(
@@ -34,19 +42,19 @@ class HomeScreen extends StatelessWidget {
                   padding: const EdgeInsets.all(20),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Migration status',
+                    children: const [
+                      Text(
+                        'Estado de migración',
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      _StatusRow(label: 'Firebase Auth', value: 'Ready'),
-                      _StatusRow(label: 'Firestore', value: 'Ready'),
-                      _StatusRow(label: 'Navigation', value: 'Ready'),
-                      _StatusRow(label: 'Main screens', value: 'In progress'),
+                      SizedBox(height: 12),
+                      _StatusRow(label: 'Firebase Auth', value: 'Listo'),
+                      _StatusRow(label: 'Firestore', value: 'Listo'),
+                      _StatusRow(label: 'Navegación', value: 'Listo'),
+                      _StatusRow(label: 'Pantallas principales', value: 'En progreso'),
                     ],
                   ),
                 ),

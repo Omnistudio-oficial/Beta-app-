@@ -1,4 +1,3 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import 'package:beta_app/models/user_profile.dart';
@@ -25,7 +24,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void initState() {
     super.initState();
     final user = _authService.currentUser;
-    _nameController = TextEditingController(text: user?.displayName ?? 'User');
+    _nameController = TextEditingController(text: user?.displayName ?? 'Usuario');
     _emailController = TextEditingController(text: user?.email ?? '');
     _loadProfile();
   }
@@ -42,7 +41,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _nameController.text = profile.name;
         _emailController.text = profile.email;
       } else {
-        _nameController.text = user.displayName ?? 'User';
+        _nameController.text = user.displayName ?? 'Usuario';
         _emailController.text = user.email ?? '';
       }
     } finally {
@@ -59,14 +58,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       final profile = UserProfile(
         uid: user.uid,
-        name: _nameController.text.trim().isEmpty ? 'User' : _nameController.text.trim(),
+        name: _nameController.text.trim().isEmpty ? 'Usuario' : _nameController.text.trim(),
         email: _emailController.text.trim().isEmpty ? user.email ?? '' : _emailController.text.trim(),
       );
 
       await _firestoreService.saveUserProfile(profile);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile saved to Firestore')),
+          const SnackBar(content: Text('Perfil guardado en Firestore')),
         );
       }
     } finally {
@@ -91,7 +90,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Profile'),
+        title: const Text('Perfil'),
         actions: [
           IconButton(
             onPressed: _signOut,
@@ -103,7 +102,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         padding: const EdgeInsets.all(24),
         child: user == null
             ? const Center(
-                child: Text('Please sign in to view your profile'),
+                child: Text('Inicia sesión para ver tu perfil'),
               )
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -115,7 +114,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 20),
                   TextField(
                     controller: _nameController,
-                    decoration: const InputDecoration(labelText: 'Name'),
+                    decoration: const InputDecoration(labelText: 'Nombre'),
                   ),
                   const SizedBox(height: 16),
                   TextField(
@@ -127,7 +126,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   FilledButton.icon(
                     onPressed: _isLoading ? null : _saveProfile,
                     icon: const Icon(Icons.save),
-                    label: const Text('Save profile'),
+                    label: const Text('Guardar perfil'),
                   ),
                 ],
               ),
