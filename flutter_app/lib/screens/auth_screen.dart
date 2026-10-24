@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import 'package:beta_app/services/auth_service.dart';
@@ -13,6 +14,7 @@ class _AuthScreenState extends State<AuthScreen> {
   final AuthService _authService = AuthService();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+
   bool _isLoading = false;
   bool _isRegisterMode = false;
 
@@ -61,62 +63,64 @@ class _AuthScreenState extends State<AuthScreen> {
       appBar: AppBar(
         title: const Text('Firebase Auth'),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  _isRegisterMode ? 'Create account' : 'Welcome back',
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-                const SizedBox(height: 24),
-                TextField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    border: OutlineInputBorder(),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    _isRegisterMode ? 'Create account' : 'Welcome back',
+                    style: Theme.of(context).textTheme.headlineSmall,
                   ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _passwordController,
-                  obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Password',
-                    border: OutlineInputBorder(),
+                  const SizedBox(height: 24),
+                  TextField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(
+                      labelText: 'Email',
+                      border: OutlineInputBorder(),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 20),
-                FilledButton.icon(
-                  onPressed: _isLoading ? null : _submit,
-                  icon: _isLoading
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.lock_open),
-                  label: Text(
-                    _isRegisterMode ? 'Create account' : 'Sign in',
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _passwordController,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Password',
+                      border: OutlineInputBorder(),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                TextButton(
-                  onPressed: () {
-                    setState(() => _isRegisterMode = !_isRegisterMode);
-                  },
-                  child: Text(
-                    _isRegisterMode
-                        ? 'Already have an account? Sign in'
-                        : 'Need an account? Register',
+                  const SizedBox(height: 20),
+                  FilledButton.icon(
+                    onPressed: _isLoading ? null : _submit,
+                    icon: _isLoading
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.lock_open),
+                    label: Text(
+                      _isRegisterMode ? 'Create account' : 'Sign in',
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 12),
+                  TextButton(
+                    onPressed: () {
+                      setState(() => _isRegisterMode = !_isRegisterMode);
+                    },
+                    child: Text(
+                      _isRegisterMode
+                          ? 'Already have an account? Sign in'
+                          : 'Need an account? Register',
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

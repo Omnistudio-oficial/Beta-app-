@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import 'package:beta_app/models/user_profile.dart';
 import 'package:beta_app/services/auth_service.dart';
 import 'package:beta_app/services/firestore_service.dart';
 
@@ -15,13 +16,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final AuthService _authService = AuthService();
   final FirestoreService _firestoreService = FirestoreService();
 
+  late final TextEditingController _nameController;
+  late final TextEditingController _emailController;
+
   bool _isLoading = false;
-  String? _userName;
-  String? _userEmail;
 
   @override
   void initState() {
     super.initState();
+    final user = _authService.currentUser;
+    _nameController = TextEditingController(text: user?.displayName ?? 'User');
+    _emailController = TextEditingController(text: user?.email ?? '');
     _loadProfile();
   }
 
@@ -33,15 +38,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     try {
       final profile = await _firestoreService.getUserProfile(user.uid);
-      setState(() {
-        _userName = profile?.name ?? user.displayName ?? 'User';
-        _userEmail = profile?.email ?? user.email ?? 'No email';
-      });
-    } catch (_) {
-      setState(() {
-        _userName = user.displayName ?? 'User';
-        _userEmail = user.email ?? 'No email';
-      });
+      if (profile != null) {
+        _nameController.text = profile.name;
+        _emailController.text = profile.email;
+      } else {
+        _nameController.text = user.displayName ?? 'User';
+        _emailController.text = user.email ?? '';
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -51,15 +54,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final user = _authService.currentUser;
     if (user == null) return;
 
+    setState(() => _isLoading = true);
+
     try {
-      setState(() => _isLoading = true);
-      await _firestoreService.saveUserProfile(
-        UserProfile(
-          uid: user.uid,
-          name: _userName ?? user.displayName ?? 'User',
-          email: _userEmail ?? user.email ?? '',
-        ),
+      final profile = UserProfile(
+        uid: user.uid,
+        name: _nameController.text.trim().isEmpty ? 'User' : _nameController.text.trim(),
+        email: _emailController.text.trim().isEmpty ? user.email ?? '' : _emailController.text.trim(),
       );
+
+      await _firestoreService.saveUserProfile(profile);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Profile saved to Firestore')),
@@ -72,6 +76,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _signOut() async {
     await _authService.signOut();
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    super.dispose();
   }
 
   @override
@@ -103,15 +114,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const SizedBox(height: 20),
                   TextField(
+                    controller: _nameController,
                     decoration: const InputDecoration(labelText: 'Name'),
-                    onChanged: (value) => _userName = value,
-                    controller: TextEditingController(text: _userName ?? user.displayName),
                   ),
                   const SizedBox(height: 16),
                   TextField(
+                    controller: _emailController,
                     decoration: const InputDecoration(labelText: 'Email'),
                     enabled: false,
-                    controller: TextEditingController(text: _userEmail ?? user.email ?? ''),
                   ),
                   const SizedBox(height: 24),
                   FilledButton.icon(
