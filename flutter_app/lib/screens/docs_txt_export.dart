@@ -18,14 +18,20 @@ class DocsTxtExporter {
     Future<Directory> Function()? temporaryDirectoryProvider,
     DocumentTxtShareAction? shareAction,
     Future<void> Function(File file, String content)? writeFile,
+    Future<void> Function(Directory directory)? createDirectory,
   })  : _temporaryDirectoryProvider =
             temporaryDirectoryProvider ?? getTemporaryDirectory,
         _shareAction = shareAction ?? _shareWithPlatform,
-        _writeFile = writeFile ?? _writeUtf8File;
+        _writeFile = writeFile ?? _writeUtf8File,
+        _createDirectory = createDirectory ?? _createExportDirectory;
 
   final Future<Directory> Function() _temporaryDirectoryProvider;
   final DocumentTxtShareAction _shareAction;
   final Future<void> Function(File file, String content) _writeFile;
+  final Future<void> Function(Directory directory) _createDirectory;
+
+  static Future<void> _createExportDirectory(Directory directory) =>
+      directory.create(recursive: true).then((_) {});
 
   static Future<void> _writeUtf8File(File file, String content) =>
       file.writeAsString(content, encoding: utf8, flush: true);
@@ -45,7 +51,7 @@ class DocsTxtExporter {
     final exportDirectory = Directory(
       '${directory.path}${Platform.pathSeparator}omnistudio_docs_exports',
     );
-    await exportDirectory.create(recursive: true);
+    await _createDirectory(exportDirectory);
     final file = File(
       '${exportDirectory.path}${Platform.pathSeparator}$filename',
     );
