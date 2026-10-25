@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:beta_app/screens/docs_screen.dart';
 import 'package:beta_app/screens/docs_txt_export.dart';
@@ -156,17 +155,17 @@ void main() {
     };
     final originalStorage = jsonEncode([originalDocument]);
     final storage = FakeDocumentsStorage(originalStorage);
-    final directory = await Directory.systemTemp.createTemp('docs-txt-export-test-');
-    File? handedOffFile;
+    final files = <String, String>{};
+    String? handedOffFilename;
     String? handedOffTitle;
     Rect? handedOffOrigin;
-    addTearDown(() async {
-      if (await directory.exists()) await directory.delete(recursive: true);
-    });
     final exporter = DocsTxtExporter(
-      temporaryDirectoryProvider: () async => directory,
+      temporaryDirectoryProvider: () async => Directory('/tmp/docs-test'),
+      writeFile: (file, content) async {
+        files[file.uri.pathSegments.last] = content;
+      },
       shareAction: ({required file, required title, required sharePositionOrigin}) async {
-        handedOffFile = file;
+        handedOffFilename = file.uri.pathSegments.last;
         handedOffTitle = title;
         handedOffOrigin = sharePositionOrigin;
         // A normally completed native sheet includes user cancellation; it
@@ -182,8 +181,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(handedOffTitle, 'Notas / clase');
-    expect(handedOffFile!.uri.pathSegments.last, 'Notas_-_clase.txt');
-    expect(await handedOffFile!.readAsString(), 'Primera línea — café ☕');
+    expect(handedOffFilename, 'Notas_-_clase.txt');
+    expect(files['Notas_-_clase.txt'], 'Primera línea — café ☕');
     expect(handedOffOrigin, isNotNull);
     expect(storage.value, originalStorage);
     expect(find.textContaining('Elige dónde compartir o guardar'), findsOneWidget);
@@ -200,12 +199,9 @@ void main() {
       },
     ]);
     final storage = FakeDocumentsStorage(originalStorage);
-    final directory = await Directory.systemTemp.createTemp('docs-txt-error-test-');
-    addTearDown(() async {
-      if (await directory.exists()) await directory.delete(recursive: true);
-    });
     final exporter = DocsTxtExporter(
-      temporaryDirectoryProvider: () async => directory,
+      temporaryDirectoryProvider: () async => Directory('/tmp/docs-test'),
+      writeFile: (file, content) async {},
       shareAction: ({required file, required title, required sharePositionOrigin}) async {
         throw StateError('platform share failed');
       },
