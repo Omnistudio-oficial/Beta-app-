@@ -1,0 +1,212 @@
+name: Flutter iOS validation and TestFlight
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "flutter_app/**"
+      - ".github/workflows/flutter-ios-testflight.yml"
+  workflow_dispatch:
+    inputs:
+      upload_to_testflight:
+        description: "Build, sign, and upload to TestFlight (default false; explicit confirmation required)"
+        required: true
+        type: boolean
+        default: false
+      confirm_testflight_upload:
+        description: 'Type I CONFIRM TESTFLIGHT UPLOAD only after a separate explicit approval'
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flutter-ios-testflight-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Analyze and test Flutter on macOS
+    runs-on: macos-14
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: flutter_app
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Generate iOS scaffold with registered Firebase configuration
+        run: |
+          flutter create --platforms=ios --project-name=omnistudio_flutter_prototype --org=com.omnistudio --no-pub .ci_scaffold
+          python3 tool/prepare_platforms.py .ci_scaffold
+          rm -rf ios
+          cp -R .ci_scaffold/ios ./ios
+          rm -rf .ci_scaffold
+      - name: Resolve Flutter packages
+        run: flutter pub get
+      - name: Analyze Flutter sources
+        run: flutter analyze --no-pub
+      - name: Run Flutter tests
+        run: flutter test --no-pub
+
+  upload:
+    name: Optional signed upload to TestFlight
+    if: ${{ inputs.upload_to_testflight && inputs.confirm_testflight_upload == 'I CONFIRM TESTFLIGHT UPLOAD' }}
+    needs: validate
+    runs-on: macos-14
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: flutter_app
+    env:
+      ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      IOS_CERTIFICATE_P12_BASE64: ${{ secrets.IOS_CERTIFICATE_P12_BASE64 }}
+      IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+      IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+    steps:
+      - name: Require a second explicit upload confirmation
+        shell: bash
+        env:
+          CONFIRMATION: ${{ inputs.confirm_testflight_upload }}
+        run: |
+          if [[ "$CONFIRMATION" != 'I CONFIRM TESTFLIGHT UPLOAD' ]]; then
+            echo 'Upload stopped before secrets or signing are used. Re-run only after explicit approval and type the exact confirmation phrase.' >&2
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Safe preflight for App Store Connect and signing assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=()
+          for name in ASC_PRIVATE_KEY ASC_KEY_ID ASC_ISSUER_ID IOS_CERTIFICATE_P12_BASE64 IOS_CERTIFICATE_PASSWORD IOS_PROVISIONING_PROFILE_BASE64; do
+            if [[ -z "${!name:-}" ]]; then missing+=("$name"); fi
+          done
+          if (( ${#missing[@]} )); then
+            printf 'Upload stopped before signing: required GitHub Actions secrets are missing: %s\n' "${missing[*]}" >&2
+            exit 1
+          fi
+          key_file="${RUNNER_TEMP}/asc_private_key.p8"
+          printf '%s' "$ASC_PRIVATE_KEY" > "$key_file"
+          if ! openssl pkey -in "$key_file" -noout >/dev/null 2>&1; then
+            echo 'Upload stopped: ASC_PRIVATE_KEY is not a parseable private key.' >&2
+            exit 1
+          fi
+      - name: Generate iOS scaffold
+        run: |
+          flutter create --platforms=ios --project-name=omnistudio_flutter_prototype --org=com.omnistudio --no-pub .ci_scaffold
+          python3 tool/prepare_platforms.py .ci_scaffold
+          rm -rf ios
+          cp -R .ci_scaffold/ios ./ios
+          rm -rf .ci_scaffold
+      - name: Resolve Flutter packages
+        run: flutter pub get
+      - name: Import and verify distribution signing assets
+        id: signing
+        shell: bash
+        env:
+          KEYCHAIN_PASSWORD: ${{ runner.temp }}-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          CERT_FILE="${RUNNER_TEMP}/distribution.p12"
+          PROFILE_FILE="${RUNNER_TEMP}/profile.mobileprovision"
+          KEYCHAIN_FILE="${RUNNER_TEMP}/ios-signing.keychain-db"
+          PROFILE_PLIST="${RUNNER_TEMP}/profile.plist"
+          PROFILE_DIR="${HOME}/Library/MobileDevice/Provisioning Profiles"
+          printf '%s' "$IOS_CERTIFICATE_P12_BASE64" | base64 -D > "$CERT_FILE"
+          printf '%s' "$IOS_PROVISIONING_PROFILE_BASE64" | base64 -D > "$PROFILE_FILE"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_FILE"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_FILE"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_FILE"
+          security import "$CERT_FILE" -k "$KEYCHAIN_FILE" -P "$IOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security >/dev/null
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_FILE" >/dev/null
+          security list-keychains -d user -s "$KEYCHAIN_FILE" login.keychain-db
+          identity_count="$(security find-identity -v -p codesigning "$KEYCHAIN_FILE" 2>/dev/null | grep -c '"Apple Distribution:' || true)"
+          if [[ "$identity_count" -lt 1 ]]; then
+            echo 'Upload stopped: imported P12 has no usable Apple Distribution identity.' >&2
+            exit 1
+          fi
+          security cms -D -i "$PROFILE_FILE" > "$PROFILE_PLIST"
+          PROFILE_ID="$(/usr/libexec/PlistBuddy -c 'Print UUID' "$PROFILE_PLIST")"
+          PROFILE_NAME="$(/usr/libexec/PlistBuddy -c 'Print Name' "$PROFILE_PLIST")"
+          TEAM_ID="$(/usr/libexec/PlistBuddy -c 'Print :TeamIdentifier:0' "$PROFILE_PLIST")"
+          APP_ID="$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$PROFILE_PLIST")"
+          TASKS_ALLOWED="$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:get-task-allow' "$PROFILE_PLIST")"
+          if [[ "$APP_ID" == *"*"* || "$APP_ID" != *".com.omnistudio.omnistudioFlutterPrototype" ]]; then
+            echo 'Upload stopped: provisioning profile application identifier does not exactly match the Flutter bundle ID.' >&2
+            exit 1
+          fi
+          if [[ "$TASKS_ALLOWED" != "false" ]]; then
+            echo 'Upload stopped: provisioning profile is not an App Store distribution profile.' >&2
+            exit 1
+          fi
+          if ! security find-identity -v -p codesigning "$KEYCHAIN_FILE" 2>/dev/null | grep -Fq "($TEAM_ID)"; then
+            echo 'Upload stopped: signing identity does not match the profile team.' >&2
+            exit 1
+          fi
+          mkdir -p "$PROFILE_DIR"
+          cp "$PROFILE_FILE" "$PROFILE_DIR/${PROFILE_ID}.mobileprovision"
+          echo "profile_name=$PROFILE_NAME" >> "$GITHUB_OUTPUT"
+          echo "profile_uuid=$PROFILE_ID" >> "$GITHUB_OUTPUT"
+          echo "team_id=$TEAM_ID" >> "$GITHUB_OUTPUT"
+      - name: Configure Xcode target for manual App Store signing
+        env:
+          PROFILE_NAME: ${{ steps.signing.outputs.profile_name }}
+          TEAM_ID: ${{ steps.signing.outputs.team_id }}
+        run: |
+          for config in ios/Flutter/Release.xcconfig ios/Flutter/Profile.xcconfig; do
+            printf '\\nCODE_SIGN_STYLE = Manual\\nDEVELOPMENT_TEAM = %s\\nCODE_SIGN_IDENTITY = Apple Distribution\\nPROVISIONING_PROFILE_SPECIFIER = %s\\n' "$TEAM_ID" "$PROFILE_NAME" >> "$config"
+          done
+      - name: Create manual App Store export options
+        env:
+          PROFILE_NAME: ${{ steps.signing.outputs.profile_name }}
+          TEAM_ID: ${{ steps.signing.outputs.team_id }}
+        run: |
+          python3 - <<'PY'
+          import os, plistlib
+          options = {
+              'method': 'app-store-connect',
+              'signingStyle': 'manual',
+              'teamID': os.environ['TEAM_ID'],
+              'signingCertificate': 'Apple Distribution',
+              'provisioningProfiles': {
+                  'com.omnistudio.omnistudioFlutterPrototype': os.environ['PROFILE_NAME']
+              },
+              'destination': 'upload',
+          }
+          with open('ios/ExportOptions.plist', 'wb') as f:
+              plistlib.dump(options, f)
+          PY
+      - name: Build signed IPA
+        run: flutter build ipa --release --export-options-plist=ios/ExportOptions.plist
+      - name: Upload IPA to App Store Connect
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcrun altool --upload-app \
+            --type ios \
+            --file build/ios/ipa/*.ipa \
+            --apiKey "$ASC_KEY_ID" \
+            --apiIssuer "$ASC_ISSUER_ID" \
+            --apiPrivateKey "${RUNNER_TEMP}/asc_private_key.p8"
+      - name: Remove signing material
+        if: always()
+        shell: bash
+        run: |
+          security delete-keychain "${RUNNER_TEMP}/ios-signing.keychain-db" >/dev/null 2>&1 || true
+          rm -f "${RUNNER_TEMP}/distribution.p12" "${RUNNER_TEMP}/profile.mobileprovision" "${RUNNER_TEMP}/profile.plist" "${RUNNER_TEMP}/asc_private_key.p8"
