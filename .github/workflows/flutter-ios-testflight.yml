@@ -18,6 +18,11 @@ on:
         required: false
         type: string
         default: ''
+      signing_test_only:
+        description: 'Validate signing and export the IPA, but do not upload to App Store Connect'
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -58,7 +63,7 @@ jobs:
 
   upload:
     name: Optional signed upload to TestFlight
-    if: ${{ inputs.upload_to_testflight && inputs.confirm_testflight_upload == 'I CONFIRM TESTFLIGHT UPLOAD' }}
+    if: ${{ inputs.signing_test_only || (inputs.upload_to_testflight && inputs.confirm_testflight_upload == 'I CONFIRM TESTFLIGHT UPLOAD') }}
     needs: validate
     runs-on: macos-26
     timeout-minutes: 60
@@ -232,6 +237,7 @@ jobs:
           mkdir -p build/ios/ipa
           cp "$RUNNER_TEMP/ipa-export"/*.ipa build/ios/ipa/
       - name: Upload IPA to App Store Connect
+        if: ${{ !inputs.signing_test_only }}
         shell: bash
         run: |
           set -euo pipefail
