@@ -214,13 +214,13 @@ jobs:
             -configuration Release \
             -sdk iphoneos \
             -archivePath "$RUNNER_TEMP/OmniStudio.xcarchive" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
-            DEVELOPMENT_TEAM="$TEAM_ID" \
-            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
             PRODUCT_BUNDLE_IDENTIFIER="com.omnistudio.omnistudioFlutterPrototype" \
             archive
           xcodebuild -exportArchive \
+            -allowProvisioningUpdates \
             -archivePath "$RUNNER_TEMP/OmniStudio.xcarchive" \
             -exportPath "$RUNNER_TEMP/ipa-export" \
             -exportOptionsPlist ios/ExportOptions.plist
