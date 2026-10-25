@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:beta_app/screens/docs_screen.dart';
 import 'package:beta_app/screens/docs_txt_export.dart';
