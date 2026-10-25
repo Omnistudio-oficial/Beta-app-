@@ -134,7 +134,22 @@ jobs:
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_FILE"
           security set-keychain-settings -lut 21600 "$KEYCHAIN_FILE"
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_FILE"
-          security import "$CERT_FILE" -k "$KEYCHAIN_FILE" -P "$IOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security >/dev/null
+          # Normalize the PKCS#12 on the ephemeral runner before Keychain import.
+          # This handles valid PKCS#12 cipher variants not accepted by macOS Security.
+          PEM_FILE="${RUNNER_TEMP}/distribution-import.pem"
+          NORMALIZED_P12="${RUNNER_TEMP}/distribution-normalized.p12"
+          if ! openssl pkcs12 -in "$CERT_FILE" -passin env:IOS_CERTIFICATE_PASSWORD -nodes -out "$PEM_FILE" 2>/dev/null; then
+            echo 'Upload stopped: could not decrypt distribution P12 with configured password.' >&2
+            exit 1
+          fi
+          chmod 600 "$PEM_FILE"
+          if ! openssl pkcs12 -export -in "$PEM_FILE" -out "$NORMALIZED_P12" -passout env:KEYCHAIN_PASSWORD >/dev/null 2>&1; then
+            echo 'Upload stopped: could not normalize decrypted distribution P12.' >&2
+            exit 1
+          fi
+          chmod 600 "$NORMALIZED_P12"
+          security import "$NORMALIZED_P12" -k "$KEYCHAIN_FILE" -P "$KEYCHAIN_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security >/dev/null
+          rm -f "$PEM_FILE" "$NORMALIZED_P12"
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_FILE" >/dev/null
           security list-keychains -d user -s "$KEYCHAIN_FILE" login.keychain-db
           identity_count="$(security find-identity -v -p codesigning "$KEYCHAIN_FILE" 2>/dev/null | grep -c '"Apple Distribution:' || true)"
@@ -210,4 +225,4 @@ jobs:
         shell: bash
         run: |
           security delete-keychain "${RUNNER_TEMP}/ios-signing.keychain-db" >/dev/null 2>&1 || true
-          rm -f "${RUNNER_TEMP}/distribution.p12" "${RUNNER_TEMP}/profile.mobileprovision" "${RUNNER_TEMP}/profile.plist" "${RUNNER_TEMP}/asc_private_key.p8"
+          rm -f "${RUNNER_TEMP}/distribution.p12" "${RUNNER_TEMP}/profile.mobileprovision" "${RUNNER_TEMP}/profile.plist" "${RUNNER_TEMP}/asc_private_key.p8" "${RUNNER_TEMP}/distribution-import.pem" "${RUNNER_TEMP}/distribution-normalized.p12"
