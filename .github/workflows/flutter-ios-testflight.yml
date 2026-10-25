@@ -79,6 +79,7 @@ jobs:
       IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
     steps:
       - name: Require a second explicit upload confirmation
+        if: ${{ !inputs.signing_test_only }}
         shell: bash
         working-directory: ${{ github.workspace }}
         env:
