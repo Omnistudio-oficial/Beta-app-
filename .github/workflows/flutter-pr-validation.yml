@@ -35,9 +35,9 @@ jobs:
           rm -rf .ci_scaffold
       - name: Resolve Flutter packages
         run: flutter pub get
-      - name: Build unsigned iOS app
-        run: flutter build ios --debug --no-codesign --no-pub
       - name: Analyze Flutter sources
         run: flutter analyze --no-pub
       - name: Run offline-capable widget tests
         run: flutter test --no-pub
+      - name: Build unsigned iOS app
+        run: flutter build ios --debug --no-codesign --no-pub
