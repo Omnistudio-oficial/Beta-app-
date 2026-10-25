@@ -1,4 +1,9 @@
+import 'dart:convert';
+import 'dart:io';
+import 'dart:ui' show Rect;
+
 import 'package:beta_app/screens/docs_screen.dart';
+import 'package:beta_app/screens/docs_txt_export.dart';
 import 'package:beta_app/screens/docs_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -142,4 +147,80 @@ void main() {
     expect(find.textContaining('private storage failure detail'), findsNothing);
     expect(find.text('Aún no tienes documentos'), findsOneWidget);
   });
+  testWidgets('exports the selected local document as UTF-8 TXT without changing saved data',
+      (tester) async {
+    final originalDocument = <String, Object>{
+      'id': 7,
+      'title': 'Notas / clase',
+      'content': 'Primera línea — café ☕',
+      'updatedAt': DateTime.utc(2026, 10, 25).toIso8601String(),
+    };
+    final originalStorage = jsonEncode([originalDocument]);
+    final storage = FakeDocumentsStorage(originalStorage);
+    final directory = await Directory.systemTemp.createTemp('docs-txt-export-test-');
+    File? handedOffFile;
+    String? handedOffTitle;
+    Rect? handedOffOrigin;
+    addTearDown(() async {
+      if (await directory.exists()) await directory.delete(recursive: true);
+    });
+    final exporter = DocsTxtExporter(
+      temporaryDirectoryProvider: () async => directory,
+      shareAction: ({required file, required title, required sharePositionOrigin}) async {
+        handedOffFile = file;
+        handedOffTitle = title;
+        handedOffOrigin = sharePositionOrigin;
+        // A normally completed native sheet includes user cancellation; it
+        // must be treated as a completed hand-off, not as a Docs edit.
+      },
+    );
+
+    await tester.pumpWidget(MaterialApp(
+      home: DocsScreen(storage: storage, txtExporter: exporter),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('export-document-7')));
+    await tester.pumpAndSettle();
+
+    expect(handedOffTitle, 'Notas / clase');
+    expect(handedOffFile!.uri.pathSegments.last, 'Notas_-_clase.txt');
+    expect(await handedOffFile!.readAsString(), 'Primera línea — café ☕');
+    expect(handedOffOrigin, isNotNull);
+    expect(storage.value, originalStorage);
+    expect(find.textContaining('Elige dónde compartir o guardar'), findsOneWidget);
+  });
+
+  testWidgets('share-sheet errors leave the already-saved Docs document unchanged',
+      (tester) async {
+    final originalStorage = jsonEncode([
+      <String, Object>{
+        'id': 8,
+        'title': 'Borrador',
+        'content': 'Conservar exactamente',
+        'updatedAt': DateTime.utc(2026, 10, 25).toIso8601String(),
+      },
+    ]);
+    final storage = FakeDocumentsStorage(originalStorage);
+    final directory = await Directory.systemTemp.createTemp('docs-txt-error-test-');
+    addTearDown(() async {
+      if (await directory.exists()) await directory.delete(recursive: true);
+    });
+    final exporter = DocsTxtExporter(
+      temporaryDirectoryProvider: () async => directory,
+      shareAction: ({required file, required title, required sharePositionOrigin}) async {
+        throw StateError('platform share failed');
+      },
+    );
+
+    await tester.pumpWidget(MaterialApp(
+      home: DocsScreen(storage: storage, txtExporter: exporter),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('export-document-8')));
+    await tester.pumpAndSettle();
+
+    expect(storage.value, originalStorage);
+    expect(find.text('No se pudo preparar o compartir el archivo TXT.'), findsOneWidget);
+  });
+
 }

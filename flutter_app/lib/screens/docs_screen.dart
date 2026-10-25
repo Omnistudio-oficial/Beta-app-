@@ -1,13 +1,19 @@
+import 'dart:ui' show Rect;
+
 import 'package:flutter/material.dart';
 
 import 'docs_storage.dart';
+import 'docs_txt_export.dart';
 
 /// Local-only document workspace. It does not read or write account/backend data.
 class DocsScreen extends StatefulWidget {
-  const DocsScreen({super.key, this.storage});
+  const DocsScreen({super.key, this.storage, this.txtExporter});
 
   /// Injectable for tests; production uses app-scoped SharedPreferences storage.
   final DocumentsStorage? storage;
+
+  /// Injectable so the export flow can be tested without opening a platform sheet.
+  final DocsTxtExporter? txtExporter;
 
   @override
   State<DocsScreen> createState() => _DocsScreenState();
@@ -20,6 +26,7 @@ class _DocsScreenState extends State<DocsScreen> {
   int _nextId = 0;
   bool _loading = true;
   bool _saving = false;
+  int? _exportingDocumentId;
   String? _error;
   String? _notice;
 
@@ -100,6 +107,43 @@ class _DocsScreenState extends State<DocsScreen> {
       );
     }
     await _persist(updated, previous, created: document == null);
+  }
+
+  Future<void> _exportDocument(
+    LocalDocument document,
+    BuildContext buttonContext,
+  ) async {
+    if (_exportingDocumentId != null) return;
+    final renderBox = buttonContext.findRenderObject() as RenderBox?;
+    final origin = renderBox == null
+        ? null
+        : renderBox.localToGlobal(Offset.zero) & renderBox.size;
+    setState(() => _exportingDocumentId = document.id);
+    try {
+      await (widget.txtExporter ?? DocsTxtExporter()).export(
+        title: document.title,
+        content: document.content,
+        sharePositionOrigin: origin,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Elige dónde compartir o guardar el archivo TXT.')),
+      );
+    } on ArgumentError {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('El documento necesita un título para exportarse.')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No se pudo preparar o compartir el archivo TXT.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _exportingDocumentId = null);
+    }
   }
 
   Future<void> _deleteDocument(LocalDocument document) async {
@@ -283,11 +327,33 @@ class _DocsScreenState extends State<DocsScreen> {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 onTap: _saving ? null : () => _editDocument(document),
-                                trailing: IconButton(
-                                  key: Key('delete-document-${document.id}'),
-                                  tooltip: 'Eliminar ${document.title}',
-                                  onPressed: _saving ? null : () => _deleteDocument(document),
-                                  icon: const Icon(Icons.delete_outline),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Builder(
+                                      builder: (buttonContext) => IconButton(
+                                        key: Key('export-document-${document.id}'),
+                                        tooltip: 'Exportar ${document.title} como TXT',
+                                        onPressed: _saving || _exportingDocumentId != null
+                                            ? null
+                                            : () => _exportDocument(document, buttonContext),
+                                        icon: _exportingDocumentId == document.id
+                                            ? const SizedBox.square(
+                                                dimension: 20,
+                                                child: CircularProgressIndicator(strokeWidth: 2),
+                                              )
+                                            : const Icon(Icons.ios_share),
+                                      ),
+                                    ),
+                                    IconButton(
+                                      key: Key('delete-document-${document.id}'),
+                                      tooltip: 'Eliminar ${document.title}',
+                                      onPressed: _saving || _exportingDocumentId != null
+                                          ? null
+                                          : () => _deleteDocument(document),
+                                      icon: const Icon(Icons.delete_outline),
+                                    ),
+                                  ],
                                 ),
                               ),
                             );
