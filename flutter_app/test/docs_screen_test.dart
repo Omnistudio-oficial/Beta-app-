@@ -182,6 +182,8 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
     await tester.pump();
+    await tester.runAsync(() async => Future<void>.delayed(const Duration(milliseconds: 100)));
+    await tester.pump();
 
     expect(handedOffTitle, 'Notas / clase');
     expect(handedOffFilename, 'Notas_-_clase.txt');
@@ -217,6 +219,8 @@ void main() {
     await tester.tap(find.byKey(const Key('export-document-8')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
+    await tester.pump();
+    await tester.runAsync(() async => Future<void>.delayed(const Duration(milliseconds: 100)));
     await tester.pump();
 
     expect(storage.value, originalStorage);
