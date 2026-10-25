@@ -17,12 +17,18 @@ class DocsTxtExporter {
   DocsTxtExporter({
     Future<Directory> Function()? temporaryDirectoryProvider,
     DocumentTxtShareAction? shareAction,
+    Future<void> Function(File file, String content)? writeFile,
   })  : _temporaryDirectoryProvider =
             temporaryDirectoryProvider ?? getTemporaryDirectory,
-        _shareAction = shareAction ?? _shareWithPlatform;
+        _shareAction = shareAction ?? _shareWithPlatform,
+        _writeFile = writeFile ?? _writeUtf8File;
 
   final Future<Directory> Function() _temporaryDirectoryProvider;
   final DocumentTxtShareAction _shareAction;
+  final Future<void> Function(File file, String content) _writeFile;
+
+  static Future<void> _writeUtf8File(File file, String content) =>
+      file.writeAsString(content, encoding: utf8, flush: true);
 
   Future<void> export({
     required String title,
@@ -43,7 +49,7 @@ class DocsTxtExporter {
     final file = File(
       '${exportDirectory.path}${Platform.pathSeparator}$filename',
     );
-    await file.writeAsString(content, encoding: utf8, flush: true);
+    await _writeFile(file, content);
 
     await _shareAction(
       file: file,
