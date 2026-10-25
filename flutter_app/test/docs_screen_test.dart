@@ -162,6 +162,7 @@ void main() {
     Rect? handedOffOrigin;
     final exporter = DocsTxtExporter(
       temporaryDirectoryProvider: () async => Directory('/tmp/docs-test'),
+      createDirectory: (directory) async {},
       writeFile: (file, content) async {
         files[file.uri.pathSegments.last] = content;
       },
@@ -206,6 +207,7 @@ void main() {
     final storage = FakeDocumentsStorage(originalStorage);
     final exporter = DocsTxtExporter(
       temporaryDirectoryProvider: () async => Directory('/tmp/docs-test'),
+      createDirectory: (directory) async {},
       writeFile: (file, content) async {},
       shareAction: ({required file, required title, required sharePositionOrigin}) async {
         throw StateError('platform share failed');
