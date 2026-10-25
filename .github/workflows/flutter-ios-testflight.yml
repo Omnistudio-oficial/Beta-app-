@@ -75,6 +75,7 @@ jobs:
     steps:
       - name: Require a second explicit upload confirmation
         shell: bash
+        working-directory: ${{ github.workspace }}
         env:
           CONFIRMATION: ${{ inputs.confirm_testflight_upload }}
         run: |
