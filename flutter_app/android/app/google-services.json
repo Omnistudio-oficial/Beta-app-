@@ -1,0 +1,151 @@
+{
+  "project_info": {
+    "project_number": "611449222458",
+    "firebase_url": "https://omnistudio-caaf5-default-rtdb.firebaseio.com",
+    "project_id": "omnistudio-caaf5",
+    "storage_bucket": "omnistudio-caaf5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:611449222458:android:dce2d1586b029281794c03",
+        "android_client_info": {
+          "package_name": "com.aistudio.omnistudio.wkspea"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "611449222458-3llrd98qom1tpm1do6pajvtrpg09kldq.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.aistudio.omnistudio.wkspea",
+            "certificate_hash": "9763b6272094d4be951b681a5358d38869b34c84"
+          }
+        },
+        {
+          "client_id": "611449222458-r5ik62496vg1el3fq39p1i927ccb3nlr.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.aistudio.omnistudio.wkspea",
+            "certificate_hash": "e99c51054e24a71bc33e5a8ce945995d4d5374a0"
+          }
+        },
+        {
+          "client_id": "611449222458-15tufgtevlao0dtmpuba9thld02ep30s.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCgLRoAH5_C62KxL0noy8VmhOHPSBpMpwg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "611449222458-15tufgtevlao0dtmpuba9thld02ep30s.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "611449222458-4f8d9g6qh37t88v975vet7ag7khl9fak.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.aistudio.omnistudio.wkspea"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:611449222458:android:9c0c3eb52e8cb9db794c03",
+        "android_client_info": {
+          "package_name": "com.aistudio.omnistudio.wkspea.test"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "611449222458-cbvujuv7ivj0tbb4q1eqjiofmqvvnr9r.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.aistudio.omnistudio.wkspea.test",
+            "certificate_hash": "9763b6272094d4be951b681a5358d38869b34c84"
+          }
+        },
+        {
+          "client_id": "611449222458-15tufgtevlao0dtmpuba9thld02ep30s.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCgLRoAH5_C62KxL0noy8VmhOHPSBpMpwg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "611449222458-15tufgtevlao0dtmpuba9thld02ep30s.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "611449222458-4f8d9g6qh37t88v975vet7ag7khl9fak.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.aistudio.omnistudio.wkspea"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:611449222458:android:3da76a88407b7aae794c03",
+        "android_client_info": {
+          "package_name": "com.omnistudio.omnistudioFlutterPrototype"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "611449222458-goehm0amnetgdrnqlco3rov30m3pu4da.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.omnistudio.omnistudioFlutterPrototype",
+            "certificate_hash": "3cc3c812e68e54bf762194c7128a31cf0b1a9ff7"
+          }
+        },
+        {
+          "client_id": "611449222458-15tufgtevlao0dtmpuba9thld02ep30s.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCgLRoAH5_C62KxL0noy8VmhOHPSBpMpwg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "611449222458-15tufgtevlao0dtmpuba9thld02ep30s.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "611449222458-4f8d9g6qh37t88v975vet7ag7khl9fak.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.aistudio.omnistudio.wkspea"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

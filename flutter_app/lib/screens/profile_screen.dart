@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:beta_app/models/user_profile.dart';
 import 'package:beta_app/services/auth_service.dart';
 import 'package:beta_app/services/firestore_service.dart';
+import 'package:beta_app/screens/profile_editor.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -44,6 +45,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _nameController.text = user.displayName ?? 'Usuario';
         _emailController.text = user.email ?? '';
       }
+    } catch (_) {
+      _showFeedback('No se pudo cargar el perfil. Inténtalo de nuevo.');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -63,14 +66,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
 
       await _firestoreService.saveUserProfile(profile);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Perfil guardado en Firestore')),
-        );
-      }
+      _showFeedback('Perfil guardado en Firestore');
+    } catch (_) {
+      _showFeedback('No se pudo guardar el perfil. Revisa tu conexión e inténtalo de nuevo.');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  void _showFeedback(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
   }
 
   Future<void> _signOut() async {
@@ -104,31 +112,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ? const Center(
                 child: Text('Inicia sesión para ver tu perfil'),
               )
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const CircleAvatar(
-                    radius: 38,
-                    child: Icon(Icons.person, size: 38),
-                  ),
-                  const SizedBox(height: 20),
-                  TextField(
-                    controller: _nameController,
-                    decoration: const InputDecoration(labelText: 'Nombre'),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _emailController,
-                    decoration: const InputDecoration(labelText: 'Email'),
-                    enabled: false,
-                  ),
-                  const SizedBox(height: 24),
-                  FilledButton.icon(
-                    onPressed: _isLoading ? null : _saveProfile,
-                    icon: const Icon(Icons.save),
-                    label: const Text('Guardar perfil'),
-                  ),
-                ],
+            : ProfileEditor(
+                nameController: _nameController,
+                emailController: _emailController,
+                isLoading: _isLoading,
+                onSave: _saveProfile,
               ),
       ),
     );

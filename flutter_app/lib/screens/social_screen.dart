@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
 
-class DocsScreen extends StatelessWidget {
-  const DocsScreen({super.key});
+class SocialScreen extends StatelessWidget {
+  const SocialScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Docs')),
+      appBar: AppBar(title: const Text('Social')),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: ListView(
             children: const [
-              _DocCard(title: 'Project migration guide', meta: 'Updated 2h ago'),
-              _DocCard(title: 'Release notes', meta: 'Shared with team'),
-              _DocCard(title: 'User onboarding', meta: 'Ready for review'),
+              _SocialCard(name: 'Alicia', status: 'Shared a new album'),
+              _SocialCard(name: 'Mateo', status: 'Started a new project'),
+              _SocialCard(name: 'Sofia', status: 'Joined the team chat'),
             ],
           ),
         ),
@@ -23,21 +23,18 @@ class DocsScreen extends StatelessWidget {
   }
 }
 
-class _DocCard extends StatelessWidget {
-  final String title;
-  final String meta;
+class _SocialCard extends StatelessWidget {
+  final String name;
+  final String status;
 
-  const _DocCard({required this.title, required this.meta});
+  const _SocialCard({required this.name, required this.status});
 
   @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: ListTile(
-        leading: const Icon(Icons.description_outlined, color: Colors.blue),
-        title: Text(title),
-        subtitle: Text(meta),
-        trailing: const Icon(Icons.chevron_right),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Card(
+        child: ListTile(
+          leading: CircleAvatar(child: Text(name.substring(0, 1))),
+          title: Text(name),
+          subtitle: Text(status),
+        ),
+      );
 }

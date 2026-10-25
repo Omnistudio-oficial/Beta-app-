@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.aistudio.omnistudio.wkspea"
+    namespace = "com.omnistudio.omnistudioFlutterPrototype"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -20,7 +20,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.aistudio.omnistudio.wkspea"
+        applicationId = "com.omnistudio.omnistudioFlutterPrototype"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

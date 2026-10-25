@@ -1,0 +1,43 @@
+name: Flutter PR validation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "flutter_app/**"
+      - ".github/workflows/flutter-pr-validation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  flutter:
+    runs-on: macos-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: flutter_app
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Generate iOS scaffold with Firebase configuration
+        run: |
+          flutter create --platforms=ios --project-name=omnistudio_flutter_prototype --org=com.omnistudio --no-pub .ci_scaffold
+          python3 tool/prepare_platforms.py .ci_scaffold
+          rm -rf ios
+          cp -R .ci_scaffold/ios ./ios
+          rm -rf .ci_scaffold
+      - name: Resolve Flutter packages
+        run: flutter pub get
+      - name: Analyze Flutter sources
+        run: flutter analyze --no-pub
+      - name: Run offline-capable widget tests
+        run: flutter test --no-pub
+      - name: Build unsigned iOS app
+        run: flutter build ios --debug --no-codesign --no-pub
