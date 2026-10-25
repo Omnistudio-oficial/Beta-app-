@@ -195,7 +195,7 @@ jobs:
               'provisioningProfiles': {
                   'com.omnistudio.omnistudioFlutterPrototype': os.environ['PROFILE_NAME']
               },
-              'destination': 'upload',
+              'destination': 'export',
           }
           with open('ios/ExportOptions.plist', 'wb') as f:
               plistlib.dump(options, f)
@@ -220,7 +220,6 @@ jobs:
             PRODUCT_BUNDLE_IDENTIFIER="com.omnistudio.omnistudioFlutterPrototype" \
             archive
           xcodebuild -exportArchive \
-            -allowProvisioningUpdates \
             -archivePath "$RUNNER_TEMP/OmniStudio.xcarchive" \
             -exportPath "$RUNNER_TEMP/ipa-export" \
             -exportOptionsPlist ios/ExportOptions.plist
