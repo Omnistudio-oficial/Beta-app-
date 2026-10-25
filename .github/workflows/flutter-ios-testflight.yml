@@ -29,7 +29,7 @@ concurrency:
 jobs:
   validate:
     name: Analyze and test Flutter on macOS
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 40
     defaults:
       run:
@@ -60,7 +60,7 @@ jobs:
     name: Optional signed upload to TestFlight
     if: ${{ inputs.upload_to_testflight && inputs.confirm_testflight_upload == 'I CONFIRM TESTFLIGHT UPLOAD' }}
     needs: validate
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 60
     defaults:
       run:
