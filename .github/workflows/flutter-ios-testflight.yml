@@ -180,14 +180,6 @@ jobs:
           echo "profile_name=$PROFILE_NAME" >> "$GITHUB_OUTPUT"
           echo "profile_uuid=$PROFILE_ID" >> "$GITHUB_OUTPUT"
           echo "team_id=$TEAM_ID" >> "$GITHUB_OUTPUT"
-      - name: Configure Xcode target for manual App Store signing
-        env:
-          PROFILE_NAME: ${{ steps.signing.outputs.profile_name }}
-          TEAM_ID: ${{ steps.signing.outputs.team_id }}
-        run: |
-          for config in ios/Flutter/Release.xcconfig ios/Flutter/Profile.xcconfig; do
-            printf '\\nCODE_SIGN_STYLE = Manual\\nDEVELOPMENT_TEAM = %s\\nCODE_SIGN_IDENTITY = Apple Distribution\\nPROVISIONING_PROFILE_SPECIFIER = %s\\n' "$TEAM_ID" "$PROFILE_NAME" >> "$config"
-          done
       - name: Create manual App Store export options
         env:
           PROFILE_NAME: ${{ steps.signing.outputs.profile_name }}
