@@ -208,8 +208,32 @@ jobs:
           with open('ios/ExportOptions.plist', 'wb') as f:
               plistlib.dump(options, f)
           PY
-      - name: Build signed IPA
-        run: flutter build ipa --release --export-options-plist=ios/ExportOptions.plist
+      - name: Compile Flutter iOS app without development signing
+        run: flutter build ios --release --no-codesign --no-pub
+      - name: Archive app with verified App Store distribution signing
+        env:
+          TEAM_ID: ${{ steps.signing.outputs.team_id }}
+          PROFILE_NAME: ${{ steps.signing.outputs.profile_name }}
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -sdk iphoneos \
+            -archivePath "$RUNNER_TEMP/OmniStudio.xcarchive" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
+            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
+            PRODUCT_BUNDLE_IDENTIFIER="com.omnistudio.omnistudioFlutterPrototype" \
+            archive
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/OmniStudio.xcarchive" \
+            -exportPath "$RUNNER_TEMP/ipa-export" \
+            -exportOptionsPlist ios/ExportOptions.plist
+          mkdir -p build/ios/ipa
+          cp "$RUNNER_TEMP/ipa-export"/*.ipa build/ios/ipa/
       - name: Upload IPA to App Store Connect
         shell: bash
         run: |
