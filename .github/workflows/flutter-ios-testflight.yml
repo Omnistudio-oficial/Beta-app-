@@ -124,10 +124,12 @@ jobs:
       - name: Import and verify distribution signing assets
         id: signing
         shell: bash
-        env:
-          KEYCHAIN_PASSWORD: ${{ runner.temp }}-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           set -euo pipefail
+          # Use a random alphanumeric password; avoid path punctuation in the
+          # temporary PKCS#12/keychain password on newer macOS security tools.
+          KEYCHAIN_PASSWORD="$(openssl rand -hex 24)"
+          export KEYCHAIN_PASSWORD
           CERT_FILE="${RUNNER_TEMP}/distribution.p12"
           PROFILE_FILE="${RUNNER_TEMP}/profile.mobileprovision"
           KEYCHAIN_FILE="${RUNNER_TEMP}/ios-signing.keychain-db"
@@ -147,7 +149,7 @@ jobs:
             exit 1
           fi
           chmod 600 "$PEM_FILE"
-          if ! openssl pkcs12 -export -in "$PEM_FILE" -out "$NORMALIZED_P12" -passout env:KEYCHAIN_PASSWORD >/dev/null 2>&1; then
+          if ! openssl pkcs12 -export -legacy -in "$PEM_FILE" -out "$NORMALIZED_P12" -passout env:KEYCHAIN_PASSWORD >/dev/null 2>&1; then
             echo 'Upload stopped: could not normalize decrypted distribution P12.' >&2
             exit 1
           fi
