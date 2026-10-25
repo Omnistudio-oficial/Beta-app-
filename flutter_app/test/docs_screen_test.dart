@@ -179,7 +179,9 @@ void main() {
     ));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('export-document-7')));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.pump();
 
     expect(handedOffTitle, 'Notas / clase');
     expect(handedOffFilename, 'Notas_-_clase.txt');
@@ -213,7 +215,9 @@ void main() {
     ));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('export-document-8')));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.pump();
 
     expect(storage.value, originalStorage);
     expect(find.text('No se pudo preparar o compartir el archivo TXT.'), findsOneWidget);
