@@ -3,7 +3,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:mime/mime.dart';
 import 'package:video_player/video_player.dart';
 
-import 'social_repository.dart';
+import 'package:beta_app/social/social_repository.dart';
 
 class SocialScreen extends StatefulWidget {
   const SocialScreen({super.key, this.service});
