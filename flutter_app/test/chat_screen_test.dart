@@ -64,6 +64,7 @@ void main() {
     await tester.tap(find.byType(IconButton).last);
     await tester.pump();
     expect(repo.sent, ['auth-user-82|alice@example.com|room-a|reply']);
+    await tester.pumpWidget(const SizedBox.shrink());
     await repo.close();
   });
 
@@ -73,6 +74,7 @@ void main() {
     await tester.pump();
     expect(find.textContaining('offline fake'), findsOneWidget);
     expect(find.text('Reintentar'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
     await repo.close();
   });
 }
