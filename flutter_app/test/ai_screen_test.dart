@@ -19,7 +19,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('prepared-prompt')), findsOneWidget);
-    expect(find.text('Resume este texto: OmniStudio'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('prepared-prompt')),
+        matching: find.text('Resume este texto: OmniStudio'),
+      ),
+      findsOneWidget,
+    );
     expect(find.textContaining('todavía no genera respuestas con IA'), findsOneWidget);
   });
 
