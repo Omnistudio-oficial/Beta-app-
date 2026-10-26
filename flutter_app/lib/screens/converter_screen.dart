@@ -38,7 +38,7 @@ class _ConverterScreenState extends State<ConverterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Conversor')),
+      appBar: AppBar(title: const Text('Converter')),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
