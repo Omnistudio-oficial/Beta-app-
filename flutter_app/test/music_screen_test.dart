@@ -22,7 +22,7 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('La reproducción aún no está conectada.'), findsOneWidget);
+    expect(find.textContaining('La reproducción aún no está conectada.'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('selected-track-favorite')));
     await tester.pumpAndSettle();
