@@ -12,10 +12,16 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: MusicScreen()));
     await tester.pumpAndSettle();
 
-    expect(find.text('Midnight Drive'), findsOneWidget);
+    expect(find.byKey(const Key('track-1')), findsOneWidget);
     await tester.tap(find.byKey(const Key('track-2')));
     await tester.pumpAndSettle();
-    expect(find.text('Velvet Horizon'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('selected-track')),
+        matching: find.text('Velvet Horizon'),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('La reproducción aún no está conectada.'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('selected-track-favorite')));
@@ -31,11 +37,11 @@ void main() {
 
     await tester.tap(find.byKey(const Key('toggle-favorites-filter')));
     await tester.pumpAndSettle();
-    expect(find.text('City Lights'), findsOneWidget);
-    expect(find.text('Midnight Drive'), findsNothing);
+    expect(find.byKey(const Key('track-3')), findsOneWidget);
+    expect(find.byKey(const Key('track-1')), findsNothing);
 
     await tester.tap(find.byKey(const Key('toggle-favorites-filter')));
     await tester.pumpAndSettle();
-    expect(find.text('Midnight Drive'), findsOneWidget);
+    expect(find.byKey(const Key('track-1')), findsOneWidget);
   });
 }
