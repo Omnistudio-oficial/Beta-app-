@@ -97,10 +97,12 @@ def main() -> None:
     with info_plist.open("rb") as stream:
         app_info = plistlib.load(stream)
     # The standard Flutter template uses $(PRODUCT_BUNDLE_IDENTIFIER); keep it dynamic.
-    if app_info.get("CFBundleIdentifier") != "$(PRODUCT_BUNDLE_IDENTIFIER)":
-        app_info["CFBundleIdentifier"] = "$(PRODUCT_BUNDLE_IDENTIFIER)"
-        with info_plist.open("wb") as stream:
-            plistlib.dump(app_info, stream)
+    app_info["CFBundleIdentifier"] = "$(PRODUCT_BUNDLE_IDENTIFIER)"
+    app_info["NSPhotoLibraryUsageDescription"] = (
+        "Permite seleccionar fotos y videos para publicarlos de forma privada en tu cuenta de Social."
+    )
+    with info_plist.open("wb") as stream:
+        plistlib.dump(app_info, stream)
 
     print("Prepared iOS scaffold with the registered Firebase client plist and bundle ID.")
 
