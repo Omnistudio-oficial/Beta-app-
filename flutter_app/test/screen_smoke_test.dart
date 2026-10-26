@@ -22,7 +22,7 @@ void main() {
       const AIScreen(),
       const ConverterScreen(),
       const DocsScreen(),
-      const MapsScreen(),
+      const MapsScreen(showMap: false, autoLocate: false),
       SocialScreen(service: _EmptySocialService()),
     ];
     final titles = ['AI Assistant', 'Converter', 'Docs', 'Maps', 'Social'];

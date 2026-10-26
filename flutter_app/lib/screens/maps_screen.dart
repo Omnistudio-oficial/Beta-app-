@@ -6,10 +6,12 @@ import 'package:beta_app/maps/maps_models.dart';
 import 'package:beta_app/maps/ors_maps_api.dart';
 
 class MapsScreen extends StatefulWidget {
-  const MapsScreen({super.key, this.api, this.positionStream, this.currentPosition});
+  const MapsScreen({super.key, this.api, this.positionStream, this.currentPosition, this.showMap = true, this.autoLocate = true});
   final OrsMapsApi? api;
   final Stream<Position>? positionStream;
   final Future<Position> Function()? currentPosition;
+  final bool showMap;
+  final bool autoLocate;
   @override
   State<MapsScreen> createState() => _MapsScreenState();
 }
@@ -36,7 +38,7 @@ class _MapsScreenState extends State<MapsScreen> {
   };
 
   @override
-  void initState() { super.initState(); _locate(); }
+  void initState() { super.initState(); if (widget.autoLocate) _locate(); }
   @override
   void dispose() { _positionSubscription?.cancel(); _destinationController.dispose(); super.dispose(); }
 
@@ -122,7 +124,7 @@ class _MapsScreenState extends State<MapsScreen> {
     final route = _route;
     return Scaffold(appBar: AppBar(title: const Text('Maps')),
       body: Stack(children: [
-        MapLibreMap(styleString: 'https://tiles.openfreemap.org/styles/liberty', initialCameraPosition: CameraPosition(target: LatLng(_position?.latitude ?? 9.992299, _position?.longitude ?? -84.1248515), zoom: 12), myLocationEnabled: true, myLocationTrackingMode: _guiding ? MyLocationTrackingMode.tracking : MyLocationTrackingMode.none, onMapCreated: (map) { _map = map; if (route != null) _drawRoute(route); }, compassEnabled: true),
+        if (widget.showMap) MapLibreMap(styleString: 'https://tiles.openfreemap.org/styles/liberty', initialCameraPosition: CameraPosition(target: LatLng(_position?.latitude ?? 9.992299, _position?.longitude ?? -84.1248515), zoom: 12), myLocationEnabled: true, myLocationTrackingMode: _guiding ? MyLocationTrackingMode.tracking : MyLocationTrackingMode.none, onMapCreated: (map) { _map = map; if (route != null) _drawRoute(route); }, compassEnabled: true) else const ColoredBox(color: Color(0xFF101018)),
         if (!_guiding) Positioned(top: 10, left: 12, right: 12, child: _searchPanel()),
         if (_guiding && route != null) Positioned(top: 12, left: 12, right: 12, child: Card(child: Padding(padding: const EdgeInsets.all(16), child: Row(children: [const Icon(Icons.turn_right, size: 32), const SizedBox(width: 12), Expanded(child: Text(_nextStep?.instruction ?? 'Sigue la ruta', style: Theme.of(context).textTheme.titleMedium))])))),
         if (route != null) Positioned(left: 12, right: 12, bottom: 16, child: _routePanel(route)),
