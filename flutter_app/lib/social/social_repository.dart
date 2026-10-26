@@ -43,19 +43,7 @@ class SocialPost {
   factory SocialPost.fromSnapshot(DataSnapshot snapshot) {
     final raw = snapshot.value;
     final value = raw is Map ? Map<Object?, Object?>.from(raw) : <Object?, Object?>{};
-    final rawItems = value['mediaItems'];
-    final items = <SocialMediaItem>[];
-    if (rawItems is List) {
-      for (final entry in rawItems.whereType<Map>()) {
-        final path = '${entry['mediaPath'] ?? ''}';
-        if (path.isNotEmpty) {
-          items.add(SocialMediaItem(
-            path: path,
-            mimeType: '${entry['mimeType'] ?? (entry['mediaType'] == 'video' ? 'video/mp4' : 'image/jpeg')}',
-          ));
-        }
-      }
-    }
+    final items = parseMediaItems(value['mediaItems']);
     final legacyPath = value['mediaPath'];
     if (items.isEmpty && legacyPath is String && legacyPath.isNotEmpty) {
       items.add(SocialMediaItem(path: legacyPath, mimeType: value['mediaType'] == 'video' ? 'video/mp4' : 'image/jpeg'));
@@ -67,6 +55,21 @@ class SocialPost {
       createdAt: (value['createdAt'] as num?)?.toInt() ?? 0,
       mediaItems: items,
     );
+  }
+
+  /// RTDB can serialize list-like mediaItems as a list or as a keyed map.
+  static List<SocialMediaItem> parseMediaItems(Object? rawItems) {
+    final entries = rawItems is List
+        ? rawItems
+        : rawItems is Map
+            ? rawItems.values.toList()
+            : const <Object?>[];
+    return entries.whereType<Map>().map((entry) {
+      final path = '${entry['mediaPath'] ?? ''}';
+      final fallback = entry['mediaType'] == 'video' ? 'video/mp4' : 'image/jpeg';
+      if (path.isEmpty) return null;
+      return SocialMediaItem(path: path, mimeType: '${entry['mimeType'] ?? fallback}');
+    }).whereType<SocialMediaItem>().toList();
   }
 }
 
@@ -101,8 +104,8 @@ class FirebaseSocialService implements SocialService {
         _supabaseUrl = supabaseUrl ?? _defaultSupabaseUrl,
         _publishableKey = publishableKey ?? _defaultPublishableKey;
 
-  static const _defaultSupabaseUrl = 'https://ovttmxwtljfqizcetoxk.supabase.co';
-  static const _defaultPublishableKey = 'sb_publishable_MXe6r7RgToi2YjygMSIm4A_dLjM1dwG';
+  static const _defaultSupabaseUrl = String.fromEnvironment('SUPABASE_PROJECT_URL');
+  static const _defaultPublishableKey = String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
   final FirebaseAuth _auth;
   final FirebaseDatabase _database;
   final http.Client _http;
@@ -124,6 +127,9 @@ class FirebaseSocialService implements SocialService {
 
   @override
   Future<void> createPost({required String caption, required List<SocialMediaFile> media}) async {
+    if (_supabaseUrl.isEmpty || _publishableKey.isEmpty) {
+      throw StateError('La configuración de contenido privado no está disponible en esta compilación.');
+    }
     final validation = SocialPostValidation.validate(caption: caption, media: media);
     if (validation != null) throw ArgumentError(validation);
     final user = _user();

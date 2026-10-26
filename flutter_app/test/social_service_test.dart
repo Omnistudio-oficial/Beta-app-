@@ -4,6 +4,19 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   const image = SocialMediaFile(path: '/private/image.png', mimeType: 'image/png', name: 'image.png');
 
+
+  group('SocialPost media parsing', () {
+    test('accepts both list and keyed-map RTDB shapes', () {
+      final item = {'mediaPath': 'social_test/u/posts/a.jpg', 'mimeType': 'image/jpeg'};
+      final list = SocialPost.parseMediaItems([item]);
+      final keyed = SocialPost.parseMediaItems({'0': item});
+      expect(list, hasLength(1));
+      expect(keyed, hasLength(1));
+      expect(keyed.single.path, list.single.path);
+      expect(SocialPost.parseMediaItems(null), isEmpty);
+    });
+  });
+
   group('SocialPostValidation', () {
     test('allows a text-only post and supported image/video media', () {
       expect(SocialPostValidation.validate(caption: 'hello', media: const []), isNull);

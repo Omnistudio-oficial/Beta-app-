@@ -96,6 +96,11 @@ def main() -> None:
 
     with info_plist.open("rb") as stream:
         app_info = plistlib.load(stream)
+    photo_usage_key = "NSPhotoLibraryUsageDescription"
+    photo_usage = "Select photos and videos to attach to your private Social posts."
+    if app_info.get(photo_usage_key) != photo_usage:
+        app_info[photo_usage_key] = photo_usage
+
     # The standard Flutter template uses $(PRODUCT_BUNDLE_IDENTIFIER); keep it dynamic.
     app_info["CFBundleIdentifier"] = "$(PRODUCT_BUNDLE_IDENTIFIER)"
     app_info["NSPhotoLibraryUsageDescription"] = (

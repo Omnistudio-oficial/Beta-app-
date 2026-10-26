@@ -40,4 +40,10 @@ jobs:
       - name: Run offline-capable widget tests
         run: flutter test --no-pub
       - name: Build unsigned iOS app
-        run: flutter build ios --debug --no-codesign --no-pub
+        env:
+          SUPABASE_PROJECT_URL: ${{ secrets.SUPABASE_PROJECT_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        run: >-
+          flutter build ios --debug --no-codesign --no-pub
+          --dart-define=SUPABASE_PROJECT_URL=$SUPABASE_PROJECT_URL
+          --dart-define=SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY
