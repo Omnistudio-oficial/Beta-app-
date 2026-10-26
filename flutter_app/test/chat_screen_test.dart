@@ -56,6 +56,8 @@ void main() {
     repo.messages.add(const [ChatMessage(id: 'message-1', senderName: 'Bob', senderEmail: 'bob@example.com', text: 'Hi there', timestamp: 1)]);
     await tester.pump();
     expect(find.text('Hi there'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), '');
+    await tester.pump();
     final sendButton = tester.widget<IconButton>(find.byKey(const ValueKey('chat-send-text')));
     expect(sendButton.onPressed, isNull);
     await tester.enterText(find.byType(TextField), '  reply  ');
