@@ -1,7 +1,9 @@
-
 import 'package:beta_app/models/music_item.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class MusicService {
+  static const _favoritesKey = 'music_favorite_ids';
+
   final List<MusicItem> _tracks = const [
     MusicItem(
       id: '1',
@@ -27,4 +29,14 @@ class MusicService {
   ];
 
   List<MusicItem> get tracks => _tracks;
+
+  Future<Set<String>> loadFavorites() async {
+    final preferences = await SharedPreferences.getInstance();
+    return preferences.getStringList(_favoritesKey)?.toSet() ?? <String>{};
+  }
+
+  Future<void> saveFavorites(Set<String> ids) async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setStringList(_favoritesKey, ids.toList()..sort());
+  }
 }
