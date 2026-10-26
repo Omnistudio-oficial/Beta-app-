@@ -13,6 +13,8 @@ void main() {
 
     await tester.enterText(find.byKey(const Key('prompt-editor')), 'Resume este texto: OmniStudio');
     await tester.pump();
+    await tester.ensureVisible(find.byKey(const Key('prepare-prompt')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('prepare-prompt')));
     await tester.pumpAndSettle();
 
