@@ -6,6 +6,7 @@ void main() {
   testWidgets('selects template, edits it and prepares prompt', (tester) async {
     await tester.pumpWidget(const MaterialApp(home: AIScreen()));
 
+    await tester.scrollUntilVisible(find.text('Resumir un texto'), 250);
     await tester.tap(find.text('Resumir un texto'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('prompt-editor')), findsOneWidget);
@@ -22,6 +23,7 @@ void main() {
 
   testWidgets('does not enable prepare button for a blank prompt', (tester) async {
     await tester.pumpWidget(const MaterialApp(home: AIScreen()));
+    await tester.scrollUntilVisible(find.text('Crear notas de producto'), 250);
     await tester.tap(find.text('Crear notas de producto'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('prompt-editor')), '  ');
