@@ -209,10 +209,14 @@ class _MapsScreenState extends State<MapsScreen> {
         const Icon(Icons.volume_up_outlined),
         const SizedBox(width: 8),
         const Expanded(child: Text('Indicaciones por voz')),
-        Switch.adaptive(
-          value: _voiceEnabled,
-          onChanged: _setVoiceEnabled,
-          semanticLabel: _voiceEnabled ? 'Desactivar indicaciones por voz' : 'Activar indicaciones por voz',
+        Semantics(
+          label: 'Indicaciones por voz',
+          value: _voiceEnabled ? 'Activadas' : 'Desactivadas',
+          toggled: _voiceEnabled,
+          child: Switch.adaptive(
+            value: _voiceEnabled,
+            onChanged: _setVoiceEnabled,
+          ),
         ),
       ]),
       if (_rerouting) const Align(alignment: Alignment.centerLeft, child: Text('Recalculando ruta…')),
