@@ -106,6 +106,9 @@ def main() -> None:
     app_info["NSPhotoLibraryUsageDescription"] = (
         "Permite seleccionar fotos y videos para publicarlos de forma privada en tu cuenta de Social."
     )
+    app_info["NSLocationWhenInUseUsageDescription"] = (
+        "La ubicación se usa para mostrar tu posición en el mapa y guiarte por una ruta mientras usas la aplicación."
+    )
     with info_plist.open("wb") as stream:
         plistlib.dump(app_info, stream)
 

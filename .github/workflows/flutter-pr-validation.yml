@@ -43,7 +43,9 @@ jobs:
         env:
           SUPABASE_PROJECT_URL: ${{ secrets.SUPABASE_PROJECT_URL }}
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          OPENROUTESERVICE_API_KEY: ${{ secrets.OPENROUTESERVICE_API_KEY }}
         run: >-
           flutter build ios --debug --no-codesign --no-pub
           --dart-define=SUPABASE_PROJECT_URL=$SUPABASE_PROJECT_URL
           --dart-define=SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY
+          --dart-define=OPENROUTESERVICE_API_KEY=$OPENROUTESERVICE_API_KEY
