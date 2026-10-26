@@ -43,8 +43,11 @@ class OrsMapsApi {
     final steps = rawSteps.map((step) {
       final map = step as Map<String, dynamic>;
       final instruction = (map['instruction'] ?? '').toString();
+      final waypoints = (map['way_points'] as List?)?.cast<num>() ?? const <num>[];
       return RouteStep(instruction: instruction.isEmpty ? 'Continue on route' : instruction,
-        distanceMeters: (map['distance'] as num? ?? 0).toDouble(), waypointIndex: (map['way_points'] as List?)?.first as int? ?? 0);
+        distanceMeters: (map['distance'] as num? ?? 0).toDouble(),
+        waypointIndex: waypoints.isEmpty ? 0 : waypoints.first.toInt(),
+        maneuverIndex: waypoints.length < 2 ? (waypoints.isEmpty ? 0 : waypoints.first.toInt()) : waypoints.last.toInt());
     }).toList();
     return NavigationRoute(points: geometry.map((pair) { final c = (pair as List).cast<num>(); return MapPoint(c[1].toDouble(), c[0].toDouble()); }).toList(),
       steps: steps, distanceMeters: (summary['distance'] as num).toDouble(), durationSeconds: (summary['duration'] as num).toDouble(), profile: profile);

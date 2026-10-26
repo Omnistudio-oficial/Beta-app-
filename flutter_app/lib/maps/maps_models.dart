@@ -14,10 +14,13 @@ class MapPlace {
 }
 
 class RouteStep {
-  const RouteStep({required this.instruction, required this.distanceMeters, required this.waypointIndex});
+  const RouteStep({required this.instruction, required this.distanceMeters, required this.waypointIndex, int? maneuverIndex})
+      : maneuverIndex = maneuverIndex ?? waypointIndex;
   final String instruction;
   final double distanceMeters;
   final int waypointIndex;
+  /// Polyline index where this step's maneuver ends/begins, when supplied by ORS.
+  final int maneuverIndex;
 }
 
 class NavigationRoute {

@@ -2,12 +2,16 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
+import 'package:flutter_tts/flutter_tts.dart';
+import 'package:beta_app/maps/navigation_guidance.dart';
+import 'package:beta_app/maps/tts_speech_output.dart';
 import 'package:beta_app/maps/maps_models.dart';
 import 'package:beta_app/maps/ors_maps_api.dart';
 
 class MapsScreen extends StatefulWidget {
-  const MapsScreen({super.key, this.api, this.positionStream, this.currentPosition, this.showMap = true, this.autoLocate = true});
+  const MapsScreen({super.key, this.api, this.positionStream, this.currentPosition, this.showMap = true, this.autoLocate = true, this.speechOutput});
   final OrsMapsApi? api;
+  final SpeechOutput? speechOutput;
   final Stream<Position>? positionStream;
   final Future<Position> Function()? currentPosition;
   final bool showMap;
@@ -30,7 +34,13 @@ class _MapsScreenState extends State<MapsScreen> {
   String _profile = 'driving-car';
   bool _loading = false;
   bool _guiding = false;
+  bool _rerouting = false;
+  bool _voiceEnabled = true;
   int _progressIndex = 0;
+  final FlutterTts _tts = FlutterTts();
+  late final VoiceGuidanceEngine _voice;
+  final OffRouteDetector _offRouteDetector = OffRouteDetector();
+  final RerouteCoordinator _rerouteCoordinator = RerouteCoordinator();
   static const _profiles = <String, String>{
     'Auto': 'driving-car', 'A pie': 'foot-walking', 'Bici': 'cycling-regular',
     'Bici eléctrica': 'cycling-electric', 'Senderismo': 'foot-hiking',
@@ -38,9 +48,19 @@ class _MapsScreenState extends State<MapsScreen> {
   };
 
   @override
-  void initState() { super.initState(); if (widget.autoLocate) _locate(); }
+  void initState() {
+    super.initState();
+    _voice = VoiceGuidanceEngine(widget.speechOutput ?? TtsSpeechOutput(_tts));
+    _voice.setEnabled(_voiceEnabled);
+    if (widget.speechOutput == null) {
+      _tts.setLanguage('es-CR').catchError((_) => _tts.setLanguage('es'));
+      _tts.setSpeechRate(0.48);
+      _tts.setVolume(1.0);
+    }
+    if (widget.autoLocate) _locate();
+  }
   @override
-  void dispose() { _positionSubscription?.cancel(); _destinationController.dispose(); super.dispose(); }
+  void dispose() { _positionSubscription?.cancel(); _tts.stop(); _destinationController.dispose(); super.dispose(); }
 
   Future<void> _locate() async {
     try {
@@ -67,11 +87,14 @@ class _MapsScreenState extends State<MapsScreen> {
     if (!mounted) return;
     setState(() => _position = p);
     if (_guiding) {
-      final route = _route!;
+      final route = _route;
+      if (route == null) return;
       final point = MapPoint(p.latitude, p.longitude);
       final index = nearestPointIndex(route.points, point);
       setState(() => _progressIndex = index);
       _map?.animateCamera(CameraUpdate.newLatLng(LatLng(p.latitude, p.longitude)));
+      _voice.update(route: route, position: point, progressIndex: index);
+      if (_offRouteDetector.update(route.points, point)) _reroute(point);
     }
   }
 
@@ -99,13 +122,48 @@ class _MapsScreenState extends State<MapsScreen> {
     finally { if (mounted) setState(() => _loading = false); }
   }
 
+  Future<void> _reroute(MapPoint origin) async {
+    final destination = _destination;
+    final currentRoute = _route;
+    if (!_guiding || destination == null || currentRoute == null || _rerouting) return;
+    setState(() { _rerouting = true; _error = null; });
+    try {
+      final updated = await _rerouteCoordinator.reroute(
+        origin: origin,
+        destination: destination.point,
+        profile: currentRoute.profile,
+        request: _api.directions,
+      );
+      if (!mounted || updated == null) return;
+      // Preserve the existing route unless a complete replacement was received.
+      setState(() { _route = updated; _progressIndex = 0; });
+      _offRouteDetector.update(updated.points, origin);
+      _voice.reset();
+      await _drawRoute(updated);
+    } catch (_) {
+      if (mounted) setState(() => _error = 'No se pudo recalcular la ruta. Se mantiene la ruta anterior.');
+    } finally {
+      if (mounted) setState(() => _rerouting = false);
+    }
+  }
+
+  Future<void> _setVoiceEnabled(bool enabled) async {
+    setState(() => _voiceEnabled = enabled);
+    await _voice.setEnabled(enabled);
+  }
+
   Future<void> _drawRoute(NavigationRoute route) async {
     final map = _map; if (map == null) return;
     await map.clearLines();
     if (route.points.length > 1) await map.addLine(LineOptions(geometry: route.points.map((p) => LatLng(p.latitude, p.longitude)).toList(), lineColor: '#6C63FF', lineWidth: 6, lineOpacity: .9));
   }
 
-  void _startGuidance() { if (_route == null) return; setState(() { _guiding = true; _progressIndex = nearestPointIndex(_route!.points, MapPoint(_position!.latitude, _position!.longitude)); }); }
+  void _startGuidance() {
+    if (_route == null || _position == null) return;
+    setState(() { _guiding = true; _progressIndex = nearestPointIndex(_route!.points, MapPoint(_position!.latitude, _position!.longitude)); });
+    _offRouteDetector.update(_route!.points, MapPoint(_position!.latitude, _position!.longitude));
+    _voice.reset();
+  }
 
   double get _remainingDistance {
     final route = _route; if (route == null) return 0;
@@ -128,7 +186,7 @@ class _MapsScreenState extends State<MapsScreen> {
         if (!_guiding) Positioned(top: 10, left: 12, right: 12, child: _searchPanel()),
         if (_guiding && route != null) Positioned(top: 12, left: 12, right: 12, child: Card(child: Padding(padding: const EdgeInsets.all(16), child: Row(children: [const Icon(Icons.turn_right, size: 32), const SizedBox(width: 12), Expanded(child: Text(_nextStep?.instruction ?? 'Sigue la ruta', style: Theme.of(context).textTheme.titleMedium))])))),
         if (route != null) Positioned(left: 12, right: 12, bottom: 16, child: _routePanel(route)),
-        if (_loading) const Positioned(top: 90, left: 0, right: 0, child: Center(child: CircularProgressIndicator())),
+        if (_loading || _rerouting) const Positioned(top: 90, left: 0, right: 0, child: Center(child: CircularProgressIndicator())),
         if (_error != null) Positioned(left: 12, right: 12, bottom: route == null ? 16 : 140, child: Card(color: Theme.of(context).colorScheme.errorContainer, child: Padding(padding: const EdgeInsets.all(12), child: Text(_error!)))),
       ]));
   }
@@ -147,7 +205,20 @@ class _MapsScreenState extends State<MapsScreen> {
     return Card(elevation: 8, child: Padding(padding: const EdgeInsets.all(16), child: Column(mainAxisSize: MainAxisSize.min, children: [
       Text(arrived ? 'Llegaste a ${_destination?.label ?? "tu destino"}' : _guiding ? (_nextStep?.instruction ?? 'Continúa por la ruta') : (_destination?.label ?? 'Ruta'), style: Theme.of(context).textTheme.titleMedium),
       const SizedBox(height: 8), Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [Text(_formatDistance(remaining)), Text(_formatDuration(seconds)), Text(_arrival(seconds))]),
-      const SizedBox(height: 10), if (!_guiding) SizedBox(width: double.infinity, child: FilledButton.icon(onPressed: _startGuidance, icon: const Icon(Icons.navigation), label: const Text('Iniciar navegación'))) else TextButton.icon(onPressed: () => setState(() => _guiding = false), icon: const Icon(Icons.stop), label: const Text('Finalizar navegación')),
+      if (_guiding) Row(children: [
+        const Icon(Icons.volume_up_outlined),
+        const SizedBox(width: 8),
+        const Expanded(child: Text('Indicaciones por voz')),
+        Switch.adaptive(
+          value: _voiceEnabled,
+          onChanged: _setVoiceEnabled,
+          semanticLabel: _voiceEnabled ? 'Desactivar indicaciones por voz' : 'Activar indicaciones por voz',
+        ),
+      ]),
+      if (_rerouting) const Align(alignment: Alignment.centerLeft, child: Text('Recalculando ruta…')),
+      if (_guiding && !_voiceEnabled) const Align(alignment: Alignment.centerLeft, child: Text('Indicaciones por voz desactivadas')),
+      if (_guiding && _voiceEnabled) const Align(alignment: Alignment.centerLeft, child: Text('Indicaciones por voz activadas')), 
+      const SizedBox(height: 10), if (!_guiding) SizedBox(width: double.infinity, child: FilledButton.icon(onPressed: _startGuidance, icon: const Icon(Icons.navigation), label: const Text('Iniciar navegación'))) else TextButton.icon(onPressed: () { setState(() { _guiding = false; _rerouting = false; }); _voice.reset(); _tts.stop(); }, icon: const Icon(Icons.stop), label: const Text('Finalizar navegación')),
     ])));
   }
 

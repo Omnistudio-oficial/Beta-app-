@@ -26,6 +26,7 @@ dependencies:
   video_player: ^2.9.2
   geolocator: ^13.0.2
   maplibre_gl: ^0.20.0
+  flutter_tts: ^4.2.3
 
   # Keep these until feature migration is complete
   shared_preferences: ^2.2.3
