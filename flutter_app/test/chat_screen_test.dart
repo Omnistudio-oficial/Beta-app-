@@ -56,12 +56,12 @@ void main() {
     repo.messages.add(const [ChatMessage(id: 'message-1', senderName: 'Bob', senderEmail: 'bob@example.com', text: 'Hi there', timestamp: 1)]);
     await tester.pump();
     expect(find.text('Hi there'), findsOneWidget);
-    final sendButton = tester.widget<IconButton>(find.byType(IconButton).last);
+    final sendButton = tester.widget<IconButton>(find.byKey(const ValueKey('chat-send-text')));
     expect(sendButton.onPressed, isNull);
     await tester.enterText(find.byType(TextField), '  reply  ');
     await tester.pump();
-    expect(tester.widget<IconButton>(find.byType(IconButton).last).onPressed, isNotNull);
-    await tester.tap(find.byType(IconButton).last);
+    expect(tester.widget<IconButton>(find.byKey(const ValueKey('chat-send-text'))).onPressed, isNotNull);
+    await tester.tap(find.byKey(const ValueKey('chat-send-text')));
     await tester.pump();
     expect(repo.sent, ['auth-user-82|alice@example.com|room-a|reply']);
     await tester.pumpWidget(const SizedBox.shrink());

@@ -139,7 +139,7 @@ class _ChatScreenState extends State<ChatScreen> {
           child: Row(children: [
             Expanded(child: TextField(controller: _controller, minLines: 1, maxLines: 4, textInputAction: TextInputAction.send, onChanged: (_) => setState(() {}), onSubmitted: (_) => _send(user, channel), decoration: const InputDecoration(hintText: 'Escribe un mensaje…', border: OutlineInputBorder()))),
             const SizedBox(width: 8),
-            IconButton.filled(onPressed: _sending || _controller.text.trim().isEmpty ? null : () => _send(user, channel), tooltip: 'Enviar', icon: _sending ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.send)),
+            IconButton.filled(key: const ValueKey('chat-send-text'), onPressed: _sending || _controller.text.trim().isEmpty ? null : () => _send(user, channel), tooltip: 'Enviar', icon: _sending ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.send)),
           ]),
         )),
       ]),
