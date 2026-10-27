@@ -5,6 +5,7 @@ import 'package:beta_app/screens/chat_repository.dart';
 import 'package:beta_app/screens/chat_screen.dart';
 import 'package:beta_app/screens/chat_search.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class FakeChatRepository implements ChatRepository {
@@ -140,6 +141,47 @@ void main() {
     },
     timeout: const Timeout(Duration(seconds: 45)),
   );
+
+  testWidgets('copies the selected message text from its accessible actions menu', (tester) async {
+    final repo = FakeChatRepository();
+    String? copiedText;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copiedText = (call.arguments as Map<Object?, Object?>)['text'] as String?;
+        }
+        return null;
+      },
+    );
+    try {
+      await tester.pumpWidget(MaterialApp(home: ChatScreen(
+        repository: repo,
+        identity: const ChatIdentity(uid: 'alice-uid', email: 'alice@example.com'),
+      )));
+      repo.channels.add([channelOne]);
+      await tester.pump();
+      await tester.tap(find.text('Room A'));
+      await tester.pump();
+      repo.messages.add(const [
+        ChatMessage(id: 'copy-target', senderName: 'Bob', senderEmail: 'bob@example.com', text: '  Keep this exact text  ', timestamp: 1),
+      ]);
+      await tester.pump();
+
+      await tester.tap(find.byKey(const ValueKey('chat-message-menu-copy-target')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Copiar mensaje'));
+      await tester.pump();
+
+      expect(copiedText, '  Keep this exact text  ');
+      expect(find.text('Mensaje copiado'), findsOneWidget);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null);
+      await repo.close().timeout(const Duration(seconds: 5));
+    }
+  }, timeout: const Timeout(Duration(seconds: 45)));
 
   testWidgets('reports channel-stream errors and supports retry affordance', (tester) async {
     final repo = FakeChatRepository()..channelError = StateError('offline fake');

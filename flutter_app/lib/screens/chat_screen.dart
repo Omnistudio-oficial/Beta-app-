@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:beta_app/screens/chat_media_actions.dart';
 import 'package:beta_app/screens/chat_video_player.dart';
 
@@ -209,6 +210,31 @@ class _ChatScreenState extends State<ChatScreen> {
                             ),
                           Text('Este archivo está en un bucket público: quien tenga el enlace puede acceder.', style: Theme.of(context).textTheme.labelSmall),
                         ],
+                        if (message.text.trim().isNotEmpty)
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: PopupMenuButton<String>(
+                              key: ValueKey('chat-message-menu-${message.id}'),
+                              tooltip: 'Acciones del mensaje',
+                              onSelected: (action) {
+                                if (action == 'copy') _copyMessage(message.text);
+                              },
+                              itemBuilder: (context) => const [
+                                PopupMenuItem<String>(
+                                  value: 'copy',
+                                  child: ListTile(
+                                    leading: Icon(Icons.copy),
+                                    title: Text('Copiar mensaje'),
+                                    contentPadding: EdgeInsets.zero,
+                                  ),
+                                ),
+                              ],
+                              child: const Padding(
+                                padding: EdgeInsets.all(8),
+                                child: Icon(Icons.more_horiz, size: 20),
+                              ),
+                            ),
+                          ),
                       ])),
                     ),
                   );
@@ -240,6 +266,15 @@ class _ChatScreenState extends State<ChatScreen> {
         )),
       ]),
     );
+  }
+
+  Future<void> _copyMessage(String text) async {
+    await Clipboard.setData(ClipboardData(text: text));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Mensaje copiado')),
+      );
+    }
   }
 
   Future<void> _openDocument(ChatMessage message) async {
