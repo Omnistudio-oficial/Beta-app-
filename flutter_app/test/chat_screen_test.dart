@@ -240,7 +240,9 @@ void main() {
     drafts.values['alice-uid::room-a'] = 'draft for room A';
     drafts.values['alice-uid::room-b'] = 'draft for room B';
     try {
-      await openScreen(repo, drafts, tester, visibleChannels: [channelOne, const ChatChannel(id: 'room-b', name: 'Room B', memberEmails: ['alice@example.com'])]);
+      final roomB = const ChatChannel(id: 'room-b', name: 'Room B', memberEmails: ['alice@example.com']);
+      repo.latestChannels = [channelOne, roomB];
+      await openScreen(repo, drafts, tester, visibleChannels: [channelOne, roomB]);
       await openRoom(tester, repo, 'Room A');
       expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, 'draft for room A');
       await tester.enterText(find.byType(TextField), 'edited draft for room A');
@@ -325,7 +327,7 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey('chat-message-menu-copy-target')));
       await tester.pump(const Duration(milliseconds: 300));
-      await tester.tap(find.text('Copiar mensaje'));
+      await tester.tap(find.byType(PopupMenuItem<String>));
       await tester.pump();
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
       await tester.pump();
