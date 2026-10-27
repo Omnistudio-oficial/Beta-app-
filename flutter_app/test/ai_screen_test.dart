@@ -9,6 +9,8 @@ void main() {
     await tester.scrollUntilVisible(find.text('Resumir un texto'), 250);
     await tester.tap(find.text('Resumir un texto'));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('prompt-editor')));
+    await tester.pumpAndSettle();
     expect(find.byKey(const Key('prompt-editor')), findsOneWidget);
 
     await tester.enterText(find.byKey(const Key('prompt-editor')), 'Resume este texto: OmniStudio');
@@ -33,6 +35,8 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: AIScreen()));
     await tester.scrollUntilVisible(find.text('Crear notas de producto'), 250);
     await tester.tap(find.text('Crear notas de producto'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('prompt-editor')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('prompt-editor')), '  ');
     await tester.pump();
