@@ -144,12 +144,9 @@ class FirebaseChatRepository implements ChatRepository {
     await _ensureMember(uid, user.email ?? '', channelId);
     if (messageId.isEmpty) throw ArgumentError('No se encontró el mensaje.');
     final ref = _database.ref('chats/$channelId/messages/$messageId/reactions');
-    await ref.runTransaction((mutableData) {
-      if (mutableData == null) return Transaction.abort();
-      final data = mutableData;
-      final current = data.value is String ? data.value as String : '';
-      data.value = toggleChatReaction(current, emoji);
-      return Transaction.success(mutableData);
+    await ref.runTransaction((currentValue) {
+      final current = currentValue is String ? currentValue : '';
+      return Transaction.success(toggleChatReaction(current, emoji));
     });
   }
 
