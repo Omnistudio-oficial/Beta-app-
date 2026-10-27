@@ -104,12 +104,54 @@ def main() -> None:
 
     podfile = scaffold / "ios/Podfile"
     if not podfile.is_file():
-        raise SystemExit("Generated iOS Podfile is missing")
-    podfile_text = podfile.read_text(encoding="utf-8")
-    platform_pattern = r"(?m)^\s*#?\s*platform\s*:ios\s*,\s*['\"][^'\"]+['\"]\s*$"
-    podfile_text, platform_count = re.subn(platform_pattern, "platform :ios, '15.5'", podfile_text, count=1)
-    if platform_count == 0:
-        podfile_text = "platform :ios, '15.5'\n" + podfile_text
+        podfile_text = """platform :ios, '15.5'
+ENV['COCOAPODS_DISABLE_STATS'] = 'true'
+
+project 'Runner', {
+  'Debug' => :debug,
+  'Profile' => :release,
+  'Release' => :release,
+}
+
+def flutter_root
+  generated_xcode_build_settings_path = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
+  unless File.exist?(generated_xcode_build_settings_path)
+    raise "#{generated_xcode_build_settings_path} must exist. Run flutter pub get first"
+  end
+  File.foreach(generated_xcode_build_settings_path) do |line|
+    matches = line.match(/FLUTTER_ROOT=(.*)/)
+    return matches[1].strip if matches
+  end
+  raise "FLUTTER_ROOT not found in #{generated_xcode_build_settings_path}"
+end
+
+require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
+flutter_ios_podfile_setup
+
+target 'Runner' do
+  use_frameworks!
+  use_modular_headers!
+  flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+  target 'RunnerTests' do
+    inherit! :search_paths
+  end
+end
+
+post_install do |installer|
+  installer.pods_project.targets.each do |target|
+    flutter_additional_ios_build_settings(target)
+    target.build_configurations.each do |config|
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
+    end
+  end
+end
+"""
+    else:
+        podfile_text = podfile.read_text(encoding="utf-8")
+        platform_pattern = r"(?m)^\s*#?\s*platform\s*:ios\s*,\s*['\"][^'\"]+['\"]\s*$"
+        podfile_text, platform_count = re.subn(platform_pattern, "platform :ios, '15.5'", podfile_text, count=1)
+        if platform_count == 0:
+            podfile_text = "platform :ios, '15.5'\n" + podfile_text
     podfile.write_text(podfile_text, encoding="utf-8")
 
     with info_plist.open("rb") as stream:
