@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:beta_app/screens/chat_attachment.dart';
 import 'package:beta_app/screens/chat_repository.dart';
 import 'package:beta_app/screens/chat_screen.dart';
 import 'package:flutter/material.dart';
@@ -21,6 +22,9 @@ class FakeChatRepository implements ChatRepository {
 
   @override
   Stream<List<ChatMessage>> watchMessages({required String uid, required String channelId}) => messages.stream;
+
+  @override
+  Future<void> sendAttachment({required String uid, required String email, required String channelId, required ChatAttachment attachment, required String caption}) async => sent.add('media|$uid|$channelId|${attachment.name}|$caption');
 
   @override
   Future<void> sendText({required String uid, required String email, required String channelId, required String text}) async {
