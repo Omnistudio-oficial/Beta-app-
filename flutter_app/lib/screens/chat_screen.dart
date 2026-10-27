@@ -221,26 +221,11 @@ class _ChatScreenState extends State<ChatScreen> {
                         if (message.text.trim().isNotEmpty)
                           Align(
                             alignment: Alignment.centerRight,
-                            child: PopupMenuButton<String>(
-                              key: ValueKey('chat-message-menu-${message.id}'),
-                              tooltip: 'Acciones del mensaje',
-                              onSelected: (action) {
-                                if (action == 'copy') _copyMessage(message.text);
-                              },
-                              itemBuilder: (context) => const [
-                                PopupMenuItem<String>(
-                                  value: 'copy',
-                                  child: ListTile(
-                                    leading: Icon(Icons.copy),
-                                    title: Text('Copiar mensaje'),
-                                    contentPadding: EdgeInsets.zero,
-                                  ),
-                                ),
-                              ],
-                              child: const Padding(
-                                padding: EdgeInsets.all(8),
-                                child: Icon(Icons.more_horiz, size: 20),
-                              ),
+                            child: IconButton(
+                              key: ValueKey('chat-message-copy-${message.id}'),
+                              tooltip: 'Copiar mensaje',
+                              onPressed: () => _copyMessage(message.text),
+                              icon: const Icon(Icons.copy, size: 18),
                             ),
                           ),
                       ])),
