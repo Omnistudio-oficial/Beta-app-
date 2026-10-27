@@ -197,6 +197,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         if (!mine) HighlightedChatText(message.senderName, query: query, style: Theme.of(context).textTheme.labelSmall),
                         HighlightedChatText(message.text, query: query),
+                        _MessageTimestamp(timestamp: message.timestamp, messageId: message.id),
                         if (message.mediaUrl != null && message.mediaUrl!.isNotEmpty) ...[
                           const SizedBox(height: 8),
                           if (message.mediaType == 'image' || message.mediaType == 'gif')
@@ -330,6 +331,57 @@ class _ChatScreenState extends State<ChatScreen> {
     } finally {
       if (mounted) setState(() => _sending = false);
     }
+  }
+}
+
+/// Returns an empty label for unset or out-of-range message timestamps.
+String? formatChatMessageTimestamp(
+  int timestamp, {
+  required MaterialLocalizations localizations,
+  required bool alwaysUse24HourFormat,
+}) {
+  if (timestamp <= 0) return null;
+  try {
+    final localDateTime = DateTime.fromMillisecondsSinceEpoch(timestamp).toLocal();
+    final date = localizations.formatFullDate(localDateTime);
+    final time = localizations.formatTimeOfDay(
+      TimeOfDay.fromDateTime(localDateTime),
+      alwaysUse24HourFormat: alwaysUse24HourFormat,
+    );
+    return '$date · $time';
+  } on ArgumentError {
+    return null;
+  } on RangeError {
+    return null;
+  }
+}
+
+class _MessageTimestamp extends StatelessWidget {
+  const _MessageTimestamp({required this.timestamp, required this.messageId});
+
+  final int timestamp;
+  final String messageId;
+
+  @override
+  Widget build(BuildContext context) {
+    final formatted = formatChatMessageTimestamp(
+      timestamp,
+      localizations: MaterialLocalizations.of(context),
+      alwaysUse24HourFormat: MediaQuery.of(context).alwaysUse24HourFormat,
+    );
+    if (formatted == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Semantics(
+        label: 'Hora del mensaje: $formatted',
+        child: Text(
+          formatted,
+          key: ValueKey('chat-message-time-$messageId'),
+          style: Theme.of(context).textTheme.labelSmall,
+          textAlign: TextAlign.end,
+        ),
+      ),
+    );
   }
 }
 

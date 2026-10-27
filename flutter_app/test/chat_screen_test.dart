@@ -41,6 +41,46 @@ class FakeChatRepository implements ChatRepository {
 }
 
 void main() {
+  const channelOne = ChatChannel(id: 'room-a', name: 'Room A', memberEmails: ['ALICE@example.com']);
+  const channelTwo = ChatChannel(id: 'room-b', name: 'Room B', memberEmails: ['bob@example.com']);
+
+  testWidgets('displays localized message date and time but hides zero or invalid timestamps', (tester) async {
+    final repo = FakeChatRepository();
+    try {
+      await tester.pumpWidget(MaterialApp(home: ChatScreen(
+        repository: repo,
+        identity: const ChatIdentity(uid: 'alice-uid', email: 'alice@example.com'),
+      )));
+      repo.channels.add([channelOne]);
+      await tester.pump();
+      await tester.tap(find.text('Room A'));
+      await tester.pump();
+
+      const validTimestamp = 1704207840000; // 2024-01-02 15:04:00 UTC
+      repo.messages.add(const [
+        ChatMessage(id: 'valid-time', senderName: 'Bob', senderEmail: 'bob@example.com', text: 'Timed', timestamp: validTimestamp),
+        ChatMessage(id: 'zero-time', senderName: 'Bob', senderEmail: 'bob@example.com', text: 'Unstamped', timestamp: 0),
+        ChatMessage(id: 'negative-time', senderName: 'Bob', senderEmail: 'bob@example.com', text: 'Invalid', timestamp: -1),
+        ChatMessage(id: 'overflow-time', senderName: 'Bob', senderEmail: 'bob@example.com', text: 'Overflow', timestamp: 0x7fffffffffffffff),
+      ]);
+      await tester.pump();
+
+      final messageContext = tester.element(find.text('Timed'));
+      final localizations = MaterialLocalizations.of(messageContext);
+      final localDateTime = DateTime.fromMillisecondsSinceEpoch(validTimestamp).toLocal();
+      final expected = '${localizations.formatFullDate(localDateTime)} · ${localizations.formatTimeOfDay(TimeOfDay.fromDateTime(localDateTime), alwaysUse24HourFormat: MediaQuery.of(messageContext).alwaysUse24HourFormat)}';
+      expect(find.text(expected), findsOneWidget);
+      expect(find.byKey(const ValueKey('chat-message-time-valid-time')), findsOneWidget);
+      expect(find.byKey(const ValueKey('chat-message-time-zero-time')), findsNothing);
+      expect(find.byKey(const ValueKey('chat-message-time-negative-time')), findsNothing);
+      expect(find.byKey(const ValueKey('chat-message-time-overflow-time')), findsNothing);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await repo.close().timeout(const Duration(seconds: 5));
+    }
+  }, timeout: const Timeout(Duration(seconds: 45)));
+
   const searchMessages = <ChatMessage>[
     ChatMessage(id: '1', senderName: 'Maya', senderEmail: 'maya@example.com', text: 'Bring the blue notebook', timestamp: 1),
     ChatMessage(id: '2', senderName: 'Leo', senderEmail: 'leo@example.com', text: 'I will be there', timestamp: 2),
