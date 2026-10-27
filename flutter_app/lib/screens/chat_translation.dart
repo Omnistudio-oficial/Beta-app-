@@ -25,7 +25,15 @@ class MlKitChatTranslationService implements ChatTranslationService {
     'zh': '中文', 'ar': 'العربية', 'ko': '한국어', 'hi': 'हिन्दी',
   };
 
-  static TranslateLanguage? languageForCode(String code) => TranslateLanguage.fromRawValue(code.toLowerCase());
+  static TranslateLanguage? languageForCode(String code) => switch (code.toLowerCase()) {
+    'es' => TranslateLanguage.spanish, 'en' => TranslateLanguage.english,
+    'fr' => TranslateLanguage.french, 'de' => TranslateLanguage.german,
+    'it' => TranslateLanguage.italian, 'pt' => TranslateLanguage.portuguese,
+    'ru' => TranslateLanguage.russian, 'ja' => TranslateLanguage.japanese,
+    'zh' => TranslateLanguage.chinese, 'ar' => TranslateLanguage.arabic,
+    'ko' => TranslateLanguage.korean, 'hi' => TranslateLanguage.hindi,
+    _ => null,
+  };
 
   @override
   Future<ChatTranslationResult> translate(String text, String targetLanguage) async {
