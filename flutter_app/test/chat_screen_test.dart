@@ -416,4 +416,17 @@ testWidgets('shows on-device translation controls and manual action', (tester) a
     await tester.pumpAndSettle();
     await repo.close();
   });
+
+
+  testWidgets('renders an embedded YouTube preview for a supported shared link', (tester) async {
+    final repo = FakeChatRepository();
+    final drafts = MemoryChatDraftStorage();
+    await openScreen(repo, drafts, tester);
+    await openRoom(tester, repo, 'Room A');
+    repo.messages.add(const [ChatMessage(id: 'yt-message', senderName: 'Bob', senderEmail: 'bob@example.com', text: 'https://youtu.be/dQw4w9WgXcQ', timestamp: 1)]);
+    await tester.pump();
+    expect(find.byKey(const ValueKey('chat-youtube-preview')), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await repo.close();
+  });
 }
