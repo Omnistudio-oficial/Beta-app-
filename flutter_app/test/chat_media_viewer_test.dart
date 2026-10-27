@@ -1,69 +1,121 @@
-import 'dart:convert';
+import 'dart:io';
+
+import 'package:beta_app/screens/chat_media_actions.dart';
+import 'package:beta_app/screens/chat_video_player.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
-import 'maps_models.dart';
 
-const orsApiKey = String.fromEnvironment('OPENROUTESERVICE_API_KEY');
+void main() {
+  group('ChatMediaActions', () {
+    late Directory temp;
+    setUp(() async {
+      temp = await Directory.systemTemp.createTemp('chat-media-actions-');
+    });
+    tearDown(() async {
+      if (await temp.exists()) await temp.delete(recursive: true);
+    });
 
-class OrsMapsApi {
-  OrsMapsApi({http.Client? client, String? apiKey, this.baseUrl = 'https://api.openrouteservice.org'})
-      : _client = client ?? http.Client(), _apiKey = apiKey ?? orsApiKey;
-  final http.Client _client;
-  final String _apiKey;
-  final String baseUrl;
+    test('downloads only tapped URL into temp and invokes native-share seam', () async {
+      Uri? fetched;
+      String? sharedName;
+      String? sharedMime;
+      List<int>? sharedBytes;
+      final actions = ChatMediaActions(
+        get: (uri) async {
+          fetched = uri;
+          return http.Response.bytes([1, 2, 3], 200);
+        },
+        temporaryDirectory: () async => temp,
+        share: (path, name, mime) async {
+          sharedName = name;
+          sharedMime = mime;
+          sharedBytes = await File(path).readAsBytes();
+        },
+      );
+      await actions.downloadAndShare(
+        url: 'https://files.example.test/presigned/document.pdf',
+        fileName: '../../private report.pdf',
+        mimeType: 'application/pdf',
+      );
+      expect(fetched, Uri.parse('https://files.example.test/presigned/document.pdf'));
+      expect(sharedName, 'private report.pdf');
+      expect(sharedMime, 'application/pdf');
+      expect(sharedBytes, [1, 2, 3]);
+    });
 
-  Future<List<MapPlace>> searchPlaces(String query) async {
-    final data = await _get('/geocode/search', {'text': query, 'size': '6'});
-    final features = data['features'] as List? ?? const [];
-    return features.map((item) {
-      final feature = item as Map<String, dynamic>;
-      final coordinates = (feature['geometry']['coordinates'] as List).cast<num>();
-      final label = (feature['properties']['label'] ?? feature['properties']['name'] ?? 'Place').toString();
-      return MapPlace(label: label, point: MapPoint(coordinates[1].toDouble(), coordinates[0].toDouble()));
-    }).toList();
-  }
+    test('rejects unsafe URLs, failed responses and oversized/empty files', () async {
+      var getCalls = 0;
+      var shareCalls = 0;
+      ChatMediaActions actions({required http.Response response}) => ChatMediaActions(
+            get: (_) async { getCalls++; return response; },
+            temporaryDirectory: () async => temp,
+            share: (_, __, ___) async { shareCalls++; },
+          );
+      await expectLater(
+        actions(response: http.Response.bytes([1], 200)).downloadAndShare(url: 'file:///etc/passwd', fileName: 'x', mimeType: ''),
+        throwsFormatException,
+      );
+      await expectLater(
+        actions(response: http.Response.bytes([], 200)).downloadAndShare(url: 'https://files.example.test/a', fileName: 'x', mimeType: ''),
+        throwsFormatException,
+      );
+      await expectLater(
+        actions(response: http.Response.bytes([1], 403)).downloadAndShare(url: 'https://files.example.test/a', fileName: 'x', mimeType: ''),
+        throwsA(isA<HttpException>()),
+      );
+      expect(getCalls, 2);
+      expect(shareCalls, 0);
+    });
+  });
 
-  Future<String> reverseGeocode(MapPoint point) async {
-    final data = await _get('/geocode/reverse', {'point.lon': '${point.longitude}', 'point.lat': '${point.latitude}', 'size': '1'});
-    final features = data['features'] as List? ?? const [];
-    if (features.isEmpty) return 'Ubicación actual';
-    final props = (features.first as Map<String, dynamic>)['properties'] as Map<String, dynamic>;
-    return (props['label'] ?? props['name'] ?? 'Ubicación actual').toString();
-  }
+  testWidgets('video playback starts only after tap and controller is disposed', (tester) async {
+    final factory = _FakeVideoFactory();
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: ChatVideoPlayer(
+      source: Uri.parse('https://files.example.test/video.mp4'),
+      thumbnailUrl: null,
+      controllerFactory: factory,
+    ))));
+    expect(factory.created, 0);
+    expect(find.byKey(const ValueKey('chat-video-preview')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('chat-video-preview')));
+    await tester.pumpAndSettle();
+    expect(factory.created, 1);
+    expect(factory.controller!.initializeCalls, 1);
+    expect(factory.controller!.playCalls, 1);
+    expect(find.byKey(const ValueKey('chat-video-play-pause')), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    expect(factory.controller!.disposed, isTrue);
+    expect(factory.controller!.listeners, isEmpty);
+  });
+}
 
-  Future<NavigationRoute> directions(MapPoint from, MapPoint to, String profile) async {
-    final response = await _client.post(Uri.parse('$baseUrl/v2/directions/$profile/geojson'),
-      headers: {'Authorization': _apiKey, 'Content-Type': 'application/json; charset=utf-8', 'Accept': 'application/geo+json'},
-      body: jsonEncode({'coordinates': [from.ors, to.ors], 'instructions': true, 'geometry': true, 'units': 'm'}));
-    if (response.statusCode < 200 || response.statusCode >= 300) throw OrsException('Route service returned ${response.statusCode}');
-    final feature = (jsonDecode(response.body) as Map<String, dynamic>)['features'][0] as Map<String, dynamic>;
-    final geometry = feature['geometry']['coordinates'] as List;
-    final summary = feature['properties']['summary'] as Map<String, dynamic>;
-    final segments = feature['properties']['segments'] as List;
-    final rawSteps = segments.isEmpty ? const [] : (segments.first['steps'] as List? ?? const []);
-    final steps = rawSteps.map((step) {
-      final map = step as Map<String, dynamic>;
-      final instruction = (map['instruction'] ?? '').toString();
-      final waypoints = (map['way_points'] as List?)?.cast<num>() ?? const <num>[];
-      return RouteStep(instruction: instruction.isEmpty ? 'Continue on route' : instruction,
-        distanceMeters: (map['distance'] as num? ?? 0).toDouble(),
-        waypointIndex: waypoints.isEmpty ? 0 : waypoints.first.toInt(),
-        maneuverIndex: waypoints.length < 2 ? (waypoints.isEmpty ? 0 : waypoints.first.toInt()) : waypoints.last.toInt());
-    }).toList();
-    return NavigationRoute(points: geometry.map((pair) { final c = (pair as List).cast<num>(); return MapPoint(c[1].toDouble(), c[0].toDouble()); }).toList(),
-      steps: steps, distanceMeters: (summary['distance'] as num).toDouble(), durationSeconds: (summary['duration'] as num).toDouble(), profile: profile);
-  }
-
-  Future<Map<String, dynamic>> _get(String path, Map<String, String> params) async {
-    if (_apiKey.isEmpty) throw const OrsException('OpenRouteService key is not configured');
-    final response = await _client.get(Uri.parse('$baseUrl$path').replace(queryParameters: {...params, 'api_key': _apiKey}));
-    if (response.statusCode < 200 || response.statusCode >= 300) throw OrsException('Place service returned ${response.statusCode}');
-    return jsonDecode(response.body) as Map<String, dynamic>;
+class _FakeVideoFactory implements ChatVideoControllerFactory {
+  int created = 0;
+  _FakeVideoController? controller;
+  @override
+  ChatVideoController create(Uri source) {
+    created++;
+    return controller = _FakeVideoController();
   }
 }
 
-class OrsException implements Exception {
-  const OrsException(this.message);
-  final String message;
-  @override
-  String toString() => message;
+class _FakeVideoController implements ChatVideoController {
+  final Set<VoidCallback> listeners = {};
+  int initializeCalls = 0;
+  int playCalls = 0;
+  bool disposed = false;
+  bool playing = false;
+  bool initialized = false;
+  @override bool get isInitialized => initialized;
+  @override bool get isPlaying => playing;
+  @override double get aspectRatio => 16 / 9;
+  @override String? get error => null;
+  @override Widget buildVideo() => const ColoredBox(color: Colors.black);
+  @override Future<void> initialize() async { initializeCalls++; initialized = true; }
+  @override Future<void> play() async { playCalls++; playing = true; }
+  @override Future<void> pause() async { playing = false; }
+  @override void addListener(VoidCallback listener) => listeners.add(listener);
+  @override void removeListener(VoidCallback listener) => listeners.remove(listener);
+  @override Future<void> dispose() async { disposed = true; initialized = false; }
 }
