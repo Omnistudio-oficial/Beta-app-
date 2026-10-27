@@ -314,7 +314,7 @@ void main() {
       await tester.pump();
 
       await tester.tap(find.byKey(const ValueKey('chat-message-menu-copy-target')));
-      await tester.pumpAndSettle();
+      await tester.pump();
       await tester.tap(find.text('Copiar mensaje'));
       await tester.pump();
 
