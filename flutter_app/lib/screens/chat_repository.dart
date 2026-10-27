@@ -34,6 +34,7 @@ abstract interface class ChatRepository {
   Stream<List<ChatChannel>> watchChannels({required String uid, required String email});
   Stream<List<ChatMessage>> watchMessages({required String uid, required String channelId});
   Future<void> sendText({required String uid, required String email, required String channelId, required String text});
+  Future<void> toggleReaction({required String uid, required String channelId, required String messageId, required String emoji});
   Future<void> sendAttachment({required String uid, required String email, required String channelId, required ChatAttachment attachment, required String caption});
 }
 
@@ -135,6 +136,19 @@ class FirebaseChatRepository implements ChatRepository {
     if (!members.contains(normalizedEmail) && '${map['creatorEmail'] ?? ''}'.trim().toLowerCase() != normalizedEmail && !memberUids.contains(uid) && '${map['creatorUid'] ?? ''}'.trim() != uid) {
       throw StateError('No perteneces a este chat.');
     }
+  }
+
+  @override
+  Future<void> toggleReaction({required String uid, required String channelId, required String messageId, required String emoji}) async {
+    final user = _requireUser(uid);
+    await _ensureMember(uid, user.email ?? '', channelId);
+    if (messageId.isEmpty) throw ArgumentError('No se encontró el mensaje.');
+    final ref = _database.ref('chats/$channelId/messages/$messageId/reactions');
+    await ref.runTransaction((mutableData) {
+      final current = mutableData.value is String ? mutableData.value as String : '';
+      mutableData.value = toggleChatReaction(current, emoji);
+      return Transaction.success(mutableData);
+    });
   }
 
   @override
