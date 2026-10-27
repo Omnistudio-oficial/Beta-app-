@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:beta_app/services/google_workspace_read_only.dart';
-import 'package:beta_app/services/workspace_sara_query.dart';
 
 class AIScreen extends StatefulWidget {
   const AIScreen({super.key});
@@ -101,31 +100,30 @@ class _AIScreenState extends State<AIScreen> {
   Future<void> _sendWorkspaceQuestion() async {
     final text = _saraChatInput.text.trim();
     if (text.isEmpty || _connecting) return;
-    final intent = WorkspaceQueryIntent.parse(text);
     setState(() {
       _saraWorkspaceChat.add({'role': 'user', 'text': text});
       _saraChatInput.clear();
     });
     if (!_workspace.isConnected) {
       setState(() => _saraWorkspaceChat.add({'role': 'assistant', 'text': 'Conecta Google Workspace primero. Solo consultaré en modo de lectura.'}));
-    } else if (intent == null) {
-      setState(() => _saraWorkspaceChat.add({'role': 'assistant', 'text': 'Puedo consultar Gmail, tu agenda de los próximos 7 días y buscar archivos en Drive. Prueba: “Busca en Gmail recibos de Liberty” o “¿Qué tengo en Calendar esta semana?”'}));
-    } else {
-      setState(() => _connecting = true);
-      try {
-        final rows = switch (intent.service) {
-          WorkspaceQueryService.gmail => await _workspace.searchEmails(intent.query),
-          WorkspaceQueryService.calendar => await _workspace.upcomingEvents(),
-          WorkspaceQueryService.drive => await _workspace.searchDrive(intent.query),
-        };
-        if (!mounted) return;
-        setState(() => _saraWorkspaceChat.add({'role': 'assistant', 'text': formatWorkspaceAnswer(intent.service, rows)}));
-      } catch (_) {
-        if (!mounted) return;
-        setState(() => _saraWorkspaceChat.add({'role': 'assistant', 'text': 'No pude consultar Google Workspace. Revisa tu conexión y vuelve a intentarlo.'}));
-      } finally {
-        if (mounted) setState(() => _connecting = false);
-      }
+      return;
+    }
+    setState(() => _connecting = true);
+    try {
+      final answer = await _workspace.askSara(text);
+      if (!mounted) return;
+      setState(() => _saraWorkspaceChat.add({'role': 'assistant', 'text': answer}));
+    } catch (error) {
+      if (!mounted) return;
+      final message = error.toString();
+      final friendly = message.contains('Inicia sesión')
+          ? 'Inicia sesión en OmniStudio y vuelve a preguntar.'
+          : message.contains('(401)') || message.contains('(403)')
+              ? 'La autorización no es válida o caducó. Desconecta y vuelve a conectar Google Workspace.'
+              : 'No pude interpretar la consulta o consultar Google Workspace. Revisa la conexión e inténtalo de nuevo.';
+      setState(() => _saraWorkspaceChat.add({'role': 'assistant', 'text': friendly}));
+    } finally {
+      if (mounted) setState(() => _connecting = false);
     }
     if (mounted && _saraChatScroll.hasClients) {
       await _saraChatScroll.animateTo(_saraChatScroll.position.maxScrollExtent, duration: const Duration(milliseconds: 180), curve: Curves.easeOut);
@@ -152,7 +150,7 @@ class _AIScreenState extends State<AIScreen> {
           children: [
             const Text('Compositor de prompts', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            const Text('Elige una plantilla y edítala. Esta pantalla prepara el texto; todavía no genera respuestas con IA.'),
+            const Text('Elige una plantilla para preparar un prompt o pregunta a Sara en lenguaje natural sobre Google Workspace.'),
             const SizedBox(height: 18),
             Card(
               key: const Key('google-workspace-card'),
@@ -191,13 +189,13 @@ class _AIScreenState extends State<AIScreen> {
                   const SizedBox(height: 8),
                   SizedBox(height: 230, child: ListView(controller: _saraChatScroll, children: [
                     if (_saraWorkspaceChat.isEmpty)
-                      const Text('Haz preguntas sobre Gmail, tu agenda de la próxima semana o archivos de Drive. Solo se consultan datos; no se envía ni modifica nada.'),
+                      const Text('Haz cualquier pregunta en lenguaje natural sobre Gmail, Calendar o Drive. Sara interpretará tu pregunta con IA y consultará solo los datos autorizados, sin enviar ni modificarlos.'),
                     for (final entry in _saraWorkspaceChat)
                       Align(alignment: entry['role'] == 'user' ? Alignment.centerRight : Alignment.centerLeft,
                         child: Container(margin: const EdgeInsets.symmetric(vertical: 4), padding: const EdgeInsets.all(10), constraints: const BoxConstraints(maxWidth: 440), decoration: BoxDecoration(color: entry['role'] == 'user' ? Theme.of(context).colorScheme.primaryContainer : Theme.of(context).colorScheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(12)), child: SelectableText(entry['text'] ?? ''))),
                   ])),
                   const SizedBox(height: 8),
-                  Row(children: [Expanded(child: TextField(key: const Key('sara-workspace-chat-input'), controller: _saraChatInput, minLines: 1, maxLines: 3, onSubmitted: (_) => _sendWorkspaceQuestion(), decoration: const InputDecoration(hintText: 'Pregunta sobre Gmail, Calendar o Drive', border: OutlineInputBorder()))), const SizedBox(width: 8), IconButton.filled(key: const Key('sara-workspace-chat-send'), onPressed: _connecting ? null : _sendWorkspaceQuestion, tooltip: 'Preguntar a Sara', icon: _connecting ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.send))]),
+                  Row(children: [Expanded(child: TextField(key: const Key('sara-workspace-chat-input'), controller: _saraChatInput, minLines: 1, maxLines: 3, onSubmitted: (_) => _sendWorkspaceQuestion(), decoration: const InputDecoration(hintText: 'Pregunta lo que quieras sobre Gmail, Calendar o Drive', border: OutlineInputBorder()))), const SizedBox(width: 8), IconButton.filled(key: const Key('sara-workspace-chat-send'), onPressed: _connecting ? null : _sendWorkspaceQuestion, tooltip: 'Preguntar a Sara', icon: _connecting ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.send))]),
                 ]),
               ),
             ),
