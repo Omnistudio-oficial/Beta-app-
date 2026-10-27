@@ -109,9 +109,6 @@ void main() {
     expect(matches.map((span) => span.text), ['Blu', 'blu']);
   });
 
-  const channelOne = ChatChannel(id: 'room-a', name: 'Room A', memberEmails: ['ALICE@example.com']);
-  const channelTwo = ChatChannel(id: 'room-b', name: 'Room B', memberEmails: ['bob@example.com']);
-
   test('filters channel membership using generic UID and normalized email', () {
     final result = filterChannelsForIdentity([channelOne, channelTwo], uid: 'uid-alice', email: 'alice@EXAMPLE.com');
     expect(result.map((channel) => channel.id), ['room-a']);
