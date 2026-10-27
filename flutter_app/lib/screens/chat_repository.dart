@@ -145,8 +145,10 @@ class FirebaseChatRepository implements ChatRepository {
     if (messageId.isEmpty) throw ArgumentError('No se encontró el mensaje.');
     final ref = _database.ref('chats/$channelId/messages/$messageId/reactions');
     await ref.runTransaction((mutableData) {
-      final current = mutableData.value is String ? mutableData.value as String : '';
-      mutableData.value = toggleChatReaction(current, emoji);
+      if (mutableData == null) return Transaction.abort();
+      final data = mutableData;
+      final current = data.value is String ? data.value as String : '';
+      data.value = toggleChatReaction(current, emoji);
       return Transaction.success(mutableData);
     });
   }
