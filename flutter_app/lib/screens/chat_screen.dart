@@ -351,8 +351,6 @@ String? formatChatMessageTimestamp(
     return '$date · $time';
   } on ArgumentError {
     return null;
-  } on RangeError {
-    return null;
   }
 }
 
