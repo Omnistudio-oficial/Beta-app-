@@ -31,6 +31,7 @@ export const SUPPORTED_MEDIA: Readonly<Record<string, SupportedMedia>> = {
   "audio/mp4": { extension: "m4a", category: "audio" },
   "audio/aac": { extension: "aac", category: "audio" },
   "audio/ogg": { extension: "ogg", category: "audio" },
+  "audio/mp4": { extension: "m4a", category: "audio" },
   "audio/flac": { extension: "flac", category: "audio" },
   "audio/opus": { extension: "opus", category: "audio" },
   "application/pdf": { extension: "pdf", category: "document" },
