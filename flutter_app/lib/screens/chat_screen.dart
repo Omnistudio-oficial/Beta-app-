@@ -207,6 +207,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         if (!mine) HighlightedChatText(message.senderName, query: query, style: Theme.of(context).textTheme.labelSmall),
                         HighlightedChatText(message.text, query: query),
                         _MessageTimestamp(timestamp: message.timestamp, messageId: message.id),
+                        _ChatReactions(message: message, onToggle: (emoji) => _toggleReaction(user, channel, message, emoji)),
                         if (message.mediaUrl != null && message.mediaUrl!.isNotEmpty) ...[
                           const SizedBox(height: 8),
                           if (message.mediaType == 'audio')
@@ -333,6 +334,14 @@ class _ChatScreenState extends State<ChatScreen> {
       );
     } catch (error) {
       if (mounted) messenger.showSnackBar(SnackBar(content: Text('No se pudo abrir el archivo: $error')));
+    }
+  }
+
+  Future<void> _toggleReaction(ChatIdentity user, ChatChannel channel, ChatMessage message, String emoji) async {
+    try {
+      await _repository.toggleReaction(uid: user.uid, channelId: channel.id, messageId: message.id, emoji: emoji);
+    } catch (error) {
+      if (mounted) setState(() => _sendError = 'No se pudo guardar la reacción: $error');
     }
   }
 
@@ -489,5 +498,25 @@ class _DocumentAttachment extends StatelessWidget {
       icon: const Icon(Icons.open_in_new),
       label: Text('$name · abrir o compartir'),
     );
+  }
+}
+
+
+class _ChatReactions extends StatelessWidget {
+  const _ChatReactions({required this.message, required this.onToggle});
+  final ChatMessage message;
+  final ValueChanged<String> onToggle;
+  static const quick = ['👍', '❤️', '😂'];
+
+  @override
+  Widget build(BuildContext context) {
+    final counts = countChatReactions(message.reactions);
+    return Wrap(spacing: 4, runSpacing: 2, children: [
+      for (final entry in counts.entries)
+        ActionChip(key: ValueKey('chat-reaction-${message.id}-${entry.key}'), label: Text('${entry.key} ${entry.value}'), onPressed: () => onToggle(entry.key), visualDensity: VisualDensity.compact),
+      for (final emoji in quick.where((emoji) => !counts.containsKey(emoji)))
+        InkWell(key: ValueKey('chat-add-reaction-${message.id}-$emoji'), onTap: () => onToggle(emoji), borderRadius: BorderRadius.circular(16), child: Padding(padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2), child: Text(emoji, style: const TextStyle(fontSize: 16)))),
+      PopupMenuButton<String>(key: ValueKey('chat-more-reactions-${message.id}'), tooltip: 'Más reacciones', onSelected: onToggle, itemBuilder: (_) => const ['🎉', '🔥', '😮', '😢', '🙏', '👏', '🚀', '✨'].map((emoji) => PopupMenuItem(value: emoji, child: Text(emoji))).toList(), child: const Padding(padding: EdgeInsets.all(4), child: Icon(Icons.add_reaction_outlined, size: 18))),
+    ]);
   }
 }
