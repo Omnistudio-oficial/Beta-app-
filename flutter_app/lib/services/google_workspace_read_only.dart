@@ -53,7 +53,19 @@ class GoogleWorkspaceReadOnlyService {
         'format': 'metadata',
         'metadataHeaders': 'From,Subject,Date',
       }));
-      return message;
+      final payload = message['payload'] as Map<String, dynamic>? ?? const {};
+      final headers = (payload['headers'] as List<dynamic>? ?? const []).cast<Map<String, dynamic>>();
+      final normalized = <String, String>{
+        for (final header in headers)
+          (header['name'] as String? ?? '').toLowerCase(): (header['value'] as String? ?? ''),
+      };
+      return <String, dynamic>{
+        'id': message['id'],
+        'snippet': message['snippet'] ?? '',
+        'from': normalized['from'] ?? '',
+        'subject': normalized['subject'] ?? '(sin asunto)',
+        'date': normalized['date'] ?? '',
+      };
     }));
   }
 
