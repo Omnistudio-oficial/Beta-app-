@@ -92,7 +92,25 @@ def main() -> None:
     )
     if matches < 1:
         raise SystemExit("Could not set the generated iOS bundle identifier")
+    # ML Kit translation and language identification require iOS 15.5+.
+    project, target_count = re.subn(
+        r"(IPHONEOS_DEPLOYMENT_TARGET\s*=\s*)[0-9.]+;",
+        r"\g<1>15.5;",
+        project,
+    )
+    if target_count < 1:
+        raise SystemExit("Could not set the generated iOS deployment target to 15.5")
     project_file.write_text(project, encoding="utf-8")
+
+    podfile = scaffold / "ios/Podfile"
+    if not podfile.is_file():
+        raise SystemExit("Generated iOS Podfile is missing")
+    podfile_text = podfile.read_text(encoding="utf-8")
+    platform_pattern = r"(?m)^\s*#?\s*platform\s*:ios\s*,\s*['\"][^'\"]+['\"]\s*$"
+    podfile_text, platform_count = re.subn(platform_pattern, "platform :ios, '15.5'", podfile_text, count=1)
+    if platform_count == 0:
+        podfile_text = "platform :ios, '15.5'\n" + podfile_text
+    podfile.write_text(podfile_text, encoding="utf-8")
 
     with info_plist.open("rb") as stream:
         app_info = plistlib.load(stream)
