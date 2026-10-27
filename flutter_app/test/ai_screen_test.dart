@@ -6,10 +6,12 @@ void main() {
   testWidgets('selects template, edits it and prepares prompt', (tester) async {
     await tester.pumpWidget(const MaterialApp(home: AIScreen()));
 
-    await tester.scrollUntilVisible(find.text('Resumir un texto'), 250);
+    await tester.ensureVisible(find.text('Resumir un texto'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Resumir un texto'));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.byKey(const Key('prompt-editor')), 200);
+    await tester.ensureVisible(find.byKey(const Key('prompt-editor')));
+    await tester.pumpAndSettle();
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('prompt-editor')), findsOneWidget);
 
@@ -32,10 +34,12 @@ void main() {
 
   testWidgets('does not enable prepare button for a blank prompt', (tester) async {
     await tester.pumpWidget(const MaterialApp(home: AIScreen()));
-    await tester.scrollUntilVisible(find.text('Crear notas de producto'), 250);
+    await tester.ensureVisible(find.text('Crear notas de producto').first);
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Crear notas de producto'));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.byKey(const Key('prompt-editor')), 200);
+    await tester.ensureVisible(find.byKey(const Key('prompt-editor')));
+    await tester.pumpAndSettle();
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('prompt-editor')), '  ');
     await tester.pump();
@@ -44,14 +48,20 @@ void main() {
   });
   testWidgets('shows read-only Google Workspace connection in Sara', (tester) async {
     await tester.pumpWidget(const MaterialApp(home: AIScreen()));
+    await tester.ensureVisible(find.byKey(const Key('google-workspace-card')));
+    await tester.pumpAndSettle();
     expect(find.byKey(const Key('google-workspace-card')), findsOneWidget);
-    expect(find.textContaining('solo lectura'), findsOneWidget);
+    expect(find.text('Conexión de solo lectura para Gmail, Calendar y Drive. Sara no enviará, editará ni borrará datos.'), findsOneWidget);
     expect(find.byKey(const Key('google-workspace-connect')), findsOneWidget);
   });
 
   testWidgets('Sara requests Google connection only when Workspace context is enabled', (tester) async {
     await tester.pumpWidget(const MaterialApp(home: AIScreen()));
+    await tester.ensureVisible(find.byKey(const Key('sara-workspace-context')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('sara-workspace-context')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('sara-workspace-chat-input')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('sara-workspace-chat-input')), 'Busca correos en Gmail');
     await tester.tap(find.byKey(const Key('sara-workspace-chat-send')));
