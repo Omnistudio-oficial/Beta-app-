@@ -20,6 +20,8 @@ class _AIScreenState extends State<AIScreen> {
   final TextEditingController _workspaceQuery = TextEditingController();
   final TextEditingController _saraChatInput = TextEditingController();
   final List<Map<String, String>> _saraWorkspaceChat = [];
+  final List<Map<String, String>> _saraGeneralChat = [];
+  bool _useWorkspaceContext = false;
   final ScrollController _saraChatScroll = ScrollController();
 
   static const _templates = <_PromptTemplate>[
@@ -97,31 +99,31 @@ class _AIScreenState extends State<AIScreen> {
     }
   }
 
-  Future<void> _sendWorkspaceQuestion() async {
+  Future<void> _sendSaraMessage() async {
     final text = _saraChatInput.text.trim();
     if (text.isEmpty || _connecting) return;
-    setState(() {
-      _saraWorkspaceChat.add({'role': 'user', 'text': text});
-      _saraChatInput.clear();
-    });
-    if (!_workspace.isConnected) {
-      setState(() => _saraWorkspaceChat.add({'role': 'assistant', 'text': 'Conecta Google Workspace primero. Solo consultaré en modo de lectura.'}));
+    if (_useWorkspaceContext && !_workspace.isConnected) {
+      setState(() => _saraGeneralChat.add({'role': 'assistant', 'text': 'Conecta Google Workspace primero para hacer preguntas sobre tus datos. Puedes conversar normalmente con Sara desactivando el contexto de Google.'}));
       return;
     }
-    setState(() => _connecting = true);
+    setState(() {
+      _saraGeneralChat.add({'role': 'user', 'text': text});
+      _saraChatInput.clear();
+      _connecting = true;
+    });
     try {
-      final answer = await _workspace.askSara(text);
+      final answer = _useWorkspaceContext
+          ? await _workspace.askSara(text)
+          : await _workspace.chatWithSara(text);
       if (!mounted) return;
-      setState(() => _saraWorkspaceChat.add({'role': 'assistant', 'text': answer}));
+      setState(() => _saraGeneralChat.add({'role': 'assistant', 'text': answer}));
     } catch (error) {
       if (!mounted) return;
       final message = error.toString();
       final friendly = message.contains('Inicia sesión')
           ? 'Inicia sesión en OmniStudio y vuelve a preguntar.'
-          : message.contains('(401)') || message.contains('(403)')
-              ? 'La autorización no es válida o caducó. Desconecta y vuelve a conectar Google Workspace.'
-              : 'No pude interpretar la consulta o consultar Google Workspace. Revisa la conexión e inténtalo de nuevo.';
-      setState(() => _saraWorkspaceChat.add({'role': 'assistant', 'text': friendly}));
+          : 'No pude conectar con Sara. Revisa tu conexión e inténtalo de nuevo.';
+      setState(() => _saraGeneralChat.add({'role': 'assistant', 'text': friendly}));
     } finally {
       if (mounted) setState(() => _connecting = false);
     }
@@ -181,21 +183,23 @@ class _AIScreenState extends State<AIScreen> {
             ),
             const SizedBox(height: 18),
             Card(
-              key: const Key('sara-workspace-chat'),
+              key: const Key('sara-chat'),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('Pregunta a Sara', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                  const Text('Conversar con Sara', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 8),
                   SizedBox(height: 230, child: ListView(controller: _saraChatScroll, children: [
-                    if (_saraWorkspaceChat.isEmpty)
-                      const Text('Haz cualquier pregunta en lenguaje natural sobre Gmail, Calendar o Drive. Sara interpretará tu pregunta con IA y consultará solo los datos autorizados, sin enviar ni modificarlos.'),
-                    for (final entry in _saraWorkspaceChat)
+                    if (_saraGeneralChat.isEmpty)
+                      const Text('Conversa con Sara sobre cualquier tema. Si activas el contexto de Google, podrá interpretar preguntas y consultar tus datos autorizados en modo de solo lectura.'),
+                    for (final entry in _saraGeneralChat)
                       Align(alignment: entry['role'] == 'user' ? Alignment.centerRight : Alignment.centerLeft,
                         child: Container(margin: const EdgeInsets.symmetric(vertical: 4), padding: const EdgeInsets.all(10), constraints: const BoxConstraints(maxWidth: 440), decoration: BoxDecoration(color: entry['role'] == 'user' ? Theme.of(context).colorScheme.primaryContainer : Theme.of(context).colorScheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(12)), child: SelectableText(entry['text'] ?? ''))),
                   ])),
+                  const SizedBox(height: 4),
+                  SwitchListTile(key: const Key('sara-workspace-context'), contentPadding: EdgeInsets.zero, title: const Text('Usar contexto de Google Workspace'), subtitle: const Text('Solo lectura · requiere conectar Google'), value: _useWorkspaceContext, onChanged: _connecting ? null : (value) => setState(() => _useWorkspaceContext = value)),
                   const SizedBox(height: 8),
-                  Row(children: [Expanded(child: TextField(key: const Key('sara-workspace-chat-input'), controller: _saraChatInput, minLines: 1, maxLines: 3, onSubmitted: (_) => _sendWorkspaceQuestion(), decoration: const InputDecoration(hintText: 'Pregunta lo que quieras sobre Gmail, Calendar o Drive', border: OutlineInputBorder()))), const SizedBox(width: 8), IconButton.filled(key: const Key('sara-workspace-chat-send'), onPressed: _connecting ? null : _sendWorkspaceQuestion, tooltip: 'Preguntar a Sara', icon: _connecting ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.send))]),
+                  Row(children: [Expanded(child: TextField(key: const Key('sara-workspace-chat-input'), controller: _saraChatInput, minLines: 1, maxLines: 3, onSubmitted: (_) => _sendSaraMessage(), decoration: const InputDecoration(hintText: 'Escribe un mensaje para Sara', border: OutlineInputBorder()))), const SizedBox(width: 8), IconButton.filled(key: const Key('sara-workspace-chat-send'), onPressed: _connecting ? null : _sendSaraMessage, tooltip: 'Preguntar a Sara', icon: _connecting ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.send))]),
                 ]),
               ),
             ),
