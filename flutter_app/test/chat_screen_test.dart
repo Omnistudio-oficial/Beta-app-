@@ -23,7 +23,14 @@ class FakeChatRepository implements ChatRepository {
   @override
   Stream<List<ChatChannel>> watchChannels({required String uid, required String email}) {
     if (channelError case final error?) return Stream<List<ChatChannel>>.error(error);
-    return channels.stream.map((value) => filterChannelsForIdentity(value, uid: uid, email: email));
+    return Stream<List<ChatChannel>>.multi((controller) {
+      controller.add(filterChannelsForIdentity(latestChannels, uid: uid, email: email));
+      final subscription = channels.stream.listen((value) {
+        latestChannels = value;
+        controller.add(filterChannelsForIdentity(value, uid: uid, email: email));
+      });
+      controller.onCancel = subscription.cancel;
+    });
   }
 
   @override
@@ -317,10 +324,11 @@ void main() {
       await tester.pump();
 
       await tester.tap(find.byKey(const ValueKey('chat-message-menu-copy-target')));
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 300));
       await tester.tap(find.text('Copiar mensaje'));
-      await tester.pumpAndSettle();
-      await Future<void>.delayed(Duration.zero);
+      await tester.pump();
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+      await tester.pump();
 
       expect(copiedText, '  Keep this exact text  ');
       expect(find.text('Mensaje copiado'), findsOneWidget);
