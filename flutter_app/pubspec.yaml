@@ -29,6 +29,8 @@ dependencies:
   maplibre_gl: ^0.20.0
   flutter_tts: ^4.2.3
   google_sign_in: ^7.2.0
+  record: ^6.2.1
+  audioplayers: ^6.4.0
 
   # Keep these until feature migration is complete
   shared_preferences: ^2.2.3
