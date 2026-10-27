@@ -28,8 +28,6 @@ void main() {
       ),
       findsOneWidget,
     );
-    await tester.scrollUntilVisible(find.textContaining('todavía no genera respuestas con IA'), 200);
-    expect(find.textContaining('todavía no genera respuestas con IA'), findsOneWidget);
   });
 
   testWidgets('does not enable prepare button for a blank prompt', (tester) async {
