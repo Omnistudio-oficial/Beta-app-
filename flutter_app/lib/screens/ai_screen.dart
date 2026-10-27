@@ -137,7 +137,7 @@ class _AIScreenState extends State<AIScreen> {
                   ],
                   if (_workspaceStatus != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_workspaceStatus!)),
                   for (final row in _workspaceResults.take(5))
-                    ListTile(dense: true, contentPadding: EdgeInsets.zero, title: Text((row['name'] ?? row['snippet'] ?? row['summary'] ?? row['id'] ?? 'Resultado').toString(), maxLines: 2, overflow: TextOverflow.ellipsis), subtitle: Text((row['mimeType'] ?? row['start']?['dateTime'] ?? row['internalDate'] ?? '').toString())),
+                    ListTile(dense: true, contentPadding: EdgeInsets.zero, title: Text((row['subject'] ?? row['name'] ?? row['summary'] ?? row['snippet'] ?? row['id'] ?? 'Resultado').toString(), maxLines: 2, overflow: TextOverflow.ellipsis), subtitle: Text((row['from'] ?? row['mimeType'] ?? row['start']?['dateTime'] ?? row['date'] ?? '').toString(), maxLines: 1, overflow: TextOverflow.ellipsis)),
                 ]),
               ),
             ),
