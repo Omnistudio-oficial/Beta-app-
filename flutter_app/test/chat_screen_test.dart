@@ -81,6 +81,13 @@ void main() {
     await tester.pump();
   }
 
+  Future<void> openRoom(WidgetTester tester, FakeChatRepository repo, String roomName) async {
+    await tester.tap(find.text(roomName));
+    await tester.pump();
+    repo.messages.add(const []);
+    await tester.pumpAndSettle();
+  }
+
   testWidgets('displays localized message date and time but hides zero or invalid timestamps', (tester) async {
     final repo = FakeChatRepository();
     try {
@@ -223,22 +230,19 @@ void main() {
     drafts.values['alice-uid::room-b'] = 'draft for room B';
     try {
       await openScreen(repo, drafts, tester);
-      await tester.tap(find.text('Room A'));
-      await tester.pumpAndSettle();
+      await openRoom(tester, repo, 'Room A');
       expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, 'draft for room A');
       await tester.enterText(find.byType(TextField), 'edited draft for room A');
       await tester.pumpAndSettle();
 
       await tester.tap(find.byTooltip('Volver'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Room B'));
-      await tester.pumpAndSettle();
+      await openRoom(tester, repo, 'Room B');
       expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, 'draft for room B');
 
       await tester.tap(find.byTooltip('Volver'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Room A'));
-      await tester.pumpAndSettle();
+      await openRoom(tester, repo, 'Room A');
       expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, 'edited draft for room A');
 
       repo.sendError = StateError('offline');
