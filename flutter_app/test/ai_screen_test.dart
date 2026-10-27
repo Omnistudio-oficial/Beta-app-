@@ -48,4 +48,12 @@ void main() {
     expect(find.textContaining('solo lectura'), findsOneWidget);
     expect(find.byKey(const Key('google-workspace-connect')), findsOneWidget);
   });
+
+  testWidgets('Sara explains workspace is disconnected before making a query', (tester) async {
+    await tester.pumpWidget(const MaterialApp(home: AIScreen()));
+    await tester.enterText(find.byKey(const Key('sara-workspace-chat-input')), 'Busca correos en Gmail');
+    await tester.tap(find.byKey(const Key('sara-workspace-chat-send')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Conecta Google Workspace primero'), findsOneWidget);
+  });
 }
