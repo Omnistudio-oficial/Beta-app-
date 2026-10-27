@@ -178,7 +178,9 @@ void main() {
 
         print('[chat_screen_test] opening channel and emitting message');
         await tester.tap(find.text('Room A'));
-        await tester.pumpAndSettle();
+        await tester.pump();
+        repo.messages.add(const []);
+        await tester.pump();
         repo.messages.add(const [ChatMessage(id: 'message-1', senderName: 'Bob', senderEmail: 'bob@example.com', text: 'Hi there', timestamp: 1)]);
         await tester.pump();
         expect(find.text('Hi there'), findsOneWidget);
@@ -315,7 +317,7 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey('chat-message-menu-copy-target')));
       await tester.pump();
-      await tester.tap(find.text('Copiar mensaje'));
+      await tester.tap(find.text('Copiar mensaje'), warnIfMissed: false);
       await tester.pump();
 
       expect(copiedText, '  Keep this exact text  ');
