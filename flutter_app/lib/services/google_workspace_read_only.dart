@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 
 /// User-initiated, read-only access to Gmail, Calendar, and Drive.
@@ -36,6 +37,46 @@ class GoogleWorkspaceReadOnlyService {
     _accessToken = null;
     _email = null;
     await GoogleSignIn.instance.disconnect();
+  }
+
+  /// Sends the user's natural-language question and the in-memory Google OAuth
+  /// token to Sara's existing Groq Workspace backend. The backend handles
+  /// interpretation and read-only connector calls; no Google token is persisted.
+  Future<String> askSara(String question, {String? firebaseIdToken}) async {
+    final googleToken = _accessToken;
+    if (googleToken == null) throw StateError('Conecta Google Workspace primero.');
+    final user = FirebaseAuth.instance.currentUser;
+    final idToken = firebaseIdToken ?? await user?.getIdToken();
+    if (idToken == null || idToken.isEmpty) {
+      throw StateError('Inicia sesión en OmniStudio para consultar a Sara.');
+    }
+    final response = await _client.post(
+      Uri.https('rasaserveria.onrender.com', '/api/rasa/groq/workspace'),
+      headers: {
+        'Authorization': 'Bearer $idToken',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'text': question.trim(),
+        'connectors': {
+          'gmail': googleToken,
+          'calendar': googleToken,
+          'drive': googleToken,
+        },
+      }),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw StateError('Sara no pudo consultar Workspace (${response.statusCode}).');
+    }
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map<String, dynamic>) {
+      throw const FormatException('Respuesta inesperada de Sara.');
+    }
+    final answer = decoded['text'];
+    if (answer is! String || answer.trim().isEmpty) {
+      throw StateError('Sara no recibió una respuesta utilizable.');
+    }
+    return answer.trim();
   }
 
   Future<List<Map<String, dynamic>>> searchEmails(String query) async {
