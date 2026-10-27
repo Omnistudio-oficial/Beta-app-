@@ -8,6 +8,7 @@ import 'package:beta_app/screens/chat_media_actions.dart';
 import 'package:beta_app/screens/chat_video_player.dart';
 import 'package:beta_app/screens/chat_voice_note.dart';
 import 'package:beta_app/screens/chat_translation.dart';
+import 'package:beta_app/screens/chat_group_dialogs.dart';
 
 import 'chat_attachment.dart';
 import 'chat_drafts.dart';
@@ -76,6 +77,23 @@ class _ChatScreenState extends State<ChatScreen> {
         : _repository.watchChannels(uid: user.uid, email: user.email);
   }
 
+  Future<void> _createGroup(ChatIdentity user) async {
+    await showDialog<bool>(context: context, builder: (_) => CreateChatGroupDialog(onCreate: (name, description, members) => _repository.createGroup(uid: user.uid, email: user.email, name: name, description: description, memberEmails: members)));
+    if (mounted) _retryChannels();
+  }
+
+  Future<void> _manageGroup(ChatIdentity user, ChatChannel channel) async {
+    final leftGroup = await showDialog<bool>(context: context, builder: (_) => ManageChatGroupDialog(channel: channel, uid: user.uid, email: user.email, repository: _repository, onLeave: () => _repository.leaveGroup(uid: user.uid, channelId: channel.id)));
+    if (!mounted || leftGroup != true) return;
+    setState(() {
+      _channel = null;
+      _messages = null;
+      _draftReady = false;
+      _controller.clear();
+      _channels = _repository.watchChannels(uid: user.uid, email: user.email);
+    });
+  }
+
   void _retryChannels() {
     final user = _user;
     if (user == null) return;
@@ -98,7 +116,7 @@ class _ChatScreenState extends State<ChatScreen> {
     }
     if (_channel != null) return _buildConversation(user);
     return Scaffold(
-      appBar: AppBar(title: const Text('Chat')),
+      appBar: AppBar(title: const Text('Chat'), actions: [IconButton(key: const ValueKey('chat-create-group'), tooltip: 'Crear grupo', onPressed: () => _createGroup(user), icon: const Icon(Icons.group_add))]),
       body: Column(children: [
         const _AccessNotice(),
         Expanded(
@@ -162,6 +180,7 @@ class _ChatScreenState extends State<ChatScreen> {
           }),
         ),
         actions: [
+          if (!_searching && channel.isGroup) IconButton(key: const ValueKey('chat-manage-group'), tooltip: 'Administrar grupo', onPressed: () => _manageGroup(user, channel), icon: const Icon(Icons.group)),
           if (_searching && _searchController.text.isNotEmpty)
             IconButton(
               key: const ValueKey('chat-search-clear'),
