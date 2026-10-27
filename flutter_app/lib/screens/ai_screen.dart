@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:beta_app/services/google_workspace_read_only.dart';
 
 class AIScreen extends StatefulWidget {
   const AIScreen({super.key});
@@ -12,6 +13,11 @@ class _AIScreenState extends State<AIScreen> {
   final TextEditingController _controller = TextEditingController();
   String? _selectedPrompt;
   String? _readyPrompt;
+  final GoogleWorkspaceReadOnlyService _workspace = GoogleWorkspaceReadOnlyService();
+  bool _connecting = false;
+  String? _workspaceStatus;
+  List<Map<String, dynamic>> _workspaceResults = const [];
+  final TextEditingController _workspaceQuery = TextEditingController();
 
   static const _templates = <_PromptTemplate>[
     _PromptTemplate(
@@ -34,6 +40,7 @@ class _AIScreenState extends State<AIScreen> {
   @override
   void dispose() {
     _controller.dispose();
+    _workspaceQuery.dispose();
     super.dispose();
   }
 
@@ -44,6 +51,45 @@ class _AIScreenState extends State<AIScreen> {
       _controller.text = template.prompt;
       _controller.selection = TextSelection.collapsed(offset: _controller.text.length);
     });
+  }
+
+  Future<void> _connectWorkspace() async {
+    setState(() { _connecting = true; _workspaceStatus = null; });
+    try {
+      await _workspace.connect();
+      if (!mounted) return;
+      setState(() => _workspaceStatus = 'Conectado: ${_workspace.connectedEmail ?? 'cuenta Google'}');
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _workspaceStatus = 'No se pudo conectar. Revisa el permiso de Google e inténtalo de nuevo.');
+    } finally {
+      if (mounted) setState(() => _connecting = false);
+    }
+  }
+
+  Future<void> _disconnectWorkspace() async {
+    await _workspace.disconnect();
+    if (!mounted) return;
+    setState(() { _workspaceStatus = 'Desconectado'; _workspaceResults = const []; });
+  }
+
+  Future<void> _runWorkspaceQuery(String service) async {
+    setState(() { _connecting = true; _workspaceStatus = null; });
+    try {
+      final query = _workspaceQuery.text.trim();
+      final rows = switch (service) {
+        'Gmail' => await _workspace.searchEmails(query),
+        'Calendar' => await _workspace.upcomingEvents(),
+        _ => await _workspace.searchDrive(query),
+      };
+      if (!mounted) return;
+      setState(() { _workspaceResults = rows; _workspaceStatus = '$service: ${rows.length} resultado(s)'; });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _workspaceStatus = 'No se pudo consultar $service. Vuelve a conectar y prueba de nuevo.');
+    } finally {
+      if (mounted) setState(() => _connecting = false);
+    }
   }
 
   Future<void> _copyPrompt() async {
@@ -67,6 +113,34 @@ class _AIScreenState extends State<AIScreen> {
             const Text('Compositor de prompts', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             const Text('Elige una plantilla y edítala. Esta pantalla prepara el texto; todavía no genera respuestas con IA.'),
+            const SizedBox(height: 18),
+            Card(
+              key: const Key('google-workspace-card'),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('Google Workspace', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 6),
+                  const Text('Conexión de solo lectura para Gmail, Calendar y Drive. Sara no enviará, editará ni borrará datos.'),
+                  const SizedBox(height: 10),
+                  if (!_workspace.isConnected)
+                    FilledButton.icon(key: const Key('google-workspace-connect'), onPressed: _connecting ? null : _connectWorkspace, icon: const Icon(Icons.link), label: Text(_connecting ? 'Conectando…' : 'Conectar Google'))
+                  else ...[
+                    Text(_workspaceStatus ?? 'Conectado: ${_workspace.connectedEmail ?? 'cuenta Google'}'),
+                    TextField(key: const Key('workspace-query'), controller: _workspaceQuery, decoration: const InputDecoration(labelText: 'Buscar en Gmail o Drive')),
+                    Wrap(spacing: 8, children: [
+                      OutlinedButton(key: const Key('workspace-gmail'), onPressed: _connecting ? null : () => _runWorkspaceQuery('Gmail'), child: const Text('Gmail')),
+                      OutlinedButton(key: const Key('workspace-calendar'), onPressed: _connecting ? null : () => _runWorkspaceQuery('Calendar'), child: const Text('Calendar')),
+                      OutlinedButton(key: const Key('workspace-drive'), onPressed: _connecting ? null : () => _runWorkspaceQuery('Drive'), child: const Text('Drive')),
+                      TextButton(key: const Key('google-workspace-disconnect'), onPressed: _connecting ? null : _disconnectWorkspace, child: const Text('Desconectar')),
+                    ]),
+                  ],
+                  if (_workspaceStatus != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_workspaceStatus!)),
+                  for (final row in _workspaceResults.take(5))
+                    ListTile(dense: true, contentPadding: EdgeInsets.zero, title: Text((row['name'] ?? row['snippet'] ?? row['summary'] ?? row['id'] ?? 'Resultado').toString(), maxLines: 2, overflow: TextOverflow.ellipsis), subtitle: Text((row['mimeType'] ?? row['start']?['dateTime'] ?? row['internalDate'] ?? '').toString())),
+                ]),
+              ),
+            ),
             const SizedBox(height: 18),
             const Text('Plantillas', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
