@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:beta_app/screens/chat_media_actions.dart';
 import 'package:beta_app/screens/chat_video_player.dart';
 import 'package:beta_app/screens/chat_voice_note.dart';
+import 'package:beta_app/screens/chat_translation.dart';
 
 import 'chat_attachment.dart';
 import 'chat_drafts.dart';
@@ -50,6 +51,12 @@ class _ChatScreenState extends State<ChatScreen> {
   String? _sendError;
   ChatAttachment? _pendingAttachment;
   VoiceNoteFile? _pendingVoiceNote;
+  final ChatTranslationService _translation = MlKitChatTranslationService();
+  final Map<String, String> _translatedMessages = {};
+  final Map<String, String> _translationSources = {};
+  final Set<String> _translatingMessageIds = {};
+  String _targetLanguage = 'es';
+  bool _autoTranslate = false;
   late final ChatAttachmentPicker _attachmentPicker;
   late final ChatMediaActions _mediaActions;
   late final ChatDraftStorage _draftStorage = widget.draftStorage ?? SharedPreferencesChatDraftStorage();
@@ -79,6 +86,7 @@ class _ChatScreenState extends State<ChatScreen> {
   void dispose() {
     _controller.dispose();
     _searchController.dispose();
+    _translation.close();
     super.dispose();
   }
 
@@ -176,6 +184,11 @@ class _ChatScreenState extends State<ChatScreen> {
       body: Column(children: [
         const _AccessNotice(),
         const MaterialBanner(content: Text('Los adjuntos usan almacenamiento público: cualquier persona con el enlace puede verlos. No envíes archivos sensibles.'), leading: Icon(Icons.public, color: Colors.deepOrange), actions: [SizedBox.shrink()]),
+        Padding(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2), child: Row(children: [
+          const Icon(Icons.translate, size: 18), const SizedBox(width: 6), const Text('Traducir a'), const SizedBox(width: 8),
+          DropdownButton<String>(key: const ValueKey('chat-translation-target'), value: _targetLanguage, items: ChatTranslationLanguages.items.map((language) => DropdownMenuItem(value: language.code, child: Text(language.name))).toList(), onChanged: (value) { if (value != null) setState(() => _targetLanguage = value); }),
+          const Spacer(), const Text('Auto'), Switch(key: const ValueKey('chat-auto-translate'), value: _autoTranslate, onChanged: (value) => setState(() => _autoTranslate = value)),
+        ])),
         Expanded(
           child: StreamBuilder<List<ChatMessage>>(
             stream: _messages,
@@ -199,15 +212,19 @@ class _ChatScreenState extends State<ChatScreen> {
                 itemBuilder: (context, index) {
                   final message = visibleMessages[index];
                   final mine = message.senderEmail.trim().toLowerCase() == user.email.trim().toLowerCase();
+                  if (_autoTranslate && !mine && !_translatedMessages.containsKey(message.id) && !_translatingMessageIds.contains(message.id) && message.text.trim().isNotEmpty) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) { if (mounted) _translateMessage(message); });
+                  }
                   return Align(
                     alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
                     child: Card(
                       color: mine ? Theme.of(context).colorScheme.primaryContainer : null,
                       child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         if (!mine) HighlightedChatText(message.senderName, query: query, style: Theme.of(context).textTheme.labelSmall),
-                        HighlightedChatText(message.text, query: query),
+                        _buildTranslatedMessage(message, query),
                         _MessageTimestamp(timestamp: message.timestamp, messageId: message.id),
                         _ChatReactions(message: message, onToggle: (emoji) => _toggleReaction(user, channel, message, emoji)),
+                        if (message.text.trim().isNotEmpty) Align(alignment: Alignment.centerRight, child: TextButton.icon(key: ValueKey('chat-translate-${message.id}'), onPressed: _translatingMessageIds.contains(message.id) ? null : () => _toggleOrTranslate(message), icon: Icon(_translatedMessages.containsKey(message.id) ? Icons.language : Icons.translate, size: 16), label: Text(_translatingMessageIds.contains(message.id) ? 'Traduciendo…' : _translatedMessages.containsKey(message.id) ? 'Ver original' : 'Traducir'))),
                         if (message.mediaUrl != null && message.mediaUrl!.isNotEmpty) ...[
                           const SizedBox(height: 8),
                           if (message.mediaType == 'audio')
@@ -334,6 +351,40 @@ class _ChatScreenState extends State<ChatScreen> {
       );
     } catch (error) {
       if (mounted) messenger.showSnackBar(SnackBar(content: Text('No se pudo abrir el archivo: $error')));
+    }
+  }
+
+  Widget _buildTranslatedMessage(ChatMessage message, String query) {
+    final translation = _translatedMessages[message.id];
+    final shown = translation ?? message.text;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      HighlightedChatText(shown, query: query),
+      if (translation != null) Padding(padding: const EdgeInsets.only(top: 2), child: Text('Traducido ${_translationSources[message.id] ?? ''} → ${_targetLanguage.toUpperCase()} · en el dispositivo', style: Theme.of(context).textTheme.labelSmall)),
+    ]);
+  }
+
+  Future<void> _toggleOrTranslate(ChatMessage message) async {
+    if (_translatedMessages.containsKey(message.id)) {
+      setState(() { _translatedMessages.remove(message.id); _translationSources.remove(message.id); });
+      return;
+    }
+    await _translateMessage(message);
+  }
+
+  Future<void> _translateMessage(ChatMessage message) async {
+    if (_translatingMessageIds.contains(message.id) || _translatedMessages.containsKey(message.id)) return;
+    setState(() => _translatingMessageIds.add(message.id));
+    try {
+      final result = await _translation.translate(message.text, _targetLanguage);
+      if (!mounted) return;
+      setState(() {
+        if (!result.sameLanguage) _translatedMessages[message.id] = result.translatedText;
+        _translationSources[message.id] = result.sourceLanguage;
+      });
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('No se pudo traducir: $error')));
+    } finally {
+      if (mounted) setState(() => _translatingMessageIds.remove(message.id));
     }
   }
 
