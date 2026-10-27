@@ -71,13 +71,13 @@ void main() {
   const channelOne = ChatChannel(id: 'room-a', name: 'Room A', memberEmails: ['ALICE@example.com']);
   const channelTwo = ChatChannel(id: 'room-b', name: 'Room B', memberEmails: ['bob@example.com']);
 
-  Future<void> openScreen(FakeChatRepository repo, MemoryChatDraftStorage drafts, WidgetTester tester) async {
+  Future<void> openScreen(FakeChatRepository repo, MemoryChatDraftStorage drafts, WidgetTester tester, {List<ChatChannel>? visibleChannels}) async {
     await tester.pumpWidget(MaterialApp(home: ChatScreen(
       repository: repo,
       draftStorage: drafts,
       identity: const ChatIdentity(uid: 'alice-uid', email: 'alice@example.com'),
     )));
-    repo.channels.add([channelOne, channelTwo]);
+    repo.channels.add(visibleChannels ?? [channelOne, channelTwo]);
     await tester.pump();
   }
 
@@ -85,7 +85,8 @@ void main() {
     await tester.tap(find.text(roomName));
     await tester.pump();
     repo.messages.add(const []);
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 10));
   }
 
   testWidgets('displays localized message date and time but hides zero or invalid timestamps', (tester) async {
@@ -229,31 +230,34 @@ void main() {
     drafts.values['alice-uid::room-a'] = 'draft for room A';
     drafts.values['alice-uid::room-b'] = 'draft for room B';
     try {
-      await openScreen(repo, drafts, tester);
+      await openScreen(repo, drafts, tester, visibleChannels: [channelOne, const ChatChannel(id: 'room-b', name: 'Room B', memberEmails: ['alice@example.com'])]);
       await openRoom(tester, repo, 'Room A');
       expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, 'draft for room A');
       await tester.enterText(find.byType(TextField), 'edited draft for room A');
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 10));
 
       await tester.tap(find.byTooltip('Volver'));
-      await tester.pumpAndSettle();
+      await tester.pump();
       await openRoom(tester, repo, 'Room B');
       expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, 'draft for room B');
 
       await tester.tap(find.byTooltip('Volver'));
-      await tester.pumpAndSettle();
+      await tester.pump();
       await openRoom(tester, repo, 'Room A');
       expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, 'edited draft for room A');
 
       repo.sendError = StateError('offline');
       await tester.tap(find.byKey(const ValueKey('chat-send-text')));
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 20));
       expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, 'edited draft for room A');
       expect(drafts.values['alice-uid::room-a'], 'edited draft for room A');
 
       repo.sendError = null;
       await tester.tap(find.byKey(const ValueKey('chat-send-text')));
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 20));
       expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, isEmpty);
       expect(drafts.values.containsKey('alice-uid::room-a'), isFalse);
       expect(drafts.values['alice-uid::room-b'], 'draft for room B');
@@ -303,7 +307,7 @@ void main() {
       repo.channels.add([channelOne]);
       await tester.pump();
       await tester.tap(find.text('Room A'));
-      await tester.pumpAndSettle();
+      await tester.pump();
       repo.messages.add(const [
         ChatMessage(id: 'copy-target', senderName: 'Bob', senderEmail: 'bob@example.com', text: '  Keep this exact text  ', timestamp: 1),
       ]);
