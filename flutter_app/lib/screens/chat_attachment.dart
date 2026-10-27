@@ -22,9 +22,9 @@ abstract interface class ChatAttachmentPicker {
 }
 
 class DeviceChatAttachmentPicker implements ChatAttachmentPicker {
-  DeviceChatAttachmentPicker({ImagePicker? imagePicker, FilePicker? filePicker}) : _imagePicker = imagePicker ?? ImagePicker(), _filePicker = filePicker ?? FilePicker.platform;
+  DeviceChatAttachmentPicker({ImagePicker? imagePicker, FilePicker? filePicker}) : _imagePicker = imagePicker ?? ImagePicker(), _filePicker = filePicker;
   final ImagePicker _imagePicker;
-  final FilePicker _filePicker;
+  final FilePicker? _filePicker;
 
   @override
   Future<ChatAttachment?> pickImage() async {
@@ -38,7 +38,7 @@ class DeviceChatAttachmentPicker implements ChatAttachmentPicker {
   }
   @override
   Future<ChatAttachment?> pickFile() async {
-    final result = await _filePicker.pickFiles(type: FileType.custom, allowedExtensions: supportedChatMediaMimeExtensions.values.toSet().toList(), allowMultiple: false, withData: false);
+    final result = await (_filePicker ?? FilePicker.platform).pickFiles(type: FileType.custom, allowedExtensions: supportedChatMediaMimeExtensions.values.toSet().toList(), allowMultiple: false, withData: false);
     if (result == null || result.files.isEmpty) return null;
     final file = result.files.first;
     if (file.path == null) return null;
