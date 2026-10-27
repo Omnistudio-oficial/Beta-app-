@@ -1,5 +1,4 @@
 import 'chat_attachment.dart';
-import 'chat_media_upload.dart';
 
 Map<String, Object?> betaChatAttachmentMessage({required String messageId, required String channelId, required String senderId, required String senderName, required String senderEmail, required String caption, required int timestamp, required ChatAttachment attachment, required String mediaUrl}) {
   if (mediaUrl.isEmpty) throw ArgumentError('La URL multimedia es obligatoria.');
