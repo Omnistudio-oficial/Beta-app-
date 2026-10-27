@@ -106,6 +106,7 @@ def main() -> None:
     app_info["NSPhotoLibraryUsageDescription"] = (
         "Permite seleccionar fotos y videos para publicarlos de forma privada en tu cuenta de Social."
     )
+    app_info["NSMicrophoneUsageDescription"] = "OmniStudio usa el micrófono para grabar notas de voz que tú eliges enviar en el chat."
     app_info["NSLocationWhenInUseUsageDescription"] = (
         "La ubicación se usa para mostrar tu posición en el mapa y guiarte por una ruta mientras usas la aplicación."
     )
