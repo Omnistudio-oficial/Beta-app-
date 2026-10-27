@@ -45,11 +45,6 @@ class FakeChatRepository implements ChatRepository {
   }
 
   @override
-  Future<void> toggleReaction({required String uid, required String channelId, required String messageId, required String emoji}) async {
-    sent.add('reaction|$channelId|$messageId|$emoji');
-  }
-
-  @override
   Future<void> sendText({required String uid, required String email, required String channelId, required String text}) async {
     if (text.trim().isEmpty) throw ArgumentError('blank');
     if (sendError case final error?) throw error;
@@ -359,3 +354,4 @@ void main() {
   expect(repo.sent, contains('reaction|room-a|react-1|👍'));
   await repo.close();
 });
+}
