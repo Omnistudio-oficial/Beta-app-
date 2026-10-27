@@ -16,6 +16,7 @@ const Map<String, String> supportedChatMediaMimeExtensions = {
   'video/mp4': 'mp4', 'video/quicktime': 'mov', 'video/webm': 'webm',
   'video/3gpp': '3gp', 'video/x-m4v': 'm4v', 'video/x-matroska': 'mkv',
   'video/x-msvideo': 'avi', 'video/x-flv': 'flv', 'video/x-ms-wmv': 'wmv',
+  'audio/ogg': 'ogg', 'audio/mp4': 'm4a',
   'application/pdf': 'pdf', 'application/msword': 'doc', 'application/rtf': 'rtf',
   'application/json': 'json', 'application/zip': 'zip', 'application/vnd.ms-excel': 'xls',
   'application/vnd.ms-powerpoint': 'ppt',
@@ -33,6 +34,7 @@ String chatMediaTypeForMime(String mime) {
   if (normalized == 'image/gif') return 'gif';
   if (normalized.startsWith('image/')) return 'image';
   if (normalized.startsWith('video/')) return 'video';
+  if (normalized.startsWith('audio/')) return 'audio';
   return 'document';
 }
 
