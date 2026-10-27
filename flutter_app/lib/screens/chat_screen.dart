@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:beta_app/screens/chat_media_actions.dart';
 import 'package:beta_app/screens/chat_video_player.dart';
+import 'package:beta_app/screens/youtube_chat_player.dart';
 import 'package:beta_app/screens/chat_voice_note.dart';
 import 'package:beta_app/screens/chat_translation.dart';
 import 'package:beta_app/screens/chat_group_dialogs.dart';
@@ -231,7 +232,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 itemBuilder: (context, index) {
                   final message = visibleMessages[index];
                   final mine = message.senderEmail.trim().toLowerCase() == user.email.trim().toLowerCase();
-                  if (_autoTranslate && !mine && !_translatedMessages.containsKey(message.id) && !_translatingMessageIds.contains(message.id) && message.text.trim().isNotEmpty) {
+                  if (_autoTranslate && !mine && !_hasYouTubeLink(message) && !_translatedMessages.containsKey(message.id) && !_translatingMessageIds.contains(message.id) && message.text.trim().isNotEmpty) {
                     WidgetsBinding.instance.addPostFrameCallback((_) { if (mounted) _translateMessage(message); });
                   }
                   return Align(
@@ -240,7 +241,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       color: mine ? Theme.of(context).colorScheme.primaryContainer : null,
                       child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         if (!mine) HighlightedChatText(message.senderName, query: query, style: Theme.of(context).textTheme.labelSmall),
-                        _buildTranslatedMessage(message, query),
+                        if (_hasYouTubeLink(message)) _buildYouTubeMessage(message) else _buildTranslatedMessage(message, query),
                         _MessageTimestamp(timestamp: message.timestamp, messageId: message.id),
                         _ChatReactions(message: message, onToggle: (emoji) => _toggleReaction(user, channel, message, emoji)),
                         if (message.text.trim().isNotEmpty) Align(alignment: Alignment.centerRight, child: TextButton.icon(key: ValueKey('chat-translate-${message.id}'), onPressed: _translatingMessageIds.contains(message.id) ? null : () => _toggleOrTranslate(message), icon: Icon(_translatedMessages.containsKey(message.id) ? Icons.language : Icons.translate, size: 16), label: Text(_translatingMessageIds.contains(message.id) ? 'Traduciendo…' : _translatedMessages.containsKey(message.id) ? 'Ver original' : 'Traducir'))),
@@ -250,8 +251,12 @@ class _ChatScreenState extends State<ChatScreen> {
                             VoiceNotePlayer(url: message.mediaUrl!, caption: message.text)
                           else if (message.mediaType == 'image' || message.mediaType == 'gif')
                             ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.network(message.mediaUrl!, width: 260, height: 190, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Text('No se pudo cargar la imagen.')))
+                          else if (message.mediaType == 'youtube')
+                            _buildYouTubeMessage(message)
                           else if (message.mediaType == 'video')
                             ChatVideoPlayer(source: Uri.parse(message.mediaUrl!), thumbnailUrl: message.mediaThumbnail)
+                          else if (message.mediaType == 'youtube')
+                            const SizedBox.shrink()
                           else
                             _DocumentAttachment(
                               message: message,
@@ -371,6 +376,15 @@ class _ChatScreenState extends State<ChatScreen> {
     } catch (error) {
       if (mounted) messenger.showSnackBar(SnackBar(content: Text('No se pudo abrir el archivo: $error')));
     }
+  }
+
+  bool _hasYouTubeLink(ChatMessage message) => message.mediaType != 'audio' && message.mediaType != 'image' && message.mediaType != 'video' && extractChatYouTubeId(message.mediaUrl ?? message.text) != null;
+
+  Widget _buildYouTubeMessage(ChatMessage message) {
+    final videoId = extractChatYouTubeId(message.mediaUrl ?? message.text);
+    if (videoId == null) return const Text('Este enlace de YouTube no parece válido.');
+    final title = message.text.trim().isNotEmpty && !message.text.startsWith('▶️ Video de YouTube') ? message.text : 'Video de YouTube';
+    return ChatYouTubePlayer(videoId: videoId, title: title);
   }
 
   Widget _buildTranslatedMessage(ChatMessage message, String query) {
