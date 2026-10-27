@@ -21,7 +21,6 @@ class _AIScreenState extends State<AIScreen> {
   final TextEditingController _saraChatInput = TextEditingController();
   final List<Map<String, String>> _saraGeneralChat = [];
   bool _useWorkspaceContext = false;
-  final ScrollController _saraChatScroll = ScrollController();
 
   static const _templates = <_PromptTemplate>[
     _PromptTemplate(
@@ -46,7 +45,6 @@ class _AIScreenState extends State<AIScreen> {
     _controller.dispose();
     _workspaceQuery.dispose();
     _saraChatInput.dispose();
-    _saraChatScroll.dispose();
     super.dispose();
   }
 
@@ -126,9 +124,6 @@ class _AIScreenState extends State<AIScreen> {
     } finally {
       if (mounted) setState(() => _connecting = false);
     }
-    if (mounted && _saraChatScroll.hasClients) {
-      await _saraChatScroll.animateTo(_saraChatScroll.position.maxScrollExtent, duration: const Duration(milliseconds: 180), curve: Curves.easeOut);
-    }
   }
 
   Future<void> _copyPrompt() async {
@@ -188,13 +183,13 @@ class _AIScreenState extends State<AIScreen> {
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   const Text('Conversar con Sara', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 8),
-                  SizedBox(height: 230, child: ListView(controller: _saraChatScroll, children: [
+                  SizedBox(height: 230, child: SingleChildScrollView(child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                     if (_saraGeneralChat.isEmpty)
                       const Text('Conversa con Sara sobre cualquier tema. Si activas el contexto de Google, podrá interpretar preguntas y consultar tus datos autorizados en modo de solo lectura.'),
-                    for (final entry in _saraGeneralChat)
+                    for (final entry in _saraGeneralChat.take(4))
                       Align(alignment: entry['role'] == 'user' ? Alignment.centerRight : Alignment.centerLeft,
                         child: Container(margin: const EdgeInsets.symmetric(vertical: 4), padding: const EdgeInsets.all(10), constraints: const BoxConstraints(maxWidth: 440), decoration: BoxDecoration(color: entry['role'] == 'user' ? Theme.of(context).colorScheme.primaryContainer : Theme.of(context).colorScheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(12)), child: SelectableText(entry['text'] ?? ''))),
-                  ])),
+                  ]))),
                   const SizedBox(height: 4),
                   SwitchListTile(key: const Key('sara-workspace-context'), contentPadding: EdgeInsets.zero, title: const Text('Usar contexto de Google Workspace'), subtitle: const Text('Solo lectura · requiere conectar Google'), value: _useWorkspaceContext, onChanged: _connecting ? null : (value) => setState(() => _useWorkspaceContext = value)),
                   const SizedBox(height: 8),
