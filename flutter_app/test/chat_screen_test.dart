@@ -45,6 +45,11 @@ class FakeChatRepository implements ChatRepository {
   }
 
   @override
+  Future<void> toggleReaction({required String uid, required String channelId, required String messageId, required String emoji}) async {
+    sent.add('reaction|$channelId|$messageId|$emoji');
+  }
+
+  @override
   Future<void> sendText({required String uid, required String email, required String channelId, required String text}) async {
     if (text.trim().isEmpty) throw ArgumentError('blank');
     if (sendError case final error?) throw error;
@@ -135,9 +140,9 @@ void main() {
     } finally {
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
-      await repo.close().timeout(const Duration(seconds: 5));
+      await repo.close();
     }
-  }, timeout: const Timeout(Duration(seconds: 45)));
+  });
 
   const searchMessages = <ChatMessage>[
     ChatMessage(id: '1', senderName: 'Maya', senderEmail: 'maya@example.com', text: 'Bring the blue notebook', timestamp: 1),
@@ -232,7 +237,7 @@ void main() {
         // the screen first so both StreamBuilder subscriptions are cancelled.
         await tester.pumpWidget(const SizedBox.shrink());
         await tester.pump(); // flush StreamBuilder subscription cancellations
-        await repo.close().timeout(const Duration(seconds: 5));
+        await repo.close();
         print('[chat_screen_test] cleanup complete');
       }
     },
@@ -265,9 +270,9 @@ void main() {
     } finally {
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
-      await repo.close().timeout(const Duration(seconds: 5));
+      await repo.close();
     }
-  }, timeout: const Timeout(Duration(seconds: 45)));
+  });
 
   test('SharedPreferences draft storage persists per user and chat and clears only its own key', () async {
     SharedPreferences.setMockInitialValues({});
@@ -323,9 +328,9 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
       tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null);
-      await repo.close().timeout(const Duration(seconds: 5));
+      await repo.close();
     }
-  }, timeout: const Timeout(Duration(seconds: 45)));
+  });
 
   testWidgets('reports channel-stream errors and supports retry affordance', (tester) async {
     final repo = FakeChatRepository()..channelError = StateError('offline fake');
@@ -337,13 +342,11 @@ void main() {
     } finally {
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(); // flush StreamBuilder subscription cancellation
-      await repo.close().timeout(const Duration(seconds: 5));
+      await repo.close();
     }
-  }, timeout: const Timeout(Duration(seconds: 45)));
-}
+  });
 
-
-testWidgets('shows counts and toggles a reaction in the open message', (tester) async {
+  testWidgets('shows counts and toggles a reaction in the open message', (tester) async {
   final repo = FakeChatRepository();
   final drafts = MemoryChatDraftStorage();
   await openScreen(repo, drafts, tester);
