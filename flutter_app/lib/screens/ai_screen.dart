@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:beta_app/services/google_workspace_read_only.dart';
+import 'package:beta_app/services/workspace_sara_query.dart';
 
 class AIScreen extends StatefulWidget {
   const AIScreen({super.key});
@@ -18,6 +19,9 @@ class _AIScreenState extends State<AIScreen> {
   String? _workspaceStatus;
   List<Map<String, dynamic>> _workspaceResults = const [];
   final TextEditingController _workspaceQuery = TextEditingController();
+  final TextEditingController _saraChatInput = TextEditingController();
+  final List<Map<String, String>> _saraWorkspaceChat = [];
+  final ScrollController _saraChatScroll = ScrollController();
 
   static const _templates = <_PromptTemplate>[
     _PromptTemplate(
@@ -41,6 +45,8 @@ class _AIScreenState extends State<AIScreen> {
   void dispose() {
     _controller.dispose();
     _workspaceQuery.dispose();
+    _saraChatInput.dispose();
+    _saraChatScroll.dispose();
     super.dispose();
   }
 
@@ -92,6 +98,40 @@ class _AIScreenState extends State<AIScreen> {
     }
   }
 
+  Future<void> _sendWorkspaceQuestion() async {
+    final text = _saraChatInput.text.trim();
+    if (text.isEmpty || _connecting) return;
+    final intent = WorkspaceQueryIntent.parse(text);
+    setState(() {
+      _saraWorkspaceChat.add({'role': 'user', 'text': text});
+      _saraChatInput.clear();
+    });
+    if (!_workspace.isConnected) {
+      setState(() => _saraWorkspaceChat.add({'role': 'assistant', 'text': 'Conecta Google Workspace primero. Solo consultaré en modo de lectura.'}));
+    } else if (intent == null) {
+      setState(() => _saraWorkspaceChat.add({'role': 'assistant', 'text': 'Puedo consultar Gmail, tu agenda de los próximos 7 días y buscar archivos en Drive. Prueba: “Busca en Gmail recibos de Liberty” o “¿Qué tengo en Calendar esta semana?”'}));
+    } else {
+      setState(() => _connecting = true);
+      try {
+        final rows = switch (intent.service) {
+          WorkspaceQueryService.gmail => await _workspace.searchEmails(intent.query),
+          WorkspaceQueryService.calendar => await _workspace.upcomingEvents(),
+          WorkspaceQueryService.drive => await _workspace.searchDrive(intent.query),
+        };
+        if (!mounted) return;
+        setState(() => _saraWorkspaceChat.add({'role': 'assistant', 'text': formatWorkspaceAnswer(intent.service, rows)}));
+      } catch (_) {
+        if (!mounted) return;
+        setState(() => _saraWorkspaceChat.add({'role': 'assistant', 'text': 'No pude consultar Google Workspace. Revisa tu conexión y vuelve a intentarlo.'}));
+      } finally {
+        if (mounted) setState(() => _connecting = false);
+      }
+    }
+    if (mounted && _saraChatScroll.hasClients) {
+      await _saraChatScroll.animateTo(_saraChatScroll.position.maxScrollExtent, duration: const Duration(milliseconds: 180), curve: Curves.easeOut);
+    }
+  }
+
   Future<void> _copyPrompt() async {
     final prompt = _readyPrompt;
     if (prompt == null) return;
@@ -138,6 +178,26 @@ class _AIScreenState extends State<AIScreen> {
                   if (_workspaceStatus != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_workspaceStatus!)),
                   for (final row in _workspaceResults.take(5))
                     ListTile(dense: true, contentPadding: EdgeInsets.zero, title: Text((row['subject'] ?? row['name'] ?? row['summary'] ?? row['snippet'] ?? row['id'] ?? 'Resultado').toString(), maxLines: 2, overflow: TextOverflow.ellipsis), subtitle: Text((row['from'] ?? row['mimeType'] ?? row['start']?['dateTime'] ?? row['date'] ?? '').toString(), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                ]),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Card(
+              key: const Key('sara-workspace-chat'),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('Pregunta a Sara', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  SizedBox(height: 230, child: ListView(controller: _saraChatScroll, children: [
+                    if (_saraWorkspaceChat.isEmpty)
+                      const Text('Haz preguntas sobre Gmail, tu agenda de la próxima semana o archivos de Drive. Solo se consultan datos; no se envía ni modifica nada.'),
+                    for (final entry in _saraWorkspaceChat)
+                      Align(alignment: entry['role'] == 'user' ? Alignment.centerRight : Alignment.centerLeft,
+                        child: Container(margin: const EdgeInsets.symmetric(vertical: 4), padding: const EdgeInsets.all(10), constraints: const BoxConstraints(maxWidth: 440), decoration: BoxDecoration(color: entry['role'] == 'user' ? Theme.of(context).colorScheme.primaryContainer : Theme.of(context).colorScheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(12)), child: SelectableText(entry['text'] ?? ''))),
+                  ])),
+                  const SizedBox(height: 8),
+                  Row(children: [Expanded(child: TextField(key: const Key('sara-workspace-chat-input'), controller: _saraChatInput, minLines: 1, maxLines: 3, onSubmitted: (_) => _sendWorkspaceQuestion(), decoration: const InputDecoration(hintText: 'Pregunta sobre Gmail, Calendar o Drive', border: OutlineInputBorder()))), const SizedBox(width: 8), IconButton.filled(key: const Key('sara-workspace-chat-send'), onPressed: _connecting ? null : _sendWorkspaceQuestion, tooltip: 'Preguntar a Sara', icon: _connecting ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.send))]),
                 ]),
               ),
             ),
