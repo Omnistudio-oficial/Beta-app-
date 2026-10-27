@@ -354,4 +354,20 @@ void main() {
   expect(repo.sent, contains('reaction|room-a|react-1|👍'));
   await repo.close();
 });
+
+
+
+testWidgets('shows on-device translation controls and manual action', (tester) async {
+  final repo = FakeChatRepository();
+  final drafts = MemoryChatDraftStorage();
+  await openScreen(repo, drafts, tester);
+  await openRoom(tester, repo, 'Room A');
+  repo.messages.add(const [ChatMessage(id: 'translate-1', senderName: 'Bob', senderEmail: 'bob@example.com', text: 'Hello there', timestamp: 1)]);
+  await tester.pump();
+  expect(find.byKey(const ValueKey('chat-translation-target')), findsOneWidget);
+  expect(find.byKey(const ValueKey('chat-auto-translate')), findsOneWidget);
+  expect(find.byKey(const ValueKey('chat-translate-translate-1')), findsOneWidget);
+  await repo.close();
+});
+
 }
