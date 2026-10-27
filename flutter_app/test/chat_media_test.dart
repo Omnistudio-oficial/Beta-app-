@@ -10,6 +10,8 @@ void main() {
     expect(chatMediaTypeForMime('video/quicktime'), 'video');
     expect(chatMediaTypeForMime('audio/ogg'), 'audio');
     expect(chatMediaTypeForMime('audio/mp4'), 'audio');
+    expect(chatMediaTypeForMime('audio/ogg'), 'audio');
+    expect(chatMediaTypeForMime('audio/mp4'), 'audio');
     expect(chatMediaTypeForMime('application/pdf'), 'document');
     expect(() => chatMediaTypeForMime('application/octet-stream'), throwsFormatException);
     expect(supportedChatMediaMimeExtensions.length, 30);
