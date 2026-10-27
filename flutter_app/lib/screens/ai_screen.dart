@@ -19,7 +19,6 @@ class _AIScreenState extends State<AIScreen> {
   List<Map<String, dynamic>> _workspaceResults = const [];
   final TextEditingController _workspaceQuery = TextEditingController();
   final TextEditingController _saraChatInput = TextEditingController();
-  final List<Map<String, String>> _saraWorkspaceChat = [];
   final List<Map<String, String>> _saraGeneralChat = [];
   bool _useWorkspaceContext = false;
   final ScrollController _saraChatScroll = ScrollController();
