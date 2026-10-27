@@ -40,6 +40,11 @@ class FakeChatRepository implements ChatRepository {
   Future<void> sendAttachment({required String uid, required String email, required String channelId, required ChatAttachment attachment, required String caption}) async => sent.add('media|$uid|$channelId|${attachment.name}|$caption');
 
   @override
+  Future<void> toggleReaction({required String uid, required String channelId, required String messageId, required String emoji}) async {
+    sent.add('reaction|$channelId|$messageId|$emoji');
+  }
+
+  @override
   Future<void> sendText({required String uid, required String email, required String channelId, required String text}) async {
     if (text.trim().isEmpty) throw ArgumentError('blank');
     if (sendError case final error?) throw error;
@@ -336,3 +341,18 @@ void main() {
     }
   }, timeout: const Timeout(Duration(seconds: 45)));
 }
+
+
+testWidgets('shows counts and toggles a reaction in the open message', (tester) async {
+  final repo = FakeChatRepository();
+  final drafts = MemoryChatDraftStorage();
+  await openScreen(repo, drafts, tester);
+  await openRoom(tester, repo, 'Room A');
+  repo.messages.add(const [ChatMessage(id: 'react-1', senderName: 'Bob', senderEmail: 'bob@example.com', text: 'Hola', timestamp: 1, reactions: '👍,👍,❤️')]);
+  await tester.pump();
+  expect(find.text('👍 2'), findsOneWidget);
+  await tester.tap(find.byKey(const ValueKey('chat-reaction-react-1-👍')));
+  await tester.pumpAndSettle();
+  expect(repo.sent, contains('reaction|room-a|react-1|👍'));
+  await repo.close();
+});
