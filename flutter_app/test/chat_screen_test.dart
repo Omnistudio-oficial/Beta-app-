@@ -316,9 +316,9 @@ void main() {
       await tester.pump();
 
       await tester.tap(find.byKey(const ValueKey('chat-message-menu-copy-target')));
-      await tester.pump();
-      await tester.tap(find.text('Copiar mensaje'), warnIfMissed: false);
-      await tester.pump();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Copiar mensaje'));
+      await tester.pumpAndSettle();
 
       expect(copiedText, '  Keep this exact text  ');
       expect(find.text('Mensaje copiado'), findsOneWidget);
