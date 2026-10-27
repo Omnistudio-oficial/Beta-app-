@@ -30,6 +30,8 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>OmniStudio usa el micrófono para grabar notas de voz que tú eliges enviar en el chat.</string>
 	<key>GIDClientID</key>
 	<string>611449222458-m6ebo0f44pr3jn2gq8s9lsqcpnar3417.apps.googleusercontent.com</string>
 	<key>CFBundleURLTypes</key>
