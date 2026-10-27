@@ -1,0 +1,96 @@
+import 'dart:convert';
+
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:http/http.dart' as http;
+
+/// User-initiated, read-only access to Gmail, Calendar, and Drive.
+/// OAuth access tokens live only in this instance's memory and are never persisted.
+class GoogleWorkspaceReadOnlyService {
+  GoogleWorkspaceReadOnlyService({http.Client? client}) : _client = client ?? http.Client();
+
+  static const scopes = <String>[
+    'https://www.googleapis.com/auth/gmail.readonly',
+    'https://www.googleapis.com/auth/calendar.events.readonly',
+    'https://www.googleapis.com/auth/drive.metadata.readonly',
+  ];
+
+  final http.Client _client;
+  String? _accessToken;
+  String? _email;
+
+  bool get isConnected => _accessToken != null;
+  String? get connectedEmail => _email;
+
+  Future<void> connect() async {
+    final signIn = GoogleSignIn.instance;
+    await signIn.initialize();
+    final account = await signIn.authenticate();
+    final authorization = await account.authorizationClient.authorizeScopes(scopes);
+    final token = authorization.accessToken;
+    if (token.isEmpty) throw StateError('Google no devolvió un permiso válido.');
+    _accessToken = token;
+    _email = account.email;
+  }
+
+  Future<void> disconnect() async {
+    _accessToken = null;
+    _email = null;
+    await GoogleSignIn.instance.disconnect();
+  }
+
+  Future<List<Map<String, dynamic>>> searchEmails(String query) async {
+    final result = await _get(
+      Uri.https('gmail.googleapis.com', '/gmail/v1/users/me/messages', {
+        'q': query.trim().isEmpty ? 'in:inbox' : query.trim(),
+        'maxResults': '5',
+      }),
+    );
+    final messages = (result['messages'] as List<dynamic>? ?? const []);
+    return Future.wait(messages.map((item) async {
+      final id = (item as Map<String, dynamic>)['id'] as String?;
+      if (id == null) return <String, dynamic>{};
+      final message = await _get(Uri.https('gmail.googleapis.com', '/gmail/v1/users/me/messages/$id', {
+        'format': 'metadata',
+        'metadataHeaders': 'From,Subject,Date',
+      }));
+      return message;
+    }));
+  }
+
+  Future<List<Map<String, dynamic>>> upcomingEvents() async {
+    final now = DateTime.now().toUtc();
+    final end = now.add(const Duration(days: 7));
+    final result = await _get(Uri.https('www.googleapis.com', '/calendar/v3/calendars/primary/events', {
+      'timeMin': now.toIso8601String(),
+      'timeMax': end.toIso8601String(),
+      'singleEvents': 'true',
+      'orderBy': 'startTime',
+      'maxResults': '10',
+    }));
+    return (result['items'] as List<dynamic>? ?? const []).cast<Map<String, dynamic>>();
+  }
+
+  Future<List<Map<String, dynamic>>> searchDrive(String query) async {
+    final escaped = query.trim().replaceAll('\\', '\\\\').replaceAll("'", "\\'");
+    final q = query.trim().isEmpty ? 'trashed = false' : "name contains '$escaped' and trashed = false";
+    final result = await _get(Uri.https('www.googleapis.com', '/drive/v3/files', {
+      'q': q,
+      'pageSize': '10',
+      'orderBy': 'modifiedTime desc',
+      'fields': 'files(id,name,mimeType,modifiedTime,webViewLink)',
+    }));
+    return (result['files'] as List<dynamic>? ?? const []).cast<Map<String, dynamic>>();
+  }
+
+  Future<Map<String, dynamic>> _get(Uri uri) async {
+    final token = _accessToken;
+    if (token == null) throw StateError('Conecta Google Workspace primero.');
+    final response = await _client.get(uri, headers: {'Authorization': 'Bearer $token'});
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw StateError('Google Workspace respondió con error (${response.statusCode}).');
+    }
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map<String, dynamic>) throw const FormatException('Respuesta inesperada de Google.');
+    return decoded;
+  }
+}
