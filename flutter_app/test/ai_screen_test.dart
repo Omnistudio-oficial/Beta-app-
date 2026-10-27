@@ -49,8 +49,10 @@ void main() {
     expect(find.byKey(const Key('google-workspace-connect')), findsOneWidget);
   });
 
-  testWidgets('Sara explains workspace is disconnected before making a query', (tester) async {
+  testWidgets('Sara requests Google connection only when Workspace context is enabled', (tester) async {
     await tester.pumpWidget(const MaterialApp(home: AIScreen()));
+    await tester.tap(find.byKey(const Key('sara-workspace-context')));
+    await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('sara-workspace-chat-input')), 'Busca correos en Gmail');
     await tester.tap(find.byKey(const Key('sara-workspace-chat-send')));
     await tester.pumpAndSettle();
