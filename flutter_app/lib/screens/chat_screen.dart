@@ -129,8 +129,9 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
               )
             : Text(channel.name),
-        leading: BackButton(
+        leading: IconButton(
           tooltip: _searching ? 'Cerrar búsqueda' : 'Volver',
+          icon: const Icon(Icons.arrow_back),
           onPressed: () => setState(() {
             if (_searching) {
               _searching = false;
