@@ -34,7 +34,7 @@ void main() {
 
   testWidgets('does not enable prepare button for a blank prompt', (tester) async {
     await tester.pumpWidget(const MaterialApp(home: AIScreen()));
-    await tester.scrollUntilVisible(find.text('Crear notas de producto').first, 220, scrollable: find.byType(Scrollable).first);
+    await tester.scrollUntilVisible(find.text('Crear notas de producto'), 220, scrollable: find.byType(Scrollable).first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Crear notas de producto'));
     await tester.pumpAndSettle();
