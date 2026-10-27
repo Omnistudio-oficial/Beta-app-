@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:beta_app/screens/chat_attachment.dart';
 import 'package:beta_app/screens/chat_repository.dart';
 import 'package:beta_app/screens/chat_screen.dart';
+import 'package:beta_app/screens/chat_search.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -39,6 +40,34 @@ class FakeChatRepository implements ChatRepository {
 }
 
 void main() {
+  const searchMessages = <ChatMessage>[
+    ChatMessage(id: '1', senderName: 'Maya', senderEmail: 'maya@example.com', text: 'Bring the blue notebook', timestamp: 1),
+    ChatMessage(id: '2', senderName: 'Leo', senderEmail: 'leo@example.com', text: 'I will be there', timestamp: 2),
+  ];
+
+  test('filters local loaded messages by body, sender name or email; blank query restores all', () {
+    expect(filterChatMessages(searchMessages, 'BLUE').map((m) => m.id), ['1']);
+    expect(filterChatMessages(searchMessages, 'maya').map((m) => m.id), ['1']);
+    expect(filterChatMessages(searchMessages, 'LEO@EXAMPLE').map((m) => m.id), ['2']);
+    expect(filterChatMessages(searchMessages, '   '), searchMessages);
+    expect(filterChatMessages(searchMessages, 'absent'), isEmpty);
+  });
+
+  testWidgets('highlights all matching text case-insensitively', (tester) async {
+    await tester.pumpWidget(const MaterialApp(home: Scaffold(body: HighlightedChatText('Blue blue', query: 'BLU'))));
+    final text = tester.widget<RichText>(find.byType(RichText));
+    expect(text.text.toPlainText(), 'Blue blue');
+    final matches = <TextSpan>[];
+    void visit(InlineSpan span) {
+      if (span is TextSpan) {
+        if (span.style?.backgroundColor == const Color(0xFFFFE082)) matches.add(span);
+        for (final child in span.children ?? const <InlineSpan>[]) { visit(child); }
+      }
+    }
+    visit(text.text);
+    expect(matches.map((span) => span.text), ['Blu', 'blu']);
+  });
+
   const channelOne = ChatChannel(id: 'room-a', name: 'Room A', memberEmails: ['ALICE@example.com']);
   const channelTwo = ChatChannel(id: 'room-b', name: 'Room B', memberEmails: ['bob@example.com']);
 
@@ -70,6 +99,24 @@ void main() {
         repo.messages.add(const [ChatMessage(id: 'message-1', senderName: 'Bob', senderEmail: 'bob@example.com', text: 'Hi there', timestamp: 1)]);
         await tester.pump();
         expect(find.text('Hi there'), findsOneWidget);
+
+        // Search is local to the current stream snapshot: no repository method
+        // or Firebase operation is invoked when filtering, clearing, or exiting.
+        await tester.tap(find.byKey(const ValueKey('chat-search-open')));
+        await tester.pump();
+        await tester.enterText(find.byKey(const ValueKey('chat-search-field')), 'missing');
+        await tester.pump();
+        expect(find.text('No se encontraron mensajes.'), findsOneWidget);
+        await tester.enterText(find.byKey(const ValueKey('chat-search-field')), 'BOB');
+        await tester.pump();
+        expect(find.text('Hi there'), findsOneWidget);
+        await tester.tap(find.byKey(const ValueKey('chat-search-clear')));
+        await tester.pump();
+        expect(find.text('Hi there'), findsOneWidget);
+        await tester.tap(find.byTooltip('Cerrar búsqueda'));
+        await tester.pump();
+        expect(find.byKey(const ValueKey('chat-search-field')), findsNothing);
+        expect(find.byKey(const ValueKey('chat-search-open')), findsOneWidget);
 
         print('[chat_screen_test] checking and sending text');
         await tester.enterText(find.byType(TextField), '');

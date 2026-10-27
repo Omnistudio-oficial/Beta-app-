@@ -7,6 +7,7 @@ import 'package:beta_app/screens/chat_video_player.dart';
 
 import 'chat_attachment.dart';
 import 'chat_repository.dart';
+import 'chat_search.dart';
 
 class ChatIdentity {
   const ChatIdentity({required this.uid, required this.email, this.displayName = ''});
@@ -38,6 +39,8 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _controller = TextEditingController();
   ChatChannel? _channel;
   Stream<List<ChatMessage>>? _messages;
+  bool _searching = false;
+  final TextEditingController _searchController = TextEditingController();
   bool _sending = false;
   String? _sendError;
   ChatAttachment? _pendingAttachment;
@@ -65,6 +68,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void dispose() {
     _controller.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -112,7 +116,52 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget _buildConversation(ChatIdentity user) {
     final channel = _channel!;
     return Scaffold(
-      appBar: AppBar(title: Text(channel.name), leading: BackButton(onPressed: () => setState(() { _channel = null; _messages = null; _sendError = null; }))),
+      appBar: AppBar(
+        title: _searching
+            ? TextField(
+                key: const ValueKey('chat-search-field'),
+                controller: _searchController,
+                autofocus: true,
+                onChanged: (_) => setState(() {}),
+                decoration: const InputDecoration(
+                  hintText: 'Buscar mensajes…',
+                  border: InputBorder.none,
+                ),
+              )
+            : Text(channel.name),
+        leading: BackButton(
+          tooltip: _searching ? 'Cerrar búsqueda' : 'Volver',
+          onPressed: () => setState(() {
+            if (_searching) {
+              _searching = false;
+              _searchController.clear();
+            } else {
+              _channel = null;
+              _messages = null;
+              _sendError = null;
+            }
+          }),
+        ),
+        actions: [
+          if (_searching && _searchController.text.isNotEmpty)
+            IconButton(
+              key: const ValueKey('chat-search-clear'),
+              tooltip: 'Borrar búsqueda',
+              onPressed: () {
+                _searchController.clear();
+                setState(() {});
+              },
+              icon: const Icon(Icons.clear),
+            ),
+          if (!_searching)
+            IconButton(
+              key: const ValueKey('chat-search-open'),
+              tooltip: 'Buscar en la conversación',
+              onPressed: () => setState(() => _searching = true),
+              icon: const Icon(Icons.search),
+            ),
+        ],
+      ),
       body: Column(children: [
         const _AccessNotice(),
         const MaterialBanner(content: Text('Los adjuntos usan almacenamiento público: cualquier persona con el enlace puede verlos. No envíes archivos sensibles.'), leading: Icon(Icons.public, color: Colors.deepOrange), actions: [SizedBox.shrink()]),
@@ -124,20 +173,28 @@ class _ChatScreenState extends State<ChatScreen> {
               if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) return const Center(child: CircularProgressIndicator());
               final messages = snapshot.data ?? const <ChatMessage>[];
               if (messages.isEmpty) return const Center(child: Text('Aún no hay mensajes.'));
+              final query = _searchController.text.trim();
+              final visibleMessages = filterChatMessages(messages, query);
+              if (visibleMessages.isEmpty) {
+                return const Center(
+                  key: ValueKey('chat-search-no-matches'),
+                  child: Text('No se encontraron mensajes.'),
+                );
+              }
               return ListView.builder(
                 reverse: false,
                 padding: const EdgeInsets.all(12),
-                itemCount: messages.length,
+                itemCount: visibleMessages.length,
                 itemBuilder: (context, index) {
-                  final message = messages[index];
+                  final message = visibleMessages[index];
                   final mine = message.senderEmail.trim().toLowerCase() == user.email.trim().toLowerCase();
                   return Align(
                     alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
                     child: Card(
                       color: mine ? Theme.of(context).colorScheme.primaryContainer : null,
                       child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        if (!mine) Text(message.senderName, style: Theme.of(context).textTheme.labelSmall),
-                        Text(message.text),
+                        if (!mine) HighlightedChatText(message.senderName, query: query, style: Theme.of(context).textTheme.labelSmall),
+                        HighlightedChatText(message.text, query: query),
                         if (message.mediaUrl != null && message.mediaUrl!.isNotEmpty) ...[
                           const SizedBox(height: 8),
                           if (message.mediaType == 'image' || message.mediaType == 'gif')
