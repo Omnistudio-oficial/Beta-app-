@@ -51,6 +51,21 @@ class FakeChatRepository implements ChatRepository {
     sent.add('$uid|$email|$channelId|${text.trim()}');
   }
 
+  @override
+  Future<void> createGroup({required String uid, required String email, required String name, required String description, required List<String> memberEmails}) async {
+    sent.add('create-group|$uid|${name.trim()}|${memberEmails.join(',')}');
+  }
+  @override
+  Future<void> updateGroupInfo({required String uid, required String channelId, required String name, required String description}) async => sent.add('group-info|$channelId|$name|$description');
+  @override
+  Future<void> addGroupMember({required String uid, required String channelId, required String memberEmail}) async => sent.add('group-add|$channelId|$memberEmail');
+  @override
+  Future<void> removeGroupMember({required String uid, required String channelId, required String memberEmail}) async => sent.add('group-remove|$channelId|$memberEmail');
+  @override
+  Future<void> updateGroupMemberPermissions({required String uid, required String channelId, required String memberEmail, required bool canSendMessages, required bool canSendMedia}) async => sent.add('group-permission|$channelId|$memberEmail|$canSendMessages|$canSendMedia');
+  @override
+  Future<void> leaveGroup({required String uid, required String channelId}) async => sent.add('group-leave|$channelId');
+
   Future<void> close() async {
     await channels.close();
     await messages.close();
@@ -370,4 +385,35 @@ testWidgets('shows on-device translation controls and manual action', (tester) a
   await repo.close();
 });
 
+
+
+  testWidgets('creates a group from the chat list with provided member emails', (tester) async {
+    final repo = FakeChatRepository();
+    final drafts = MemoryChatDraftStorage();
+    await openScreen(repo, drafts, tester);
+    await tester.tap(find.byKey(const ValueKey('chat-create-group')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey('create-group-name')), 'Study group');
+    await tester.enterText(find.byKey(const ValueKey('create-group-members')), 'bob@example.com, cara@example.com');
+    await tester.tap(find.byKey(const ValueKey('create-group-submit')));
+    await tester.pumpAndSettle();
+    expect(repo.sent, contains('create-group|alice-uid|Study group|bob@example.com,cara@example.com'));
+    await repo.close();
+  });
+
+  testWidgets('opens group management for an owned group and shows member permissions', (tester) async {
+    final repo = FakeChatRepository();
+    final drafts = MemoryChatDraftStorage();
+    const group = ChatChannel(id: 'group-a', name: 'Study group', creatorEmail: 'alice@example.com', creatorUid: 'alice-uid', isGroup: true, members: [ChatMember(email: 'alice@example.com', name: 'Alice', uid: 'alice-uid', role: 'owner'), ChatMember(email: 'bob@example.com', name: 'Bob')]);
+    await openScreen(repo, drafts, tester, visibleChannels: [group]);
+    await openRoom(tester, repo, 'Study group');
+    await tester.tap(find.byKey(const ValueKey('chat-manage-group')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('manage-chat-group-dialog')), findsOneWidget);
+    expect(find.byKey(const ValueKey('add-group-member-email')), findsOneWidget);
+    expect(find.byKey(const ValueKey('permission-messages-bob@example.com')), findsOneWidget);
+    await tester.tap(find.text('Cerrar'));
+    await tester.pumpAndSettle();
+    await repo.close();
+  });
 }
