@@ -14,6 +14,7 @@ class FakeChatRepository implements ChatRepository {
   // Broadcast + synchronous delivery keeps this fake independent of the
   // asynchronous single-subscription buffering used by the Firebase streams.
   final channels = StreamController<List<ChatChannel>>.broadcast(sync: true);
+  List<ChatChannel> latestChannels = const [];
   final messages = StreamController<List<ChatMessage>>.broadcast(sync: true);
   final sent = <String>[];
   Object? channelError;
@@ -319,6 +320,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Copiar mensaje'));
       await tester.pumpAndSettle();
+      await Future<void>.delayed(Duration.zero);
 
       expect(copiedText, '  Keep this exact text  ');
       expect(find.text('Mensaje copiado'), findsOneWidget);
