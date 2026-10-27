@@ -39,4 +39,10 @@ void main() {
     final button = tester.widget<FilledButton>(find.byKey(const Key('prepare-prompt')));
     expect(button.onPressed, isNull);
   });
+  testWidgets('shows read-only Google Workspace connection in Sara', (tester) async {
+    await tester.pumpWidget(const MaterialApp(home: AIScreen()));
+    expect(find.byKey(const Key('google-workspace-card')), findsOneWidget);
+    expect(find.textContaining('solo lectura'), findsOneWidget);
+    expect(find.byKey(const Key('google-workspace-connect')), findsOneWidget);
+  });
 }
