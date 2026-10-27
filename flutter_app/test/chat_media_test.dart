@@ -8,9 +8,11 @@ void main() {
   test('supports only deployed backend MIME allowlist and categorizes GIF/file correctly', () {
     expect(chatMediaTypeForMime('image/gif'), 'gif');
     expect(chatMediaTypeForMime('video/quicktime'), 'video');
+    expect(chatMediaTypeForMime('audio/ogg'), 'audio');
+    expect(chatMediaTypeForMime('audio/mp4'), 'audio');
     expect(chatMediaTypeForMime('application/pdf'), 'document');
     expect(() => chatMediaTypeForMime('application/octet-stream'), throwsFormatException);
-    expect(supportedChatMediaMimeExtensions.length, 28);
+    expect(supportedChatMediaMimeExtensions.length, 30);
   });
   test('maps attachment to the existing RTDB media schema with metadata', () {
     const attachment = ChatAttachment(path: '/tmp/demo.pdf', name: 'demo.pdf', mimeType: 'application/pdf', mediaType: 'document');
