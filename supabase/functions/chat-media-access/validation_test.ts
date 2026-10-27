@@ -17,6 +17,7 @@ Deno.test("whitelists supported image, video, audio, and document MIME types", (
   assertEquals(parseUploadRequest({ mediaType: "image", mimeType: "IMAGE/JPEG", sizeBytes: 1 })?.mimeType, "image/jpeg");
   assertEquals(parseUploadRequest({ mediaType: "video", mimeType: "video/mp4", sizeBytes: 1 })?.mimeType, "video/mp4");
   assertEquals(parseUploadRequest({ mediaType: "audio", mimeType: "audio/ogg", sizeBytes: 1 })?.mimeType, "audio/ogg");
+  assertEquals(parseUploadRequest({ mediaType: "audio", mimeType: "audio/mp4", sizeBytes: 1 })?.mimeType, "audio/mp4");
   assertEquals(parseUploadRequest({ mediaType: "document", mimeType: "application/pdf", sizeBytes: 1 })?.mimeType, "application/pdf");
   assertEquals(parseUploadRequest({ mediaType: "gif", mimeType: "image/gif", sizeBytes: 1 })?.mediaType, "gif");
   assertEquals(parseUploadRequest({ mediaType: "image", mimeType: "application/pdf", sizeBytes: 1 }), null);
