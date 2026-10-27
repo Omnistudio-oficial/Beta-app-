@@ -58,7 +58,7 @@ class _ChatYouTubePlayerState extends State<ChatYouTubePlayer> {
     if (controller != null) return ClipRRect(borderRadius: BorderRadius.circular(8), child: YoutubePlayer(controller: controller, aspectRatio: 16 / 9));
     return InkWell(key: const ValueKey('chat-youtube-preview'), onTap: _loading ? null : _start, child: SizedBox(width: 260, height: 190, child: Stack(fit: StackFit.expand, alignment: Alignment.center, children: [
       Image.network('https://img.youtube.com/vi/${widget.videoId}/hqdefault.jpg', fit: BoxFit.cover, errorBuilder: (_, __, ___) => const ColoredBox(color: Colors.black12, child: Icon(Icons.ondemand_video, size: 48))),
-      ColoredBox(color: Colors.black.withOpacity(0.16)),
+      ColoredBox(color: Colors.black.withValues(alpha: 0.16)),
       Center(child: _loading ? const CircularProgressIndicator() : const Icon(Icons.play_circle_fill, size: 58, color: Colors.white)),
       Positioned(left: 8, right: 8, bottom: 6, child: Text(widget.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, shadows: [Shadow(blurRadius: 5, color: Colors.black87)]))),
     ])));
