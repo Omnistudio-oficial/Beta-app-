@@ -1,1 +1,106 @@
-aW1wb3J0ICdkYXJ0OmFzeW5jJzsKCmltcG9ydCAncGFja2FnZTpiZXRhX2FwcC9zY3JlZW5zL2NoYXRfcmVwb3NpdG9yeS5kYXJ0JzsKaW1wb3J0ICdwYWNrYWdlOmJldGFfYXBwL3NjcmVlbnMvY2hhdF9zY3JlZW4uZGFydCc7CmltcG9ydCAncGFja2FnZTpmbHV0dGVyL21hdGVyaWFsLmRhcnQnOwppbXBvcnQgJ3BhY2thZ2U6Zmx1dHRlcl90ZXN0L2ZsdXR0ZXJfdGVzdC5kYXJ0JzsKCmNsYXNzIEZha2VDaGF0UmVwb3NpdG9yeSBpbXBsZW1lbnRzIENoYXRSZXBvc2l0b3J5IHsKICAvLyBCcm9hZGNhc3QgKyBzeW5jaHJvbm91cyBkZWxpdmVyeSBrZWVwcyB0aGlzIGZha2UgaW5kZXBlbmRlbnQgb2YgdGhlCiAgLy8gYXN5bmNocm9ub3VzIHNpbmdsZS1zdWJzY3JpcHRpb24gYnVmZmVyaW5nIHVzZWQgYnkgdGhlIEZpcmViYXNlIHN0cmVhbXMuCiAgZmluYWwgY2hhbm5lbHMgPSBTdHJlYW1Db250cm9sbGVyPExpc3Q8Q2hhdENoYW5uZWw+Pi5icm9hZGNhc3Qoc3luYzogdHJ1ZSk7CiAgZmluYWwgbWVzc2FnZXMgPSBTdHJlYW1Db250cm9sbGVyPExpc3Q8Q2hhdE1lc3NhZ2U+Pi5icm9hZGNhc3Qoc3luYzogdHJ1ZSk7CiAgZmluYWwgc2VudCA9IDxTdHJpbmc+W107CiAgT2JqZWN0PyBjaGFubmVsRXJyb3I7CgogIEBvdmVycmlkZQogIFN0cmVhbTxMaXN0PENoYXRDaGFubmVsPj4gd2F0Y2hDaGFubmVscyh7cmVxdWlyZWQgU3RyaW5nIHVpZCwgcmVxdWlyZWQgU3RyaW5nIGVtYWlsfSkgewogICAgaWYgKGNoYW5uZWxFcnJvciBjYXNlIGZpbmFsIGVycm9yPykgcmV0dXJuIFN0cmVhbTxMaXN0PENoYXRDaGFubmVsPj4uZXJyb3IoZXJyb3IpOwogICAgcmV0dXJuIGNoYW5uZWxzLnN0cmVhbS5tYXAoKHZhbHVlKSA9PiBmaWx0ZXJDaGFubmVsc0ZvcklkZW50aXR5KHZhbHVlLCB1aWQ6IHVpZCwgZW1haWw6IGVtYWlsKSk7CiAgfQoKICBAb3ZlcnJpZGUKICBTdHJlYW08TGlzdDxDaGF0TWVzc2FnZT4+IHdhdGNoTWVzc2FnZXMoe3JlcXVpcmVkIFN0cmluZyB1aWQsIHJlcXVpcmVkIFN0cmluZyBjaGFubmVsSWR9KSA9PiBtZXNzYWdlcy5zdHJlYW07CgogIEBvdmVycmlkZQogIEZ1dHVyZTx2b2lkPiBzZW5kVGV4dCh7cmVxdWlyZWQgU3RyaW5nIHVpZCwgcmVxdWlyZWQgU3RyaW5nIGVtYWlsLCByZXF1aXJlZCBTdHJpbmcgY2hhbm5lbElkLCByZXF1aXJlZCBTdHJpbmcgdGV4dH0pIGFzeW5jIHsKICAgIGlmICh0ZXh0LnRyaW0oKS5pc0VtcHR5KSB0aHJvdyBBcmd1bWVudEVycm9yKCdibGFuaycpOwogICAgc2VudC5hZGQoJyR1aWR8JGVtYWlsfCRjaGFubmVsSWR8JHt0ZXh0LnRyaW0oKX0nKTsKICB9CgogIEZ1dHVyZTx2b2lkPiBjbG9zZSgpIGFzeW5jIHsKICAgIGF3YWl0IGNoYW5uZWxzLmNsb3NlKCk7CiAgICBhd2FpdCBtZXNzYWdlcy5jbG9zZSgpOwogIH0KfQoKdm9pZCBtYWluKCkgewogIGNvbnN0IGNoYW5uZWxPbmUgPSBDaGF0Q2hhbm5lbChpZDogJ3Jvb20tYScsIG5hbWU6ICdSb29tIEEnLCBtZW1iZXJFbWFpbHM6IFsnQUxJQ0VAZXhhbXBsZS5jb20nXSk7CiAgY29uc3QgY2hhbm5lbFR3byA9IENoYXRDaGFubmVsKGlkOiAncm9vbS1iJywgbmFtZTogJ1Jvb20gQicsIG1lbWJlckVtYWlsczogWydib2JAZXhhbXBsZS5jb20nXSk7CgogIHRlc3QoJ2ZpbHRlcnMgY2hhbm5lbCBtZW1iZXJzaGlwIHVzaW5nIGdlbmVyaWMgVUlEIGFuZCBub3JtYWxpemVkIGVtYWlsJywgKCkgewogICAgZmluYWwgcmVzdWx0ID0gZmlsdGVyQ2hhbm5lbHNGb3JJZGVudGl0eShbY2hhbm5lbE9uZSwgY2hhbm5lbFR3b10sIHVpZDogJ3VpZC1hbGljZScsIGVtYWlsOiAnYWxpY2VARVhBTVBMRS5jb20nKTsKICAgIGV4cGVjdChyZXN1bHQubWFwKChjaGFubmVsKSA9PiBjaGFubmVsLmlkKSwgWydyb29tLWEnXSk7CiAgICBleHBlY3QoZmlsdGVyQ2hhbm5lbHNGb3JJZGVudGl0eShbY2hhbm5lbE9uZV0sIHVpZDogJycsIGVtYWlsOiAnYWxpY2VAZXhhbXBsZS5jb20nKSwgaXNFbXB0eSk7CiAgICBleHBlY3QoZmlsdGVyQ2hhbm5lbHNGb3JJZGVudGl0eShbY29uc3QgQ2hhdENoYW5uZWwoaWQ6ICd1aWQtcm9vbScsIG5hbWU6ICdVSUQgcm9vbScsIG1lbWJlclVpZHM6IFsndXNlci0yJ10pXSwgdWlkOiAndXNlci0yJywgZW1haWw6ICcnKSwgaGFzTGVuZ3RoKDEpKTsKICB9KTsKCiAgdGVzdFdpZGdldHMoCiAgICAnc2hvd3MgbGl2ZSBtZW1iZXIgY2hhbm5lbHMsIHN0cmVhbXMgbWVzc2FnZXMsIGFuZCBzZW5kcyB0ZXh0JywKICAgICh0ZXN0ZXIpIGFzeW5jIHsKICAgICAgZmluYWwgcmVwbyA9IEZha2VDaGF0UmVwb3NpdG9yeSgpOwogICAgICB0cnkgewogICAgICAgIHByaW50KCdbY2hhdF9zY3JlZW5fdGVzdF0gbW91bnRpbmcgY2hhdCBzY3JlZW4nKTsKICAgICAgICBhd2FpdCB0ZXN0ZXIucHVtcFdpZGdldChNYXRlcmlhbEFwcChob21lOiBDaGF0U2NyZWVuKHJlcG9zaXRvcnk6IHJlcG8sIGlkZW50aXR5OiBjb25zdCBDaGF0SWRlbnRpdHkodWlkOiAnYXV0aC11c2VyLTgyJywgZW1haWw6ICdhbGljZUBleGFtcGxlLmNvbScpKSkpOwogICAgICAgIGV4cGVjdChmaW5kLmJ5VHlwZShDaXJjdWxhclByb2dyZXNzSW5kaWNhdG9yKSwgZmluZHNPbmVXaWRnZXQpOwoKICAgICAgICBwcmludCgnW2NoYXRfc2NyZWVuX3Rlc3RdIGVtaXR0aW5nIGNoYW5uZWxzJyk7CiAgICAgICAgcmVwby5jaGFubmVscy5hZGQoW2NoYW5uZWxPbmUsIGNoYW5uZWxUd29dKTsKICAgICAgICBhd2FpdCB0ZXN0ZXIucHVtcCgpOwogICAgICAgIGV4cGVjdChmaW5kLnRleHQoJ1Jvb20gQScpLCBmaW5kc09uZVdpZGdldCk7CiAgICAgICAgZXhwZWN0KGZpbmQudGV4dCgnUm9vbSBCJyksIGZpbmRzTm90aGluZyk7CgogICAgICAgIHByaW50KCdbY2hhdF9zY3JlZW5fdGVzdF0gb3BlbmluZyBjaGFubmVsIGFuZCBlbWl0dGluZyBtZXNzYWdlJyk7CiAgICAgICAgYXdhaXQgdGVzdGVyLnRhcChmaW5kLnRleHQoJ1Jvb20gQScpKTsKICAgICAgICBhd2FpdCB0ZXN0ZXIucHVtcCgpOwogICAgICAgIHJlcG8ubWVzc2FnZXMuYWRkKGNvbnN0IFtDaGF0TWVzc2FnZShpZDogJ21lc3NhZ2UtMScsIHNlbmRlck5hbWU6ICdCb2InLCBzZW5kZXJFbWFpbDogJ2JvYkBleGFtcGxlLmNvbScsIHRleHQ6ICdIaSB0aGVyZScsIHRpbWVzdGFtcDogMSldKTsKICAgICAgICBhd2FpdCB0ZXN0ZXIucHVtcCgpOwogICAgICAgIGV4cGVjdChmaW5kLnRleHQoJ0hpIHRoZXJlJyksIGZpbmRzT25lV2lkZ2V0KTsKCiAgICAgICAgcHJpbnQoJ1tjaGF0X3NjcmVlbl90ZXN0XSBjaGVja2luZyBhbmQgc2VuZGluZyB0ZXh0Jyk7CiAgICAgICAgYXdhaXQgdGVzdGVyLmVudGVyVGV4dChmaW5kLmJ5VHlwZShUZXh0RmllbGQpLCAnJyk7CiAgICAgICAgYXdhaXQgdGVzdGVyLnB1bXAoKTsKICAgICAgICBleHBlY3QodGVzdGVyLndpZGdldDxJY29uQnV0dG9uPihmaW5kLmJ5S2V5KGNvbnN0IFZhbHVlS2V5KCdjaGF0LXNlbmQtdGV4dCcpKSkub25QcmVzc2VkLCBpc051bGwpOwogICAgICAgIGF3YWl0IHRlc3Rlci5lbnRlclRleHQoZmluZC5ieVR5cGUoVGV4dEZpZWxkKSwgJyAgcmVwbHkgICcpOwogICAgICAgIGF3YWl0IHRlc3Rlci5wdW1wKCk7CiAgICAgICAgZXhwZWN0KHRlc3Rlci53aWRnZXQ8SWNvbkJ1dHRvbj4oZmluZC5ieUtleShjb25zdCBWYWx1ZUtleSgnY2hhdC1zZW5kLXRleHQnKSkpLm9uUHJlc3NlZCwgaXNOb3ROdWxsKTsKICAgICAgICBhd2FpdCB0ZXN0ZXIudGFwKGZpbmQuYnlLZXkoY29uc3QgVmFsdWVLZXkoJ2NoYXQtc2VuZC10ZXh0JykpKTsKICAgICAgICBhd2FpdCB0ZXN0ZXIucHVtcCgpOwogICAgICAgIGV4cGVjdChyZXBvLnNlbnQsIFsnYXV0aC11c2VyLTgyfGFsaWNlQGV4YW1wbGUuY29tfHJvb20tYXxyZXBseSddKTsKICAgICAgfSBmaW5hbGx5IHsKICAgICAgICBwcmludCgnW2NoYXRfc2NyZWVuX3Rlc3RdIGRpc3Bvc2luZyBzY3JlZW4gYW5kIGNsb3NpbmcgZmFrZSBzdHJlYW1zJyk7CiAgICAgICAgLy8gU3RyZWFtQ29udHJvbGxlci5jbG9zZSB3YWl0cyBmb3IgYWN0aXZlIGxpc3RlbmVycyB0byBjYW5jZWwuIERpc3Bvc2UKICAgICAgICAvLyB0aGUgc2NyZWVuIGZpcnN0IHNvIGJvdGggU3RyZWFtQnVpbGRlciBzdWJzY3JpcHRpb25zIGFyZSBjYW5jZWxsZWQuCiAgICAgICAgYXdhaXQgdGVzdGVyLnB1bXBXaWRnZXQoY29uc3QgU2l6ZWRCb3guc2hyaW5rKCkpOwogICAgICAgIGF3YWl0IHRlc3Rlci5wdW1wKCk7IC8vIGZsdXNoIFN0cmVhbUJ1aWxkZXIgc3Vic2NyaXB0aW9uIGNhbmNlbGxhdGlvbnMKICAgICAgICBhd2FpdCByZXBvLmNsb3NlKCkudGltZW91dChjb25zdCBEdXJhdGlvbihzZWNvbmRzOiA1KSk7CiAgICAgICAgcHJpbnQoJ1tjaGF0X3NjcmVlbl90ZXN0XSBjbGVhbnVwIGNvbXBsZXRlJyk7CiAgICAgIH0KICAgIH0sCiAgICB0aW1lb3V0OiBjb25zdCBUaW1lb3V0KER1cmF0aW9uKHNlY29uZHM6IDQ1KSksCiAgKTsKCiAgdGVzdFdpZGdldHMoJ3JlcG9ydHMgY2hhbm5lbC1zdHJlYW0gZXJyb3JzIGFuZCBzdXBwb3J0cyByZXRyeSBhZmZvcmRhbmNlJywgKHRlc3RlcikgYXN5bmMgewogICAgZmluYWwgcmVwbyA9IEZha2VDaGF0UmVwb3NpdG9yeSgpLi5jaGFubmVsRXJyb3IgPSBTdGF0ZUVycm9yKCdvZmZsaW5lIGZha2UnKTsKICAgIHRyeSB7CiAgICAgIGF3YWl0IHRlc3Rlci5wdW1wV2lkZ2V0KE1hdGVyaWFsQXBwKGhvbWU6IENoYXRTY3JlZW4ocmVwb3NpdG9yeTogcmVwbywgaWRlbnRpdHk6IGNvbnN0IENoYXRJZGVudGl0eSh1aWQ6ICdnZW5lcmljLXVpZCcsIGVtYWlsOiAnYW55b25lQGV4YW1wbGUuY29tJykpKSk7CiAgICAgIGF3YWl0IHRlc3Rlci5wdW1wKCk7CiAgICAgIGV4cGVjdChmaW5kLnRleHRDb250YWluaW5nKCdvZmZsaW5lIGZha2UnKSwgZmluZHNPbmVXaWRnZXQpOwogICAgICBleHBlY3QoZmluZC50ZXh0KCdSZWludGVudGFyJyksIGZpbmRzT25lV2lkZ2V0KTsKICAgIH0gZmluYWxseSB7CiAgICAgIGF3YWl0IHRlc3Rlci5wdW1wV2lkZ2V0KGNvbnN0IFNpemVkQm94LnNocmluaygpKTsKICAgICAgYXdhaXQgdGVzdGVyLnB1bXAoKTsgLy8gZmx1c2ggU3RyZWFtQnVpbGRlciBzdWJzY3JpcHRpb24gY2FuY2VsbGF0aW9uCiAgICAgIGF3YWl0IHJlcG8uY2xvc2UoKS50aW1lb3V0KGNvbnN0IER1cmF0aW9uKHNlY29uZHM6IDUpKTsKICAgIH0KICB9LCB0aW1lb3V0OiBjb25zdCBUaW1lb3V0KER1cmF0aW9uKHNlY29uZHM6IDQ1KSkpOwp9Cg==
+import 'dart:async';
+
+import 'package:beta_app/screens/chat_repository.dart';
+import 'package:beta_app/screens/chat_screen.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+class FakeChatRepository implements ChatRepository {
+  // Broadcast + synchronous delivery keeps this fake independent of the
+  // asynchronous single-subscription buffering used by the Firebase streams.
+  final channels = StreamController<List<ChatChannel>>.broadcast(sync: true);
+  final messages = StreamController<List<ChatMessage>>.broadcast(sync: true);
+  final sent = <String>[];
+  Object? channelError;
+
+  @override
+  Stream<List<ChatChannel>> watchChannels({required String uid, required String email}) {
+    if (channelError case final error?) return Stream<List<ChatChannel>>.error(error);
+    return channels.stream.map((value) => filterChannelsForIdentity(value, uid: uid, email: email));
+  }
+
+  @override
+  Stream<List<ChatMessage>> watchMessages({required String uid, required String channelId}) => messages.stream;
+
+  @override
+  Future<void> sendText({required String uid, required String email, required String channelId, required String text}) async {
+    if (text.trim().isEmpty) throw ArgumentError('blank');
+    sent.add('$uid|$email|$channelId|${text.trim()}');
+  }
+
+  Future<void> close() async {
+    await channels.close();
+    await messages.close();
+  }
+}
+
+void main() {
+  const channelOne = ChatChannel(id: 'room-a', name: 'Room A', memberEmails: ['ALICE@example.com']);
+  const channelTwo = ChatChannel(id: 'room-b', name: 'Room B', memberEmails: ['bob@example.com']);
+
+  test('filters channel membership using generic UID and normalized email', () {
+    final result = filterChannelsForIdentity([channelOne, channelTwo], uid: 'uid-alice', email: 'alice@EXAMPLE.com');
+    expect(result.map((channel) => channel.id), ['room-a']);
+    expect(filterChannelsForIdentity([channelOne], uid: '', email: 'alice@example.com'), isEmpty);
+    expect(filterChannelsForIdentity([const ChatChannel(id: 'uid-room', name: 'UID room', memberUids: ['user-2'])], uid: 'user-2', email: ''), hasLength(1));
+  });
+
+  testWidgets(
+    'shows live member channels, streams messages, and sends text',
+    (tester) async {
+      final repo = FakeChatRepository();
+      try {
+        print('[chat_screen_test] mounting chat screen');
+        await tester.pumpWidget(MaterialApp(home: ChatScreen(repository: repo, identity: const ChatIdentity(uid: 'auth-user-82', email: 'alice@example.com'))));
+        expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+        print('[chat_screen_test] emitting channels');
+        repo.channels.add([channelOne, channelTwo]);
+        await tester.pump();
+        expect(find.text('Room A'), findsOneWidget);
+        expect(find.text('Room B'), findsNothing);
+
+        print('[chat_screen_test] opening channel and emitting message');
+        await tester.tap(find.text('Room A'));
+        await tester.pump();
+        repo.messages.add(const [ChatMessage(id: 'message-1', senderName: 'Bob', senderEmail: 'bob@example.com', text: 'Hi there', timestamp: 1)]);
+        await tester.pump();
+        expect(find.text('Hi there'), findsOneWidget);
+
+        print('[chat_screen_test] checking and sending text');
+        await tester.enterText(find.byType(TextField), '');
+        await tester.pump();
+        expect(tester.widget<IconButton>(find.byKey(const ValueKey('chat-send-text'))).onPressed, isNull);
+        await tester.enterText(find.byType(TextField), '  reply  ');
+        await tester.pump();
+        expect(tester.widget<IconButton>(find.byKey(const ValueKey('chat-send-text'))).onPressed, isNotNull);
+        await tester.tap(find.byKey(const ValueKey('chat-send-text')));
+        await tester.pump();
+        expect(repo.sent, ['auth-user-82|alice@example.com|room-a|reply']);
+      } finally {
+        print('[chat_screen_test] disposing screen and closing fake streams');
+        // StreamController.close waits for active listeners to cancel. Dispose
+        // the screen first so both StreamBuilder subscriptions are cancelled.
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump(); // flush StreamBuilder subscription cancellations
+        await repo.close().timeout(const Duration(seconds: 5));
+        print('[chat_screen_test] cleanup complete');
+      }
+    },
+    timeout: const Timeout(Duration(seconds: 45)),
+  );
+
+  testWidgets('reports channel-stream errors and supports retry affordance', (tester) async {
+    final repo = FakeChatRepository()..channelError = StateError('offline fake');
+    try {
+      await tester.pumpWidget(MaterialApp(home: ChatScreen(repository: repo, identity: const ChatIdentity(uid: 'generic-uid', email: 'anyone@example.com'))));
+      await tester.pump();
+      expect(find.textContaining('offline fake'), findsOneWidget);
+      expect(find.text('Reintentar'), findsOneWidget);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(); // flush StreamBuilder subscription cancellation
+      await repo.close().timeout(const Duration(seconds: 5));
+    }
+  }, timeout: const Timeout(Duration(seconds: 45)));
+}
