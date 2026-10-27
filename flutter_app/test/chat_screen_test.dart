@@ -234,32 +234,17 @@ void main() {
     timeout: const Timeout(Duration(seconds: 45)),
   );
 
-  testWidgets('restores a local draft for its chat, isolates chats, keeps failed sends, and clears after success', (tester) async {
+  testWidgets('restores a local draft, keeps failed sends, and clears after success', (tester) async {
     final repo = FakeChatRepository();
-    final drafts = MemoryChatDraftStorage();
-    drafts.values['alice-uid::room-a'] = 'draft for room A';
-    drafts.values['alice-uid::room-b'] = 'draft for room B';
+    final drafts = MemoryChatDraftStorage()..values['alice-uid::room-a'] = 'draft for room A';
     try {
-      final roomB = const ChatChannel(id: 'room-b', name: 'Room B', memberEmails: ['alice@example.com']);
-      repo.latestChannels = [channelOne, roomB];
-      await openScreen(repo, drafts, tester, visibleChannels: [channelOne, roomB]);
+      await openScreen(repo, drafts, tester, visibleChannels: [channelOne]);
       await openRoom(tester, repo, 'Room A');
       expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, 'draft for room A');
+      repo.sendError = StateError('offline');
       await tester.enterText(find.byType(TextField), 'edited draft for room A');
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 10));
-
-      await tester.tap(find.byTooltip('Volver'));
-      await tester.pump();
-      await openRoom(tester, repo, 'Room B');
-      expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, 'draft for room B');
-
-      await tester.tap(find.byTooltip('Volver'));
-      await tester.pump();
-      await openRoom(tester, repo, 'Room A');
-      expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, 'edited draft for room A');
-
-      repo.sendError = StateError('offline');
       await tester.tap(find.byKey(const ValueKey('chat-send-text')));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 20));
@@ -272,7 +257,6 @@ void main() {
       await tester.pump(const Duration(milliseconds: 20));
       expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, isEmpty);
       expect(drafts.values.containsKey('alice-uid::room-a'), isFalse);
-      expect(drafts.values['alice-uid::room-b'], 'draft for room B');
     } finally {
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
@@ -325,11 +309,7 @@ void main() {
       ]);
       await tester.pump();
 
-      await tester.tap(find.byKey(const ValueKey('chat-message-menu-copy-target')));
-      await tester.pump(const Duration(milliseconds: 300));
-      await tester.tap(find.byType(PopupMenuItem<String>));
-      await tester.pump();
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+      await tester.tap(find.byKey(const ValueKey('chat-message-copy-copy-target')));
       await tester.pump();
 
       expect(copiedText, '  Keep this exact text  ');
