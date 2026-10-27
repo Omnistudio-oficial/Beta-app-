@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:beta_app/screens/chat_media_actions.dart';
 import 'package:beta_app/screens/chat_video_player.dart';
+import 'package:beta_app/screens/chat_voice_note.dart';
 
 import 'chat_attachment.dart';
 import 'chat_drafts.dart';
@@ -48,6 +49,7 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _sending = false;
   String? _sendError;
   ChatAttachment? _pendingAttachment;
+  VoiceNoteFile? _pendingVoiceNote;
   late final ChatAttachmentPicker _attachmentPicker;
   late final ChatMediaActions _mediaActions;
   late final ChatDraftStorage _draftStorage = widget.draftStorage ?? SharedPreferencesChatDraftStorage();
@@ -207,7 +209,9 @@ class _ChatScreenState extends State<ChatScreen> {
                         _MessageTimestamp(timestamp: message.timestamp, messageId: message.id),
                         if (message.mediaUrl != null && message.mediaUrl!.isNotEmpty) ...[
                           const SizedBox(height: 8),
-                          if (message.mediaType == 'image' || message.mediaType == 'gif')
+                          if (message.mediaType == 'audio')
+                            VoiceNotePlayer(url: message.mediaUrl!, caption: message.text)
+                          else if (message.mediaType == 'image' || message.mediaType == 'gif')
                             ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.network(message.mediaUrl!, width: 260, height: 190, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Text('No se pudo cargar la imagen.')))
                           else if (message.mediaType == 'video')
                             ChatVideoPlayer(source: Uri.parse(message.mediaUrl!), thumbnailUrl: message.mediaThumbnail)
@@ -238,6 +242,7 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
         if (_sendError != null) Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Text(_sendError!, style: TextStyle(color: Theme.of(context).colorScheme.error))),
         if (_draftError != null) Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Text(_draftError!, style: TextStyle(color: Theme.of(context).colorScheme.error))),
+        if (_pendingVoiceNote case final voice?) Padding(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), child: Row(children: [const Icon(Icons.mic), const SizedBox(width: 8), Expanded(child: Text('${voice.fileName} · ${voice.mimeType}', maxLines: 1, overflow: TextOverflow.ellipsis)), IconButton(tooltip: 'Quitar nota de voz', onPressed: _sending ? null : () => setState(() => _pendingVoiceNote = null), icon: const Icon(Icons.close))])),
         if (_pendingAttachment case final attachment?) Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           child: Row(children: [
@@ -252,13 +257,14 @@ class _ChatScreenState extends State<ChatScreen> {
         SafeArea(top: false, child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
           child: Row(children: [
+            IconButton(key: const ValueKey('chat-record-voice-note'), tooltip: 'Grabar nota de voz', onPressed: _sending ? null : _recordVoiceNote, icon: const Icon(Icons.mic)),
             IconButton(key: const ValueKey('chat-attach-media'), tooltip: 'Adjuntar foto, video o documento', onPressed: _sending ? null : _chooseAttachment, icon: const Icon(Icons.attach_file)),
             Expanded(child: TextField(controller: _controller, enabled: _draftReady && !_sending, minLines: 1, maxLines: 4, textInputAction: TextInputAction.send, onChanged: (text) {
               setState(() {});
               if (_draftReady) _saveDraft(user, channel, text);
             }, onSubmitted: (_) => _send(user, channel), decoration: const InputDecoration(hintText: 'Escribe un mensaje…', border: OutlineInputBorder()))),
             const SizedBox(width: 8),
-            IconButton.filled(key: const ValueKey('chat-send-text'), onPressed: _sending || (_controller.text.trim().isEmpty && _pendingAttachment == null) ? null : () => _send(user, channel), tooltip: _pendingAttachment == null ? 'Enviar' : 'Subir y enviar adjunto', icon: _sending ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.send)),
+            IconButton.filled(key: const ValueKey('chat-send-text'), onPressed: _sending || (_controller.text.trim().isEmpty && _pendingAttachment == null && _pendingVoiceNote == null) ? null : () => _send(user, channel), tooltip: _pendingVoiceNote != null ? 'Subir y enviar nota de voz' : _pendingAttachment == null ? 'Enviar' : 'Subir y enviar adjunto', icon: _sending ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.send)),
           ]),
         )),
       ]),
@@ -330,6 +336,12 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  Future<void> _recordVoiceNote() async {
+    final note = await showDialog<VoiceNoteFile>(context: context, builder: (_) => const VoiceNoteDialog());
+    if (note == null || !mounted) return;
+    setState(() { _pendingVoiceNote = note; _pendingAttachment = null; _sendError = null; });
+  }
+
   Future<void> _chooseAttachment() async {
     final kind = await showModalBottomSheet<String>(context: context, builder: (context) => SafeArea(child: Column(mainAxisSize: MainAxisSize.min, children: [
       ListTile(key: const ValueKey('chat-pick-image'), leading: const Icon(Icons.image_outlined), title: const Text('Foto o GIF'), onTap: () => Navigator.pop(context, 'image')),
@@ -345,6 +357,19 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _send(ChatIdentity user, ChatChannel channel) async {
     if (_sending) return;
+    final voiceNote = _pendingVoiceNote;
+    if (voiceNote != null) {
+      final audioAttachment = ChatAttachment(path: voiceNote.path, name: voiceNote.fileName, mimeType: voiceNote.mimeType, mediaType: 'audio');
+      setState(() { _sending = true; _sendError = null; });
+      try {
+        await _repository.sendAttachment(uid: user.uid, email: user.email, channelId: channel.id, attachment: audioAttachment, caption: _controller.text);
+        try { await File(voiceNote.path).delete(); } catch (_) {}
+        if (mounted) setState(() { _controller.clear(); _pendingVoiceNote = null; });
+        try { await _clearDraft(user, channel); if (mounted) setState(() => _draftError = null); } catch (error) { if (mounted) setState(() => _draftError = 'La nota se envió, pero no se pudo limpiar el borrador local: $error'); }
+      } catch (error) { if (mounted) setState(() => _sendError = 'No se pudo enviar la nota de voz: $error'); }
+      finally { if (mounted) setState(() => _sending = false); }
+      return;
+    }
     final attachment = _pendingAttachment;
     if (attachment != null) {
       setState(() { _sending = true; _sendError = null; });
