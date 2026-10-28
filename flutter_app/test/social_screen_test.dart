@@ -78,7 +78,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 1)); // Allow canInteract to resolve; other streams keep loading.
     await tester.pump();
-    expect(find.text('Public Author'), findsOneWidget);
+    expect(find.text('Public Author'), findsNWidgets(2));
     await tester.tap(find.byTooltip('Me gusta'));
     await tester.pump();
     expect(service.likeChanges, [true]);
