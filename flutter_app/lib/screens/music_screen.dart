@@ -61,7 +61,7 @@ class _MusicScreenState extends State<MusicScreen> {
       content: TextField(controller: controller, autofocus: true, decoration: const InputDecoration(labelText: 'Nombre del proyecto')),
       actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')), FilledButton(onPressed: () => Navigator.pop(context, controller.text), child: const Text('Guardar'))],
     ));
-    controller.dispose();
+    WidgetsBinding.instance.addPostFrameCallback((_) => controller.dispose());
     if (title == null) return;
     await _run(() => _service.saveProject(title, track), success: 'Proyecto guardado en tu cuenta.');
   }
