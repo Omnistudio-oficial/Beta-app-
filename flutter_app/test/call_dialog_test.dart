@@ -38,7 +38,29 @@ void main() {
   testWidgets('incoming call dialog exposes reject and answer actions without opening media', (tester) async {
     final controller = ChatCallController(signaling: FakeCallSignaling());
     const incoming = ChatCallSignal(callId: 'call-test', channelId: 'direct-test', callerUid: 'caller', peerUid: 'peer', callerName: 'Caller', peerName: 'Peer', isVideo: false, status: 'RINGING');
-    await tester.pumpWidget(MaterialApp(home: Scaffold(body: Builder(builder: (context) => Center(child: TextButton(onPressed: () => showDialog<void>(context: context, builder: (_) => ChatCallDialog(controller: controller, video: false, peerName: 'Caller', currentUid: 'peer', incoming: incoming)), child: const Text('Open'))))));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => Center(
+              child: TextButton(
+                onPressed: () => showDialog<void>(
+                  context: context,
+                  builder: (_) => ChatCallDialog(
+                    controller: controller,
+                    video: false,
+                    peerName: 'Caller',
+                    currentUid: 'peer',
+                    incoming: incoming,
+                  ),
+                ),
+                child: const Text('Open'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
     await tester.tap(find.text('Open'));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('chat-call-answer')), findsOneWidget);
