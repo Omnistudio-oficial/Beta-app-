@@ -46,8 +46,7 @@ void main() {
     expect(find.textContaining('permanecen privadas por defecto'), findsOneWidget);
     service.publicFeed.add(const [SocialPost(id: 'pub', ownerUid: 'other', caption: 'Public post', createdAt: 10, username: 'publicuser', displayName: 'Public Author')]);
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 1)); // Let canInteract resolve; other screen streams intentionally keep loading.
-    await tester.pump();
+    await tester.pumpAndSettle(); // Resolve the canInteract FutureBuilder before testing gated controls.
     expect(find.text('Public Author'), findsOneWidget);
     await tester.tap(find.byTooltip('Me gusta'));
     await tester.pump();
@@ -61,7 +60,8 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
     expect(service.captions, ['Hola mundo']);
-    expect(find.text('Hola mundo'), findsOneWidget);
+    expect(tester.widget<TextField>(find.byKey(const ValueKey('social-caption'))).controller!.text, isEmpty);
+    expect(find.text('Publicación sincronizada con tu cuenta'), findsOneWidget);
     expect(find.textContaining('permanecen privadas por defecto'), findsOneWidget);
   });
 }
