@@ -397,7 +397,7 @@ class ChatCallController extends ChangeNotifier {
 
   void toggleMute() { isMuted = !isMuted; for (final track in _localStream?.getAudioTracks() ?? <MediaStreamTrack>[]) { track.enabled = !isMuted; } notifyListeners(); }
   void toggleCamera() { isCameraEnabled = !isCameraEnabled; for (final track in _localStream?.getVideoTracks() ?? <MediaStreamTrack>[]) { track.enabled = isCameraEnabled; } notifyListeners(); }
-  Future<void> switchCamera() async { final tracks = _localStream?.getVideoTracks() ?? <MediaStreamTrack>[]; if (tracks.isNotEmpty) await tracks.first.switchCamera(); }
+  Future<void> switchCamera() async { final tracks = _localStream?.getVideoTracks() ?? <MediaStreamTrack>[]; if (tracks.isNotEmpty) await Helper.switchCamera(tracks.first); }
 
   Future<void> endCall() async {
     final active = call;
