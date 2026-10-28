@@ -88,9 +88,11 @@ void main() {
     expect(service.comments, ['A comment']);
     await tester.enterText(find.byKey(const ValueKey('social-caption')), 'Hola mundo');
     final publishButton = find.text('Publicar');
-    await tester.drag(find.byType(ListView).first, const Offset(0, -1200));
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(publishButton);
+    await tester.dragUntilVisible(
+      publishButton,
+      find.byType(ListView).first,
+      const Offset(0, -300),
+    );
     await tester.pumpAndSettle();
     await tester.tap(publishButton);
     await tester.pump();
