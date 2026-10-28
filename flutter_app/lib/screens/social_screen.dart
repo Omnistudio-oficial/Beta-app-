@@ -92,7 +92,7 @@ class _SocialScreenState extends State<SocialScreen> {
                 children: [
                   Row(children: [
                     const Expanded(child: Text('Feed público', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
-                    Switch(value: _showPublicFeed, onChanged: (value) => setState(() => _showPublicFeed = value), semanticLabel: 'Mostrar feed público'),
+                    Semantics(label: 'Mostrar feed público', child: Switch(value: _showPublicFeed, onChanged: (value) => setState(() => _showPublicFeed = value))),
                   ]),
                   if (_showPublicFeed) StreamBuilder<List<SocialPost>>(
                     stream: _service.watchPublicFeed(),
