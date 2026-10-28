@@ -212,19 +212,21 @@ class _PublicPostCardState extends State<_PublicPostCard> {
       Text(DateTime.fromMillisecondsSinceEpoch(post.createdAt).toLocal().toString().substring(0, 16), style: Theme.of(context).textTheme.labelSmall),
       if (post.caption.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 8), child: SelectableText(post.caption)),
       if (post.mediaItems.isNotEmpty) const Padding(padding: EdgeInsets.only(top: 8), child: Text('Esta publicación incluye contenido multimedia; la vista segura de medios públicos aún no está disponible.')),
-      StreamBuilder<Set<String>>(stream: widget.service.watchLikes(post), builder: (context, snapshot) {
-        final likes = snapshot.data ?? const <String>{};
-        final liked = likes.contains(widget.service.currentUid);
-        return Row(children: [IconButton(tooltip: liked ? 'Quitar Me gusta' : 'Me gusta', onPressed: allowed ? () async {
-          try { await widget.service.toggleLike(post, !liked); } catch (_) {
-            if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No se pudo actualizar Me gusta. Revisa si el autor permite interacciones.')));
-          }
-        } : null, icon: Icon(liked ? Icons.favorite : Icons.favorite_border)), Text('${likes.length}')]);
-      }),
-      StreamBuilder<List<SocialComment>>(stream: widget.service.watchComments(post), builder: (context, snapshot) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        for (final comment in (snapshot.data ?? const <SocialComment>[])) Padding(padding: const EdgeInsets.symmetric(vertical: 3), child: Text('${comment.authorName}: ${comment.text}')),
-      ])),
-      Row(children: [Expanded(child: TextField(key: const ValueKey('social-comment'), controller: _comment, maxLength: 1000, decoration: const InputDecoration(hintText: 'Escribe un comentario', counterText: ''))), IconButton(onPressed: allowed && !_sending ? _sendComment : null, icon: const Icon(Icons.send))]),
+      if (allowed) ...[
+        StreamBuilder<Set<String>>(stream: widget.service.watchLikes(post), builder: (context, snapshot) {
+          final likes = snapshot.data ?? const <String>{};
+          final liked = likes.contains(widget.service.currentUid);
+          return Row(children: [IconButton(tooltip: liked ? 'Quitar Me gusta' : 'Me gusta', onPressed: () async {
+            try { await widget.service.toggleLike(post, !liked); } catch (_) {
+              if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No se pudo actualizar Me gusta. Revisa si el autor permite interacciones.')));
+            }
+          }, icon: Icon(liked ? Icons.favorite : Icons.favorite_border)), Text('${likes.length}')]);
+        }),
+        StreamBuilder<List<SocialComment>>(stream: widget.service.watchComments(post), builder: (context, snapshot) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          for (final comment in (snapshot.data ?? const <SocialComment>[])) Padding(padding: const EdgeInsets.symmetric(vertical: 3), child: Text('${comment.authorName}: ${comment.text}')),
+        ])),
+        Row(children: [Expanded(child: TextField(key: const ValueKey('social-comment'), controller: _comment, maxLength: 1000, decoration: const InputDecoration(hintText: 'Escribe un comentario', counterText: ''))), IconButton(onPressed: _sending ? null : _sendComment, icon: const Icon(Icons.send))]),
+      ],
     ])));
   }
 }
