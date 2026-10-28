@@ -250,9 +250,9 @@ class FirebaseChatCallSignaling implements ChatCallSignaling {
 }
 
 class ChatCallController extends ChangeNotifier {
-  ChatCallController({ChatCallSignaling? signaling, FirebaseAuth? auth}) : _signaling = signaling ?? FirebaseChatCallSignaling(), _auth = auth ?? FirebaseAuth.instance;
+  ChatCallController({ChatCallSignaling? signaling, FirebaseAuth? auth}) : _signaling = signaling ?? FirebaseChatCallSignaling(), _auth = auth;
   final ChatCallSignaling _signaling;
-  final FirebaseAuth _auth;
+  final FirebaseAuth? _auth;
   RTCPeerConnection? _peer;
   MediaStream? _localStream;
   MediaStream? _remoteStream;
@@ -271,7 +271,7 @@ class ChatCallController extends ChangeNotifier {
     if (!isAllowedOneToOneCall(channelId: channel.id, isGroup: channel.isGroup, callerUid: uid, peerUid: peer.uid)) throw StateError('Las llamadas solo están disponibles en chats privados 1:1.');
     if (!channel.includesIdentity(uid: uid, email: email) || !peer.email.isNotEmpty || peer.uid.isEmpty || peer.uid == uid) throw StateError('No pude verificar las dos cuentas del chat.');
     final callId = 'call_${DateTime.now().microsecondsSinceEpoch}_${uid.substring(0, uid.length.clamp(1, 8))}';
-    final current = _auth.currentUser;
+    final current = _auth?.currentUser;
     if (current?.uid != uid) throw StateError('La sesión cambió.');
     final channelMap = await _signaling.readPrivateChannel(channel.id);
     if (channelMap['isGroup'] == true || channelMap['isDirect'] != true) throw StateError('Las llamadas solo están disponibles en chats privados 1:1.');
@@ -287,20 +287,20 @@ class ChatCallController extends ChangeNotifier {
     final channelData = await _signaling.readPrivateChannel(incoming.channelId);
     final rawMembers = channelData['members'];
     final members = rawMembers is List ? rawMembers.whereType<Map>().map(ChatMember.fromMap).toList() : <ChatMember>[];
-    final currentEmail = (_auth.currentUser?.email ?? '').trim();
-    if (_auth.currentUser?.uid != uid || channelData['isDirect'] != true || channelData['isGroup'] == true || !members.any((member) => member.matches(uid: uid, email: currentEmail)) || !members.any((member) => member.matches(uid: incoming.callerUid, email: incoming.callerEmail))) throw StateError('No pude verificar esta llamada y sus participantes.');
-    await _signaling.rejectCallSignal(incoming.callId, uid: uid, channelId: incoming.channelId, callerUid: incoming.callerUid, peerUid: incoming.peerUid, currentEmail: _auth.currentUser?.email ?? '', callerEmail: incoming.callerEmail);
+    final currentEmail = (_auth?.currentUser?.email ?? '').trim();
+    if (_auth?.currentUser?.uid != uid || channelData['isDirect'] != true || channelData['isGroup'] == true || !members.any((member) => member.matches(uid: uid, email: currentEmail)) || !members.any((member) => member.matches(uid: incoming.callerUid, email: incoming.callerEmail))) throw StateError('No pude verificar esta llamada y sus participantes.');
+    await _signaling.rejectCallSignal(incoming.callId, uid: uid, channelId: incoming.channelId, callerUid: incoming.callerUid, peerUid: incoming.peerUid, currentEmail: _auth?.currentUser?.email ?? '', callerEmail: incoming.callerEmail);
     lastFinishedCallId = incoming.callId;
     status = 'Llamada rechazada'; notifyListeners();
   }
 
   Future<void> verifyIncoming(ChatCallSignal incoming, {required String uid}) async {
-    if (_auth.currentUser?.uid != uid || incoming.peerUid != uid || incoming.callerUid == uid || incoming.status != 'RINGING') throw StateError('Esta llamada no está dirigida a tu cuenta.');
-    await _signaling.authorizeAnswer(incoming.callId, uid: uid, channelId: incoming.channelId, callerUid: incoming.callerUid, peerUid: incoming.peerUid, currentEmail: _auth.currentUser?.email ?? '', callerEmail: incoming.callerEmail);
+    if (_auth?.currentUser?.uid != uid || incoming.peerUid != uid || incoming.callerUid == uid || incoming.status != 'RINGING') throw StateError('Esta llamada no está dirigida a tu cuenta.');
+    await _signaling.authorizeAnswer(incoming.callId, uid: uid, channelId: incoming.channelId, callerUid: incoming.callerUid, peerUid: incoming.peerUid, currentEmail: _auth?.currentUser?.email ?? '', callerEmail: incoming.callerEmail);
   }
 
   Future<void> answerIncoming(ChatCallSignal incoming, {required String uid}) async {
-    if (_auth.currentUser?.uid != uid) throw StateError('La sesión cambió.');
+    if (_auth?.currentUser?.uid != uid) throw StateError('La sesión cambió.');
     if (incoming.peerUid != uid || !incoming.channelId.startsWith('direct') || incoming.callerUid == uid) throw StateError('Esta llamada no está dirigida a tu cuenta.');
     await verifyIncoming(incoming, uid: uid);
     call = incoming;
@@ -334,7 +334,7 @@ class ChatCallController extends ChangeNotifier {
   }
 
   Future<void> _prepare(ChatCallSignal active, {required bool outgoing}) async {
-    final user = _auth.currentUser;
+    final user = _auth?.currentUser;
     if (user == null || (user.uid != active.callerUid && user.uid != active.peerUid)) throw StateError('La sesión no pertenece a esta llamada.');
     _localStream = await navigator.mediaDevices.getUserMedia({'audio': true, 'video': active.isVideo ? {'facingMode': 'user', 'width': 640, 'height': 480} : false});
     _peer = await createPeerConnection({'iceServers': [{'urls': 'stun:stun.l.google.com:19302'}], 'sdpSemantics': 'unified-plan'});

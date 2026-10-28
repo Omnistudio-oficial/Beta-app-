@@ -44,7 +44,7 @@ class _ChatScreenState extends State<ChatScreen> {
   ChatCallController? _createCallController() {
     try {
       final identity = _user;
-      if (identity != null && FirebaseAuth.instance.currentUser?.uid == identity.uid) return ChatCallController();
+      if (identity != null && FirebaseAuth.instance.currentUser?.uid == identity.uid) return ChatCallController(auth: FirebaseAuth.instance);
     } catch (_) { /* Firebase is intentionally absent from offline widget tests. */ }
     return null;
   }
