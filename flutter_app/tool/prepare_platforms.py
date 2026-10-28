@@ -142,6 +142,7 @@ post_install do |installer|
     flutter_additional_ios_build_settings(target)
     target.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
+      config.build_settings['ONLY_ACTIVE_ARCH'] = 'YES'
     end
   end
 end
@@ -152,6 +153,11 @@ end
         podfile_text, platform_count = re.subn(platform_pattern, "platform :ios, '15.5'", podfile_text, count=1)
         if platform_count == 0:
             podfile_text = "platform :ios, '15.5'\n" + podfile_text
+        if "post_install do |installer|" in podfile_text and "flutter_additional_ios_build_settings(target)" in podfile_text:
+            build_settings = "flutter_additional_ios_build_settings(target)\n      target.build_configurations.each do |config|\n        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'\n        config.build_settings['ONLY_ACTIVE_ARCH'] = 'YES'\n      end"
+            podfile_text = podfile_text.replace("flutter_additional_ios_build_settings(target)", build_settings, 1)
+        elif "ONLY_ACTIVE_ARCH" not in podfile_text:
+            raise SystemExit("Could not configure iOS Pods for the 15.5 deployment target and active architecture")
     podfile.write_text(podfile_text, encoding="utf-8")
 
     with info_plist.open("rb") as stream:
@@ -166,7 +172,8 @@ end
     app_info["NSPhotoLibraryUsageDescription"] = (
         "Permite seleccionar fotos y videos para publicarlos de forma privada en tu cuenta de Social."
     )
-    app_info["NSMicrophoneUsageDescription"] = "OmniStudio usa el micrófono para grabar notas de voz que tú eliges enviar en el chat."
+    app_info["NSMicrophoneUsageDescription"] = "OmniStudio usa el micrófono para grabar notas de voz y realizar llamadas que tú inicias o respondes."
+    app_info["NSCameraUsageDescription"] = "OmniStudio usa la cámara durante videollamadas que tú inicias o respondes."
     app_info["NSLocationWhenInUseUsageDescription"] = (
         "La ubicación se usa para mostrar tu posición en el mapa y guiarte por una ruta mientras usas la aplicación."
     )

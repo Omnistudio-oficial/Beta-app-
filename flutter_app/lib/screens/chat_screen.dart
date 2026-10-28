@@ -10,6 +10,8 @@ import 'package:beta_app/screens/youtube_chat_player.dart';
 import 'package:beta_app/screens/chat_voice_note.dart';
 import 'package:beta_app/screens/chat_translation.dart';
 import 'package:beta_app/screens/chat_group_dialogs.dart';
+import 'package:beta_app/screens/chat_calls.dart';
+import 'package:beta_app/screens/call_dialog.dart';
 
 import 'chat_attachment.dart';
 import 'chat_drafts.dart';
@@ -39,12 +41,23 @@ class _ChatScreenState extends State<ChatScreen> {
   late final ChatRepository _repository = widget.repository ?? FirebaseChatRepository();
   late final ChatIdentity? _user = widget.identity ?? _identityFromAuth();
 
+  ChatCallController? _createCallController() {
+    try {
+      if (_user != null && FirebaseAuth.instance.currentUser?.uid == _user!.uid) return ChatCallController();
+    } catch (_) { /* Firebase is intentionally absent from offline widget tests. */ }
+    return null;
+  }
+
   ChatIdentity? _identityFromAuth() {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return null;
     return ChatIdentity(uid: user.uid, email: user.email ?? '', displayName: user.displayName ?? '');
   }
   final TextEditingController _controller = TextEditingController();
+  late final ChatCallController? _callController = _createCallController();
+  late final Stream<List<ChatCallSignal>> _calls = _callController == null ? const Stream.empty() : FirebaseChatCallSignaling().watchCalls(_user!.uid);
+  StreamSubscription<List<ChatCallSignal>>? _callSubscription;
+  String? _activeCallId;
   ChatChannel? _channel;
   Stream<List<ChatMessage>>? _messages;
   bool _searching = false;
@@ -73,6 +86,9 @@ class _ChatScreenState extends State<ChatScreen> {
     _attachmentPicker = widget.attachmentPicker ?? DeviceChatAttachmentPicker();
     _mediaActions = widget.mediaActions ?? ChatMediaActions();
     final user = _user;
+    if (_callController != null) {
+      _callSubscription = _calls.listen(_handleCallUpdates, onError: (Object error) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('No se pudieron recibir llamadas: $error'))); });
+    }
     _channels = user == null || user.email.trim().isEmpty
         ? const Stream<List<ChatChannel>>.empty()
         : _repository.watchChannels(uid: user.uid, email: user.email);
@@ -95,6 +111,71 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
+  void _handleCallUpdates(List<ChatCallSignal> calls) {
+    final user = _user;
+    final controller = _callController;
+    if (user == null || controller == null || !mounted) return;
+    final active = _activeCallId;
+    if (active != null) {
+      if (calls.any((call) => call.callId == active && call.status == 'ENDED')) {
+        unawaited(controller.endCall());
+        _activeCallId = null;
+        final navigator = Navigator.of(context, rootNavigator: true);
+        if (navigator.canPop()) navigator.pop();
+      }
+      return;
+    }
+    final incoming = calls.where((call) => call.peerUid == user.uid && call.status == 'RINGING' && call.channelId.startsWith('direct')).toList();
+    if (incoming.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) { if (mounted && _activeCallId == null) unawaited(_showIncomingCall(incoming.first)); });
+    }
+  }
+
+  ChatMember? _peerForCall(ChatChannel channel, ChatIdentity user) {
+    if (channel.isGroup || !channel.id.startsWith('direct') || channel.members.length != 2) return null;
+    final matching = channel.members.where((member) => member.matches(uid: user.uid, email: user.email)).toList();
+    if (matching.length != 1) return null;
+    final peer = channel.members.where((member) => !member.matches(uid: user.uid, email: user.email)).toList();
+    if (peer.length != 1 || peer.single.uid.isEmpty || peer.single.email.trim().isEmpty) return null;
+    return peer.single;
+  }
+
+  Future<void> _startCall(ChatIdentity user, ChatChannel channel, {required bool video}) async {
+    final controller = _callController;
+    final peer = _peerForCall(channel, user);
+    if (controller == null || peer == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No pude verificar un chat directo de solo dos cuentas.')));
+      return;
+    }
+    _activeCallId = 'starting';
+    try {
+      await controller.startOutgoing(channel: channel, uid: user.uid, email: user.email, displayName: user.displayName, peer: peer, video: video);
+      if (!mounted) return;
+      _activeCallId = controller.call?.callId;
+      await showDialog<void>(context: context, barrierDismissible: false, builder: (_) => ChatCallDialog(controller: controller, video: video, peerName: peer.name.isNotEmpty ? peer.name : peer.email, currentUid: user.uid));
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('No se pudo iniciar la llamada: $error')));
+    } finally {
+      if (mounted) setState(() => _activeCallId = null);
+    }
+  }
+
+  Future<void> _showIncomingCall(ChatCallSignal incoming) async {
+    final user = _user;
+    final controller = _callController;
+    if (user == null || controller == null || _activeCallId != null || incoming.peerUid != user.uid) return;
+    _activeCallId = incoming.callId;
+    try {
+      await controller.verifyIncoming(incoming, uid: user.uid);
+      if (!mounted) return;
+      await showDialog<void>(context: context, barrierDismissible: false, builder: (_) => ChatCallDialog(controller: controller, video: incoming.isVideo, peerName: incoming.callerName, currentUid: user.uid, incoming: incoming));
+    } catch (_) {
+      // Invalid, stale, or non-member call signals are ignored in the UI.
+    } finally {
+      if (mounted) setState(() => _activeCallId = null);
+    }
+  }
+
   void _retryChannels() {
     final user = _user;
     if (user == null) return;
@@ -106,6 +187,8 @@ class _ChatScreenState extends State<ChatScreen> {
     _controller.dispose();
     _searchController.dispose();
     _translation.close();
+    _callSubscription?.cancel();
+    _callController?.dispose();
     super.dispose();
   }
 
@@ -192,6 +275,8 @@ class _ChatScreenState extends State<ChatScreen> {
               },
               icon: const Icon(Icons.clear),
             ),
+          if (!_searching && !channel.isGroup && channel.id.startsWith('direct') && _peerForCall(channel, user) != null) IconButton(key: const ValueKey('chat-start-voice-call'), tooltip: 'Llamada de voz', onPressed: () => _startCall(user, channel, video: false), icon: const Icon(Icons.call)),
+          if (!_searching && !channel.isGroup && channel.id.startsWith('direct') && _peerForCall(channel, user) != null) IconButton(key: const ValueKey('chat-start-video-call'), tooltip: 'Videollamada', onPressed: () => _startCall(user, channel, video: true), icon: const Icon(Icons.videocam)),
           if (!_searching)
             IconButton(
               key: const ValueKey('chat-search-open'),

@@ -30,6 +30,8 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>OmniStudio usa la cámara durante videollamadas que tú inicias o respondes.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>OmniStudio usa el micrófono para grabar notas de voz que tú eliges enviar en el chat.</string>
 	<key>GIDClientID</key>
