@@ -1,15 +1,20 @@
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'docs_cloud_repository.dart';
 
 import 'docs_storage.dart';
 import 'docs_txt_export.dart';
 
-/// Local-only document workspace. It does not read or write account/backend data.
+/// Account-synced document workspace with injectable local-only test storage.
 class DocsScreen extends StatefulWidget {
-  const DocsScreen({super.key, this.storage, this.txtExporter});
+  const DocsScreen({super.key, this.storage, this.cloudRepository, this.txtExporter});
 
-  /// Injectable for tests; production uses app-scoped SharedPreferences storage.
+  /// Supplying local storage opts into offline-only storage (used in tests).
   final DocumentsStorage? storage;
+
+  final CloudDocumentsRepository? cloudRepository;
 
   /// Injectable so the export flow can be tested without opening a platform sheet.
   final DocsTxtExporter? txtExporter;
@@ -20,7 +25,9 @@ class DocsScreen extends StatefulWidget {
 
 class _DocsScreenState extends State<DocsScreen> {
   final TextEditingController _searchController = TextEditingController();
-  late final LocalDocumentsRepository _repository;
+  LocalDocumentsRepository? _repository;
+  CloudDocumentsRepository? _cloudRepository;
+  StreamSubscription<List<LocalDocument>>? _cloudSubscription;
   List<LocalDocument> _documents = [];
   int _nextId = 0;
   bool _loading = true;
@@ -32,16 +39,53 @@ class _DocsScreenState extends State<DocsScreen> {
   @override
   void initState() {
     super.initState();
-    _repository = LocalDocumentsRepository(
-      widget.storage ?? SharedPreferencesDocumentsStorage(),
-    );
-    _loadDocuments();
+    if (widget.storage != null) {
+      _repository = LocalDocumentsRepository(widget.storage!);
+      _loadDocuments();
+    } else {
+      _loadCloudDocuments();
+    }
   }
 
   @override
   void dispose() {
+    _cloudSubscription?.cancel();
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadCloudDocuments() async {
+    await _cloudSubscription?.cancel();
+    try {
+      _cloudRepository ??= widget.cloudRepository ?? FirebaseCloudDocumentsRepository();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() { _loading = false; _error = 'No se pudo iniciar la sincronización. Inicia sesión e inténtalo de nuevo.'; });
+      return;
+    }
+    final repository = _cloudRepository!;
+    final uid = repository.currentUid;
+    if (uid == null || uid.isEmpty) {
+      if (!mounted) return;
+      setState(() { _loading = false; _error = 'Inicia sesión para sincronizar tus documentos.'; });
+      return;
+    }
+    setState(() { _loading = true; _error = null; });
+    _cloudSubscription = repository.watch(uid).listen((documents) {
+      if (!mounted) return;
+      setState(() {
+        _documents = documents;
+        _nextId = documents.fold<int>(0, (next, doc) => doc.id >= next ? doc.id + 1 : next);
+        _loading = false;
+        _error = null;
+      });
+    }, onError: (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = 'No se pudieron sincronizar los documentos. Comprueba tu conexión e inténtalo de nuevo.';
+      });
+    });
   }
 
   Future<void> _loadDocuments() async {
@@ -50,7 +94,7 @@ class _DocsScreenState extends State<DocsScreen> {
       _error = null;
     });
     try {
-      final result = await _repository.load();
+      final result = await _repository!.load();
       if (!mounted) return;
       setState(() {
         _documents = result.documents;
@@ -91,7 +135,7 @@ class _DocsScreenState extends State<DocsScreen> {
     final updated = List<LocalDocument>.of(_documents);
     if (document == null) {
       updated.add(LocalDocument(
-        id: _nextId,
+        id: _cloudRepository == null ? _nextId : DateTime.now().microsecondsSinceEpoch,
         title: result.title,
         content: result.content,
         updatedAt: now,
@@ -105,7 +149,16 @@ class _DocsScreenState extends State<DocsScreen> {
         updatedAt: now,
       );
     }
-    await _persist(updated, previous, created: document == null);
+    if (_cloudRepository != null) {
+      final uid = _cloudRepository!.currentUid;
+      if (uid == null) return;
+      final saved = document == null ? updated.last : updated.firstWhere((item) => item.id == document.id);
+      await _persistCloud(() => document == null
+          ? _cloudRepository!.create(uid, saved)
+          : _cloudRepository!.update(uid, saved));
+    } else {
+      await _persist(updated, previous, created: document == null);
+    }
   }
 
   Future<void> _exportDocument(
@@ -150,7 +203,9 @@ class _DocsScreenState extends State<DocsScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Eliminar documento'),
-        content: Text('¿Quieres eliminar «${document.title}» de este dispositivo?'),
+        content: Text(_cloudRepository == null
+            ? '¿Quieres eliminar «${document.title}» de este dispositivo?'
+            : '¿Quieres eliminar «${document.title}» de tus documentos sincronizados?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
@@ -167,7 +222,27 @@ class _DocsScreenState extends State<DocsScreen> {
     if (confirmed != true || !mounted) return;
     final previous = List<LocalDocument>.of(_documents);
     final updated = previous.where((item) => item.id != document.id).toList();
-    await _persist(updated, previous);
+    if (_cloudRepository != null) {
+      final uid = _cloudRepository!.currentUid;
+      if (uid == null) return;
+      await _persistCloud(() => _cloudRepository!.delete(uid, document.id));
+    } else {
+      await _persist(updated, previous);
+    }
+  }
+
+  Future<void> _persistCloud(Future<void> Function() operation) async {
+    if (_saving) return;
+    setState(() { _saving = true; _error = null; });
+    try {
+      await operation();
+      if (mounted) setState(() => _saving = false);
+    } catch (_) {
+      if (mounted) setState(() {
+        _saving = false;
+        _error = 'No se pudo guardar el documento en la nube. Inténtalo de nuevo.';
+      });
+    }
   }
 
   Future<void> _persist(
@@ -182,7 +257,7 @@ class _DocsScreenState extends State<DocsScreen> {
       _notice = null;
     });
     try {
-      await _repository.save(updated);
+      await _repository!.save(updated);
       if (!mounted) return;
       setState(() {
         _documents = updated;
@@ -206,6 +281,12 @@ class _DocsScreenState extends State<DocsScreen> {
       appBar: AppBar(
         title: const Text('Docs'),
         actions: [
+          if (widget.storage == null)
+            IconButton(
+              key: const Key('sync-documents'), tooltip: 'Sincronizar documentos',
+              onPressed: _loading || _saving ? null : _loadCloudDocuments,
+              icon: const Icon(Icons.sync),
+            ),
           if (_loading || _saving)
             const Padding(
               padding: EdgeInsets.all(16),
@@ -300,7 +381,7 @@ class _DocsScreenState extends State<DocsScreen> {
                                 ),
                                 const SizedBox(height: 6),
                                 Text(_documents.isEmpty
-                                    ? 'Crea un documento para empezar. Se guarda solo en este dispositivo.'
+                                    ? 'Crea un documento para empezar. Se sincroniza con tu cuenta en tus dispositivos.'
                                     : 'Prueba con otro título o una palabra del contenido.'),
                               ],
                             ),
