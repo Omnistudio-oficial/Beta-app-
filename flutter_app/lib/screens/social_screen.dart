@@ -17,14 +17,21 @@ class _SocialScreenState extends State<SocialScreen> {
   late final SocialService _service = widget.service ?? FirebaseSocialService();
   final ImagePicker _picker = ImagePicker();
   final TextEditingController _caption = TextEditingController();
+  final TextEditingController _exactHandle = TextEditingController();
   final List<SocialMediaFile> _selected = [];
   String? _pickerError;
   bool _posting = false;
   bool _showPublicFeed = true;
+  bool _lookupBusy = false;
+  SocialProfile? _lookupProfile;
+  String? _lookupError;
+  List<SocialFollowRequest> _followRequests = const [];
+  bool _requestsLoaded = false;
 
   @override
   void dispose() {
     _caption.dispose();
+    _exactHandle.dispose();
     super.dispose();
   }
 
@@ -52,6 +59,41 @@ class _SocialScreenState extends State<SocialScreen> {
       setState(() => _selected.addAll(pending));
     } catch (_) {
       if (mounted) setState(() => _pickerError = 'No se pudo abrir el selector de fotos y videos.');
+    }
+  }
+
+  Future<void> _lookupExactHandle() async {
+    setState(() { _lookupBusy = true; _lookupProfile = null; _lookupError = null; });
+    try {
+      final profile = await _service.findProfileByExactHandle(_exactHandle.text);
+      if (!mounted) return;
+      setState(() {
+        _lookupProfile = profile;
+        if (profile == null) _lookupError = 'No se encontró una cuenta para ese handle exacto.';
+      });
+    } catch (_) {
+      if (mounted) setState(() => _lookupError = 'No se pudo consultar ese handle. Inténtalo de nuevo.');
+    } finally {
+      if (mounted) setState(() => _lookupBusy = false);
+    }
+  }
+
+  Future<void> _loadFollowRequests() async {
+    try {
+      final requests = await _service.pendingFollowRequests();
+      if (mounted) setState(() { _followRequests = requests; _requestsLoaded = true; });
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No se pudieron cargar las solicitudes.')));
+    }
+  }
+
+  Future<void> _resolveRequest(SocialFollowRequest request, {required bool accept}) async {
+    try {
+      if (accept) { await _service.acceptFollowRequest(request.uid); }
+      else { await _service.rejectFollowRequest(request.uid); }
+      await _loadFollowRequests();
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No se pudo actualizar la solicitud.')));
     }
   }
 
@@ -90,10 +132,48 @@ class _SocialScreenState extends State<SocialScreen> {
               return ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
+                  const Text('Buscar una cuenta por su handle exacto', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 6),
+                  Row(children: [
+                    Expanded(child: TextField(
+                      key: const ValueKey('social-exact-handle'), controller: _exactHandle,
+                      textInputAction: TextInputAction.search,
+                      decoration: const InputDecoration(hintText: '@usuario', border: OutlineInputBorder(), isDense: true),
+                      onSubmitted: (_) => _lookupExactHandle(),
+                    )),
+                    IconButton(
+                      tooltip: 'Buscar handle exacto',
+                      onPressed: _lookupBusy ? null : _lookupExactHandle,
+                      icon: _lookupBusy ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.search),
+                    ),
+                  ]),
+                  const Text('Solo se consulta el handle escrito; Social no muestra una lista de cuentas no solicitada.'),
+                  if (_lookupError != null) Text(_lookupError!, key: const ValueKey('social-profile-error'), style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                  if (_lookupProfile != null) _FollowProfileCard(profile: _lookupProfile!, service: _service),
+                  const SizedBox(height: 16),
                   Row(children: [
                     const Expanded(child: Text('Feed público', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
                     Semantics(label: 'Mostrar feed público', child: Switch(value: _showPublicFeed, onChanged: (value) => setState(() => _showPublicFeed = value))),
                   ]),
+                  if (!_requestsLoaded)
+                    Align(alignment: Alignment.centerLeft, child: TextButton.icon(
+                      key: const ValueKey('social-load-follow-requests'),
+                      onPressed: _loadFollowRequests,
+                      icon: const Icon(Icons.person_add_alt_1), label: const Text('Revisar solicitudes de seguimiento'),
+                    ))
+                  else if (_followRequests.isNotEmpty)
+                    Card(child: Column(children: [
+                      const ListTile(title: Text('Solicitudes de seguimiento')),
+                      for (final request in _followRequests) ListTile(
+                        title: Text(request.displayName), subtitle: Text('@${request.username}'),
+                        trailing: Wrap(children: [
+                          IconButton(tooltip: 'Aceptar solicitud ${request.username}', onPressed: () => _resolveRequest(request, accept: true), icon: const Icon(Icons.check)),
+                          IconButton(tooltip: 'Rechazar solicitud ${request.username}', onPressed: () => _resolveRequest(request, accept: false), icon: const Icon(Icons.close)),
+                        ]),
+                      ),
+                    ]))
+                  else
+                    const Text('No tienes solicitudes pendientes.'),
                   if (_showPublicFeed) StreamBuilder<List<SocialPost>>(
                     stream: _service.watchPublicFeed(),
                     builder: (context, feed) {
@@ -172,6 +252,43 @@ class _SocialScreenState extends State<SocialScreen> {
       );
 }
 
+class _FollowProfileCard extends StatefulWidget {
+  const _FollowProfileCard({required this.profile, required this.service});
+  final SocialProfile profile;
+  final SocialService service;
+  @override
+  State<_FollowProfileCard> createState() => _FollowProfileCardState();
+}
+
+class _FollowProfileCardState extends State<_FollowProfileCard> {
+  late Future<String?> _status = widget.service.followStatus(widget.profile.uid);
+  bool _busy = false;
+
+  Future<void> _toggle() async {
+    setState(() => _busy = true);
+    try {
+      final status = await widget.service.toggleFollow(widget.profile);
+      if (mounted) setState(() => _status = Future.value(status));
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No se pudo actualizar el seguimiento. Inténtalo de nuevo.')));
+    } finally { if (mounted) setState(() => _busy = false); }
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<String?>(
+    future: _status,
+    builder: (context, snapshot) {
+      final status = snapshot.data;
+      final label = status == 'accepted' ? 'Dejar de seguir' : status == 'pending' ? 'Cancelar solicitud' : 'Seguir';
+      return Card(key: ValueKey('follow-profile-${widget.profile.uid}'), child: ListTile(
+        title: Text(widget.profile.displayName), subtitle: Text('@${widget.profile.username}${widget.profile.isPrivate ? ' · Cuenta privada' : ' · Cuenta pública'}'),
+        trailing: TextButton(onPressed: _busy || snapshot.hasError || snapshot.connectionState == ConnectionState.waiting ? null : _toggle,
+          child: Text(_busy ? 'Actualizando…' : label)),
+      ));
+    },
+  );
+}
+
 class _PublicPostCard extends StatefulWidget {
   const _PublicPostCard({required this.post, required this.service});
   final SocialPost post;
@@ -209,6 +326,8 @@ class _PublicPostCardState extends State<_PublicPostCard> {
     return Card(margin: const EdgeInsets.only(bottom: 12), child: Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       if (!allowed) const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('Solo lectura; el perfil no permite interacciones para esta cuenta.')),
       Text(post.displayName.isEmpty ? (post.username.isEmpty ? 'Usuario' : '@${post.username}') : post.displayName, style: const TextStyle(fontWeight: FontWeight.bold)),
+      if (post.ownerUid != widget.service.currentUid && post.username.isNotEmpty)
+        _FollowProfileCard(profile: SocialProfile(uid: post.ownerUid, username: post.username, displayName: post.displayName.isEmpty ? post.username : post.displayName, visibility: 'public'), service: widget.service),
       Text(DateTime.fromMillisecondsSinceEpoch(post.createdAt).toLocal().toString().substring(0, 16), style: Theme.of(context).textTheme.labelSmall),
       if (post.caption.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 8), child: SelectableText(post.caption)),
       if (post.mediaItems.isNotEmpty) const Padding(padding: EdgeInsets.only(top: 8), child: Text('Esta publicación incluye contenido multimedia; la vista segura de medios públicos aún no está disponible.')),

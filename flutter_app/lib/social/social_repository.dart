@@ -77,6 +77,22 @@ class SocialPost {
   }
 }
 
+class SocialProfile {
+  const SocialProfile({required this.uid, required this.username, required this.displayName, required this.visibility});
+  final String uid;
+  final String username;
+  final String displayName;
+  final String visibility;
+  bool get isPrivate => visibility != 'public';
+}
+
+class SocialFollowRequest {
+  const SocialFollowRequest({required this.uid, required this.username, required this.displayName});
+  final String uid;
+  final String username;
+  final String displayName;
+}
+
 class SocialComment {
   const SocialComment({required this.id, required this.authorUid, required this.authorName, required this.text, required this.createdAt});
   final String id;
@@ -91,6 +107,12 @@ abstract interface class SocialService {
   Stream<List<SocialPost>> watchMyPosts();
   Stream<List<SocialPost>> watchPublicFeed();
   Future<bool> canInteract(SocialPost post);
+  Future<SocialProfile?> findProfileByExactHandle(String handle);
+  Future<String?> followStatus(String targetUid);
+  Future<String> toggleFollow(SocialProfile target);
+  Future<List<SocialFollowRequest>> pendingFollowRequests();
+  Future<void> acceptFollowRequest(String requesterUid);
+  Future<void> rejectFollowRequest(String requesterUid);
   Stream<Set<String>> watchLikes(SocialPost post);
   Stream<List<SocialComment>> watchComments(SocialPost post);
   Future<void> toggleLike(SocialPost post, bool liked);
@@ -168,6 +190,135 @@ class FirebaseSocialService implements SocialService {
         return visible.whereType<SocialPost>().toList()
           ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
       });
+
+  /// Resolve one explicitly entered handle only; never enumerate the directory or
+  /// expose profile records by prefix search. The existing Kotlin directory uses
+  /// usernameLower as its exact child key.
+  @override
+  Future<SocialProfile?> findProfileByExactHandle(String handle) async {
+    final normalized = handle.trim().replaceFirst(RegExp(r'^@'), '').toLowerCase();
+    if (!RegExp(r'^[a-z0-9_]{3,20}$').hasMatch(normalized)) return null;
+    try {
+      final snapshot = await _social.child('directory/$normalized').get();
+      for (final entry in snapshot.children) {
+        final raw = entry.value;
+        if (raw is! Map) continue;
+        final values = Map<Object?, Object?>.from(raw);
+        final uid = values['uid'];
+        final username = values['username'];
+        final usernameLower = values['usernameLower'];
+        final visibility = values['visibility'];
+        if (uid is! String || uid.isEmpty || uid != entry.key || username is! String ||
+            username.toLowerCase() != normalized || usernameLower != normalized ||
+            (visibility != 'public' && visibility != 'private')) continue;
+        if (uid == _user().uid) return null;
+        return SocialProfile(uid: uid, username: username,
+            displayName: values['displayName'] is String ? values['displayName'] as String : 'Usuario',
+            visibility: visibility as String);
+      }
+    } catch (_) {
+      // Never fall back to a broad directory read if exact lookup is denied.
+    }
+    return null;
+  }
+
+  @override
+  Future<String?> followStatus(String targetUid) async {
+    final uid = _user().uid;
+    final value = await _social.child('following/$uid/$targetUid/status').get();
+    final status = value.value is String ? value.value as String : null;
+    if (status != 'pending') return status;
+    // Approvals are written by the target under followers/{target}/{requester};
+    // the requester cannot update its own following node on the target's behalf.
+    try {
+      final accepted = await _social.child('followers/$targetUid/$uid/status').get();
+      if (accepted.value == 'accepted') {
+        // The profile owner is authoritative for this transition; mirror it in
+        // the requester's own following index, matching native Social behavior.
+        await _social.child('following/$uid/$targetUid/status').set('accepted');
+        return 'accepted';
+      }
+    } catch (_) {
+      // A denied read never grants access; continue to the requester-visible request.
+    }
+    try {
+      final request = await _social.child('followRequests/$targetUid/$uid/status').get();
+      if (request.value == 'rejected') {
+        await _social.child('following/$uid/$targetUid').remove();
+        return null;
+      }
+    } catch (_) {
+      // Preserve the pending status when request state is unavailable.
+    }
+    return status;
+  }
+
+  @override
+  Future<String> toggleFollow(SocialProfile target) async {
+    final user = _user();
+    if (target.uid == user.uid) throw StateError('No puedes seguir tu propio perfil.');
+    final current = await followStatus(target.uid);
+    if (current == 'accepted' || current == 'pending') {
+      await _social.update({
+        'following/${user.uid}/${target.uid}': null,
+        'followers/${target.uid}/${user.uid}': null,
+        'followRequests/${target.uid}/${user.uid}': null,
+      });
+      return '';
+    }
+    final now = ServerValue.timestamp;
+    if (target.isPrivate) {
+      await _social.update({
+        'following/${user.uid}/${target.uid}': {'status': 'pending', 'createdAt': now},
+        'followRequests/${target.uid}/${user.uid}': {
+          'requesterUid': user.uid,
+          'username': (user.displayName ?? user.email?.split('@').first ?? 'usuario').toLowerCase(),
+          'displayName': user.displayName ?? user.email?.split('@').first ?? 'Usuario',
+          'status': 'pending',
+          'createdAt': now,
+        },
+      });
+      return 'pending';
+    }
+    final relation = {'status': 'accepted', 'createdAt': now};
+    await _social.update({
+      'following/${user.uid}/${target.uid}': relation,
+      'followers/${target.uid}/${user.uid}': relation,
+      'followRequests/${target.uid}/${user.uid}': null,
+    });
+    return 'accepted';
+  }
+
+  @override
+  Future<List<SocialFollowRequest>> pendingFollowRequests() async {
+    final snapshot = await _social.child('followRequests/${_user().uid}').get();
+    return snapshot.children.where((request) => request.child('status').value == 'pending').map((request) {
+      final raw = request.value;
+      final values = raw is Map ? Map<Object?, Object?>.from(raw) : <Object?, Object?>{};
+      return SocialFollowRequest(uid: request.key ?? '',
+        username: values['username'] is String ? values['username'] as String : '',
+        displayName: values['displayName'] is String ? values['displayName'] as String : 'Usuario');
+    }).where((request) => request.uid.isNotEmpty).toList();
+  }
+
+  @override
+  Future<void> acceptFollowRequest(String requesterUid) async {
+    final uid = _user().uid;
+    final request = _social.child('followRequests/$uid/$requesterUid');
+    final current = await request.get();
+    if (current.child('status').value != 'pending') throw StateError('La solicitud ya no está pendiente.');
+    await _social.child('followers/$uid/$requesterUid').set({'status': 'accepted', 'createdAt': ServerValue.timestamp});
+    await request.child('status').set('accepted');
+  }
+
+  @override
+  Future<void> rejectFollowRequest(String requesterUid) async {
+    final uid = _user().uid;
+    final request = _social.child('followRequests/$uid/$requesterUid');
+    final current = await request.get();
+    if (current.child('status').value != 'pending') throw StateError('La solicitud ya no está pendiente.');
+    await request.child('status').set('rejected');
+  }
 
   @override
   Future<bool> canInteract(SocialPost post) async {

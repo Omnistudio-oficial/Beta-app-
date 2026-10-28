@@ -15,6 +15,18 @@ class _EmptySocialService implements SocialService {
   @override
   Future<bool> canInteract(SocialPost post) async => true;
   @override
+  Future<SocialProfile?> findProfileByExactHandle(String handle) async => null;
+  @override
+  Future<String?> followStatus(String targetUid) async => null;
+  @override
+  Future<String> toggleFollow(SocialProfile target) async => target.isPrivate ? 'pending' : 'accepted';
+  @override
+  Future<List<SocialFollowRequest>> pendingFollowRequests() async => const [];
+  @override
+  Future<void> acceptFollowRequest(String requesterUid) async {}
+  @override
+  Future<void> rejectFollowRequest(String requesterUid) async {}
+  @override
   Stream<Set<String>> watchLikes(SocialPost post) => Stream.value(const {});
   @override
   Stream<List<SocialComment>> watchComments(SocialPost post) => Stream.value(const []);
