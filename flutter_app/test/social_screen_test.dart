@@ -87,6 +87,7 @@ void main() {
     await tester.pump();
     expect(service.comments, ['A comment']);
     await tester.enterText(find.byKey(const ValueKey('social-caption')), 'Hola mundo');
+    await tester.ensureVisible(find.text('Publicar'));
     await tester.tap(find.text('Publicar'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));

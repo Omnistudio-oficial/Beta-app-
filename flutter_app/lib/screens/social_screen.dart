@@ -326,6 +326,8 @@ class _PublicPostCardState extends State<_PublicPostCard> {
     return Card(margin: const EdgeInsets.only(bottom: 12), child: Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       if (!allowed) const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('Solo lectura; el perfil no permite interacciones para esta cuenta.')),
       Text(post.displayName.isEmpty ? (post.username.isEmpty ? 'Usuario' : '@${post.username}') : post.displayName, style: const TextStyle(fontWeight: FontWeight.bold)),
+      if (post.ownerUid != widget.service.currentUid && post.username.isNotEmpty)
+        _FollowProfileCard(profile: SocialProfile(uid: post.ownerUid, username: post.username, displayName: post.displayName.isEmpty ? post.username : post.displayName, visibility: 'public'), service: widget.service),
       Text(DateTime.fromMillisecondsSinceEpoch(post.createdAt).toLocal().toString().substring(0, 16), style: Theme.of(context).textTheme.labelSmall),
       if (post.caption.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 8), child: SelectableText(post.caption)),
       if (post.mediaItems.isNotEmpty) const Padding(padding: EdgeInsets.only(top: 8), child: Text('Esta publicación incluye contenido multimedia; la vista segura de medios públicos aún no está disponible.')),
