@@ -9,6 +9,20 @@ import 'package:flutter/material.dart';
 
 class _EmptySocialService implements SocialService {
   @override
+  String get currentUid => 'uid';
+  @override
+  Stream<List<SocialPost>> watchPublicFeed() => Stream.value(const []);
+  @override
+  Future<bool> canInteract(SocialPost post) async => true;
+  @override
+  Stream<Set<String>> watchLikes(SocialPost post) => Stream.value(const {});
+  @override
+  Stream<List<SocialComment>> watchComments(SocialPost post) => Stream.value(const []);
+  @override
+  Future<void> toggleLike(SocialPost post, bool liked) async {}
+  @override
+  Future<void> addComment(SocialPost post, String text) async {}
+  @override
   Stream<List<SocialPost>> watchMyPosts() => Stream.value(const []);
   @override
   Future<void> createPost({required String caption, required List<SocialMediaFile> media}) async {}

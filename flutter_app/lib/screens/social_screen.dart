@@ -20,6 +20,7 @@ class _SocialScreenState extends State<SocialScreen> {
   final List<SocialMediaFile> _selected = [];
   String? _pickerError;
   bool _posting = false;
+  bool _showPublicFeed = true;
 
   @override
   void dispose() {
@@ -89,6 +90,22 @@ class _SocialScreenState extends State<SocialScreen> {
               return ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
+                  Row(children: [
+                    const Expanded(child: Text('Feed público', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
+                    Switch(value: _showPublicFeed, onChanged: (value) => setState(() => _showPublicFeed = value), semanticLabel: 'Mostrar feed público'),
+                  ]),
+                  if (_showPublicFeed) StreamBuilder<List<SocialPost>>(
+                    stream: _service.watchPublicFeed(),
+                    builder: (context, feed) {
+                      if (feed.hasError) return const Card(child: ListTile(title: Text('No se pudo cargar el feed público.')));
+                      if (feed.connectionState == ConnectionState.waiting && !feed.hasData) return const Center(child: CircularProgressIndicator());
+                      final posts = feed.data ?? const <SocialPost>[];
+                      if (posts.isEmpty) return const Card(child: ListTile(title: Text('El feed público está vacío.')));
+                      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                        for (final post in posts) _PublicPostCard(post: post, service: _service),
+                      ]);
+                    },
+                  ),
                   Card(
                     child: Padding(
                       padding: const EdgeInsets.all(16),
@@ -102,6 +119,7 @@ class _SocialScreenState extends State<SocialScreen> {
                           maxLength: socialMaxCaptionLength,
                           maxLines: 4,
                           minLines: 2,
+                          key: const ValueKey('social-caption'),
                           decoration: const InputDecoration(labelText: 'Escribe algo', border: OutlineInputBorder()),
                         ),
                         if (_selected.isNotEmpty) ...[
@@ -152,6 +170,63 @@ class _SocialScreenState extends State<SocialScreen> {
           ),
         ),
       );
+}
+
+class _PublicPostCard extends StatefulWidget {
+  const _PublicPostCard({required this.post, required this.service});
+  final SocialPost post;
+  final SocialService service;
+  @override
+  State<_PublicPostCard> createState() => _PublicPostCardState();
+}
+
+class _PublicPostCardState extends State<_PublicPostCard> {
+  final TextEditingController _comment = TextEditingController();
+  bool _sending = false;
+  @override
+  void dispose() { _comment.dispose(); super.dispose(); }
+
+  Future<void> _sendComment() async {
+    final text = _comment.text.trim();
+    if (text.isEmpty || text.length > 1000) return;
+    setState(() => _sending = true);
+    try {
+      await widget.service.addComment(widget.post, text);
+      if (mounted) _comment.clear();
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No se pudo publicar el comentario. Puede que el perfil o la publicación ya no permitan interacción.')));
+    } finally { if (mounted) setState(() => _sending = false); }
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<bool>(
+    future: widget.service.canInteract(widget.post),
+    builder: (context, permission) => _buildCard(context, permission.data == true),
+  );
+
+  Widget _buildCard(BuildContext context, bool allowed) {
+    final post = widget.post;
+    return Card(margin: const EdgeInsets.only(bottom: 12), child: Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      if (!allowed) const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('Solo lectura; el perfil no permite interacciones para esta cuenta.')),
+      Text(post.displayName.isEmpty ? (post.username.isEmpty ? 'Usuario' : '@${post.username}') : post.displayName, style: const TextStyle(fontWeight: FontWeight.bold)),
+      Text(DateTime.fromMillisecondsSinceEpoch(post.createdAt).toLocal().toString().substring(0, 16), style: Theme.of(context).textTheme.labelSmall),
+      if (post.caption.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 8), child: SelectableText(post.caption)),
+      if (post.mediaItems.isNotEmpty) const Padding(padding: EdgeInsets.only(top: 8), child: Text('Esta publicación incluye contenido multimedia; la vista segura de medios públicos aún no está disponible.')),
+      StreamBuilder<Set<String>>(stream: widget.service.watchLikes(post), builder: (context, snapshot) {
+        final likes = snapshot.data ?? const <String>{};
+        final liked = likes.contains(widget.service.currentUid);
+        return Row(children: [IconButton(tooltip: liked ? 'Quitar Me gusta' : 'Me gusta', onPressed: allowed ? () async {
+          try { await widget.service.toggleLike(post, !liked); } catch (_) {
+            if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No se pudo actualizar Me gusta. Revisa si el autor permite interacciones.')));
+          }
+        } : null, icon: Icon(liked ? Icons.favorite : Icons.favorite_border)), Text('${likes.length}')]);
+      }),
+      StreamBuilder<List<SocialComment>>(stream: widget.service.watchComments(post), builder: (context, snapshot) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        for (final comment in (snapshot.data ?? const <SocialComment>[])) Padding(padding: const EdgeInsets.symmetric(vertical: 3), child: Text('${comment.authorName}: ${comment.text}')),
+      ])),
+      Row(children: [Expanded(child: TextField(key: const ValueKey('social-comment'), controller: _comment, maxLength: 1000, decoration: const InputDecoration(hintText: 'Escribe un comentario', counterText: ''))), IconButton(onPressed: allowed && !_sending ? _sendComment : null, icon: const Icon(Icons.send))]),
+    ])));
+  }
 }
 
 class _SelectedMediaChip extends StatelessWidget {

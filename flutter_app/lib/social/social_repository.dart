@@ -33,12 +33,14 @@ class SocialMediaItem {
 }
 
 class SocialPost {
-  const SocialPost({required this.id, required this.ownerUid, required this.caption, required this.createdAt, this.mediaItems = const []});
+  const SocialPost({required this.id, required this.ownerUid, required this.caption, required this.createdAt, this.mediaItems = const [], this.username = '', this.displayName = ''});
   final String id;
   final String ownerUid;
   final String caption;
   final int createdAt;
   final List<SocialMediaItem> mediaItems;
+  final String username;
+  final String displayName;
 
   factory SocialPost.fromSnapshot(DataSnapshot snapshot) {
     final raw = snapshot.value;
@@ -54,6 +56,8 @@ class SocialPost {
       caption: '${value['caption'] ?? ''}',
       createdAt: (value['createdAt'] as num?)?.toInt() ?? 0,
       mediaItems: items,
+      username: '${value['username'] ?? ''}',
+      displayName: '${value['displayName'] ?? value['username'] ?? ''}',
     );
   }
 
@@ -73,8 +77,24 @@ class SocialPost {
   }
 }
 
+class SocialComment {
+  const SocialComment({required this.id, required this.authorUid, required this.authorName, required this.text, required this.createdAt});
+  final String id;
+  final String authorUid;
+  final String authorName;
+  final String text;
+  final int createdAt;
+}
+
 abstract interface class SocialService {
+  String get currentUid;
   Stream<List<SocialPost>> watchMyPosts();
+  Stream<List<SocialPost>> watchPublicFeed();
+  Future<bool> canInteract(SocialPost post);
+  Stream<Set<String>> watchLikes(SocialPost post);
+  Stream<List<SocialComment>> watchComments(SocialPost post);
+  Future<void> toggleLike(SocialPost post, bool liked);
+  Future<void> addComment(SocialPost post, String text);
   Future<void> createPost({required String caption, required List<SocialMediaFile> media});
   Future<String> signedMediaUrl(SocialPost post, SocialMediaItem media);
 }
@@ -113,7 +133,10 @@ class FirebaseSocialService implements SocialService {
   final String _publishableKey;
 
   User _user() => _auth.currentUser ?? (throw StateError('Inicia sesión para usar Social.'));
+  @override
+  String get currentUid => _user().uid;
   DatabaseReference get _posts => _database.ref('social_test/postsByUser/${_user().uid}');
+  DatabaseReference get _social => _database.ref('social_test');
 
   @override
   Stream<List<SocialPost>> watchMyPosts() => _posts.onValue.map((event) {
@@ -124,6 +147,85 @@ class FirebaseSocialService implements SocialService {
           ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
         return posts;
       });
+
+  /// Authenticated public-feed read; the deployed RTDB rules are authoritative.
+  @override
+  Stream<List<SocialPost>> watchPublicFeed() => _social.child('publicFeed')
+      .orderByChild('createdAt').limitToLast(50).onValue.asyncMap((event) async {
+        final posts = event.snapshot.children
+            .where((child) => child.value is Map)
+            .map(SocialPost.fromSnapshot)
+            .where((post) => post.ownerUid.isNotEmpty && post.id.isNotEmpty)
+            .toList();
+        final visible = await Future.wait(posts.map((post) async {
+          try {
+            final visibility = await _social.child('profiles/${post.ownerUid}/visibility').get();
+            return visibility.value == 'public' ? post : null;
+          } catch (_) {
+            return null;
+          }
+        }));
+        return visible.whereType<SocialPost>().toList()
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      });
+
+  @override
+  Future<bool> canInteract(SocialPost post) async {
+    final uid = _user().uid;
+    if (post.ownerUid == uid) return true;
+    try {
+      final follower = await _social.child('followers/${post.ownerUid}/$uid/status').get();
+      if (follower.value == 'accepted') return true;
+    } catch (_) {
+      // Private target may deny follower reads; public-profile check follows.
+    }
+    try {
+      final visibility = await _social.child('profiles/${post.ownerUid}/visibility').get();
+      return visibility.value == 'public';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  DatabaseReference _likes(SocialPost post) => _social.child('likes/${post.ownerUid}/${post.id}');
+  DatabaseReference _comments(SocialPost post) => _social.child('comments/${post.ownerUid}/${post.id}');
+
+  @override
+  Stream<Set<String>> watchLikes(SocialPost post) => _likes(post).onValue.map((event) =>
+      event.snapshot.children.where((child) => child.value == true).map((child) => child.key!).toSet());
+
+  @override
+  Stream<List<SocialComment>> watchComments(SocialPost post) => _comments(post).onValue.map((event) {
+        final comments = event.snapshot.children.where((child) => child.value is Map).map((child) {
+          final value = Map<Object?, Object?>.from(child.value as Map);
+          return SocialComment(id: child.key ?? '', authorUid: '${value['authorUid'] ?? ''}',
+              authorName: '${value['authorDisplayName'] ?? value['authorUsername'] ?? 'Usuario'}',
+              text: '${value['text'] ?? ''}', createdAt: (value['createdAt'] as num?)?.toInt() ?? 0);
+        }).toList()..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+        return comments;
+      });
+
+  @override
+  Future<void> toggleLike(SocialPost post, bool liked) async {
+    final uid = _user().uid;
+    if (liked) { await _likes(post).child(uid).set(true); }
+    else { await _likes(post).child(uid).remove(); }
+  }
+
+  @override
+  Future<void> addComment(SocialPost post, String text) async {
+    final user = _user();
+    final clean = text.trim();
+    if (clean.isEmpty || clean.length > 1000) throw ArgumentError('El comentario debe tener entre 1 y 1.000 caracteres.');
+    final ref = _comments(post).push();
+    await ref.set({
+      'authorUid': user.uid,
+      'authorUsername': (user.displayName ?? user.email?.split('@').first ?? 'usuario').toLowerCase(),
+      'authorDisplayName': user.displayName ?? user.email?.split('@').first ?? 'Usuario',
+      'text': clean,
+      'createdAt': ServerValue.timestamp,
+    });
+  }
 
   @override
   Future<void> createPost({required String caption, required List<SocialMediaFile> media}) async {
