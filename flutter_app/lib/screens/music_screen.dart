@@ -91,7 +91,7 @@ class _MusicScreenState extends State<MusicScreen> {
         if (selected != null) Card(key: const Key('selected-track'), child: ListTile(
           leading: const Icon(Icons.music_note, color: Colors.deepPurple, size: 34),
           title: Text(selected.title), subtitle: Text('${selected.artist} · ${selected.duration}'),
-          trailing: Wrap(mainAxisSize: MainAxisSize.min, children: [
+          trailing: Row(mainAxisSize: MainAxisSize.min, children: [
             IconButton(key: const Key('play-pause'), tooltip: _playing ? 'Pausar' : 'Reproducir', icon: Icon(_playing ? Icons.pause : Icons.play_arrow), onPressed: _busy ? null : () => _run(() async { if (_playing) { await _service.pause(); } else { await _service.play(selected); } })),
             IconButton(key: const Key('selected-track-favorite'), tooltip: _favoriteIds.contains(selected.id) ? 'Quitar de favoritos' : 'Añadir a favoritos', icon: Icon(_favoriteIds.contains(selected.id) ? Icons.favorite : Icons.favorite_border, color: _favoriteIds.contains(selected.id) ? Colors.red : null), onPressed: () => _toggleFavorite(selected)),
             IconButton(key: const Key('save-project'), tooltip: 'Guardar proyecto', icon: const Icon(Icons.cloud_upload_outlined), onPressed: () => _saveProject(selected)),

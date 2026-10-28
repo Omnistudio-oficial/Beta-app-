@@ -81,7 +81,8 @@ class MusicService implements MusicWorkspace {
   Future<void> importAudio() async {
     final result = await FilePicker.platform.pickFiles(type: FileType.audio, allowMultiple: false, withData: false);
     final selected = result?.files.single;
-    final path = selected?.path;
+    if (selected == null) return;
+    final path = selected.path;
     if (path == null) return;
     final saved = await _copyIntoLibrary(path);
     _tracks.add(MusicItem(id: 'import-${DateTime.now().microsecondsSinceEpoch}', title: selected.name, artist: 'Importado', duration: '—', audioPath: saved));
