@@ -46,6 +46,7 @@ void main() {
     expect(find.textContaining('permanecen privadas por defecto'), findsOneWidget);
     service.publicFeed.add(const [SocialPost(id: 'pub', ownerUid: 'other', caption: 'Public post', createdAt: 10, username: 'publicuser', displayName: 'Public Author')]);
     await tester.pump();
+    await tester.pumpAndSettle(); // Resolve the canInteract FutureBuilder before testing gated controls.
     expect(find.text('Public Author'), findsOneWidget);
     await tester.tap(find.byTooltip('Me gusta'));
     await tester.pump();
