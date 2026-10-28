@@ -93,6 +93,7 @@ void main() {
       find.byType(ListView).first,
       const Offset(0, -300),
     );
+    await tester.ensureVisible(publishButton);
     await tester.pump();
     await tester.tap(publishButton);
     await tester.pump();
