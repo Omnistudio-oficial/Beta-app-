@@ -87,8 +87,12 @@ void main() {
     await tester.pump();
     expect(service.comments, ['A comment']);
     await tester.enterText(find.byKey(const ValueKey('social-caption')), 'Hola mundo');
-    await tester.scrollUntilVisible(find.text('Publicar'), 300, scrollable: find.byType(Scrollable).first);
-    await tester.tap(find.text('Publicar'));
+    final publishButton = find.text('Publicar');
+    await tester.drag(find.byType(ListView).first, const Offset(0, -1200));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(publishButton);
+    await tester.pumpAndSettle();
+    await tester.tap(publishButton);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
     expect(service.captions, ['Hola mundo']);
