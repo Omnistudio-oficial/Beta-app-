@@ -33,7 +33,7 @@
 	<key>NSCameraUsageDescription</key>
 	<string>OmniStudio usa la cámara durante videollamadas que tú inicias o respondes.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>OmniStudio usa el micrófono para grabar notas de voz que tú eliges enviar en el chat.</string>
+	<string>OmniStudio usa el micrófono solo cuando inicias una grabación de audio o una nota de voz.</string>
 	<key>GIDClientID</key>
 	<string>611449222458-m6ebo0f44pr3jn2gq8s9lsqcpnar3417.apps.googleusercontent.com</string>
 	<key>CFBundleURLTypes</key>
