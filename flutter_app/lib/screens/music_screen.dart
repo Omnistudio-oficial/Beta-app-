@@ -12,7 +12,6 @@ class MusicScreen extends StatefulWidget {
 
 class _MusicScreenState extends State<MusicScreen> {
   late final MusicWorkspace _service = widget.workspace ?? MusicService();
-  final Stopwatch _recordingClock = Stopwatch();
   Timer? _recordingTicker;
   StreamSubscription<Duration>? _durationSubscription;
   StreamSubscription<Duration>? _positionSubscription;
@@ -107,18 +106,16 @@ class _MusicScreenState extends State<MusicScreen> {
   }
 
   void _startRecordingClock() {
-    _recordingClock
-      ..reset()
-      ..start();
     _recordingElapsed = Duration.zero;
     _recordingTicker?.cancel();
     _recordingTicker = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted && _recording) setState(() => _recordingElapsed = _recordingClock.elapsed);
+      if (mounted && _recording) {
+        setState(() => _recordingElapsed += const Duration(seconds: 1));
+      }
     });
   }
 
   void _finishRecordingClock() {
-    _recordingClock.stop();
     _recordingTicker?.cancel();
     _recordingTicker = null;
     _recordingElapsed = Duration.zero;

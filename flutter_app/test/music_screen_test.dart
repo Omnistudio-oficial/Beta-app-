@@ -40,6 +40,13 @@ class FakeMusicWorkspace implements MusicWorkspace {
   }
 }
 
+Future<void> flushMusicEvents(WidgetTester tester) async {
+  // Broadcast streams deliver asynchronously; flush their microtasks before
+  // asserting the frame produced by the corresponding subscription.
+  await tester.idle();
+  await tester.pump();
+}
+
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
@@ -49,7 +56,7 @@ void main() {
     await tester.pumpAndSettle();
     workspace.durations.add(const Duration(seconds: 75));
     workspace.positions.add(const Duration(seconds: 12));
-    await tester.pump();
+    await flushMusicEvents(tester);
     expect(find.text('00:12'), findsOneWidget);
     expect(find.text('01:15'), findsOneWidget);
     expect(tester.widget<Slider>(find.byKey(const Key('playback-seek'))).onChanged, isNotNull);
@@ -82,9 +89,11 @@ void main() {
     workspace.durations.add(const Duration(seconds: 20));
     workspace.positions.add(const Duration(seconds: 20));
     workspace.playingStates.add(false);
-    await tester.pump();
+    await flushMusicEvents(tester);
     expect(find.byTooltip('Reproducir'), findsOneWidget);
-    expect(find.text('00:20'), findsOneWidget);
+    expect(find.text('00:20', skipOffstage: false), findsNWidgets(2));
+    expect(tester.widget<Text>(find.byKey(const Key('playback-position'))).data, '00:20');
+    expect(tester.widget<Text>(find.byKey(const Key('playback-duration'))).data, '00:20');
   });
 
   testWidgets('shows a live recording clock and resets it on cancel or save', (tester) async {
