@@ -12,6 +12,7 @@ dependencies:
   flutter:
     sdk: flutter
   camera: ^0.12.2
+  google_mlkit_face_detection: ^0.13.1
   cupertino_icons: ^1.0.8
   firebase_core: ^3.6.0
   firebase_auth: ^5.3.1
