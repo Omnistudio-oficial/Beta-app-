@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:beta_app/screens/community_sequencer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -22,6 +24,23 @@ void main() {
     expect(pattern.lanes['lead']![1], isTrue);
     expect(pattern.lanes['snare']!.every((step) => !step), isTrue);
     expect(() => SequencerPattern.fromJson('bad', '{"bpm":20,"lanes":{}}'), throwsFormatException);
+  });
+
+  test('parses actual published Kotlin project root lanes and tracks list', () {
+    final pattern = SequencerPattern.fromJson('Lo-Fi test', jsonEncode({
+      'bpm': 120,
+      'kick': [true, false, false, false, true],
+      'snare': [false, false, true],
+      'tracks': [
+        {'name': 'Kick Drum', 'soundType': 'kick', 'steps': [false, true]},
+        {'name': 'Lead Synth', 'soundType': 'lead', 'steps': [true, false, true]},
+        {'name': 'local sample', 'soundType': 'sample:/data/user/0/private.wav', 'steps': [true]},
+      ],
+    }));
+    expect(pattern.bpm, 120);
+    expect(pattern.lanes['kick']!.take(2), [false, true]);
+    expect(pattern.lanes['lead']!.take(3), [true, false, true]);
+    expect(pattern.lanes['hihat']!.every((step) => !step), isTrue);
   });
 
   test('sequencer step duration uses sixteenth-note timing', () {
