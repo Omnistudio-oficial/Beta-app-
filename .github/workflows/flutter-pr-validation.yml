@@ -61,21 +61,37 @@ jobs:
       - name: Set Android plugin compile SDK to API 36
         run: |
           python3 - <<'PYPLUGIN'
+          import json, re
           from pathlib import Path
-          import os, re
-          root = Path(os.environ.get("PUB_CACHE", Path.home() / ".pub-cache"))
-          pattern = re.compile(r"^(\s*compileSdk(?:Version)?\s*(?:=\s*|\s+))(?:flutter\.compileSdkVersion|[0-9]+)(\s*(?://.*)?$)")
+          metadata = Path(".flutter-plugins-dependencies")
+          if not metadata.is_file():
+              raise SystemExit("Flutter plugin dependency metadata is missing")
+          data = json.loads(metadata.read_text())
+          plugins = data.get("plugins", {}).get("android", [])
+          if not plugins:
+              raise SystemExit("Flutter reports no Android plugins")
+          pattern = re.compile(r"(?m)^(\s*compileSdk(?:Version)?\s*(?:=\s*|\s+))(?:flutter\.compileSdkVersion|[0-9]+)(\s*(?://.*)?$)")
           changed = []
-          for gradle in root.glob("**/android/build.gradle*"):
-              text = gradle.read_text(errors="ignore")
-              updated, count = pattern.subn(r"\g<1>36\g<2>", text)
-              if count:
-                  gradle.write_text(updated)
-                  changed.append(str(gradle))
+          untouched = []
+          for plugin in plugins:
+              base = Path(plugin["path"])
+              for gradle in (base / "android/build.gradle", base / "android/build.gradle.kts"):
+                  if not gradle.is_file():
+                      continue
+                  text = gradle.read_text(errors="ignore")
+                  updated, count = pattern.subn(r"\g<1>36\g<2>", text, count=1)
+                  if count:
+                      gradle.write_text(updated)
+                      changed.append((plugin.get("name", base.name), str(gradle)))
+                  else:
+                      untouched.append((plugin.get("name", base.name), str(gradle)))
+          print(f"Flutter Android plugins: {len(plugins)}; patched Gradle files: {len(changed)}")
+          for name, path in changed:
+              print(f"API 36: {name}: {path}")
+          for name, path in untouched:
+              print(f"No compileSdk declaration: {name}: {path}")
           if not changed:
-              raise SystemExit("No Android plugin compileSdk declarations found in Pub cache")
-          print(f"Set compileSdk 36 in {len(changed)} Android plugin Gradle files")
-          print("\n".join(changed))
+              raise SystemExit("Could not find plugin compileSdk declaration to update")
           PYPLUGIN
       - name: Analyze Flutter sources
         run: flutter analyze --no-pub
