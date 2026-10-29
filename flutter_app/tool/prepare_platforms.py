@@ -193,7 +193,33 @@ end
             android_text = android_text[:application_start] + "    " + camera_permission + "\n    " + android_text[application_start:]
             android_manifest.write_text(android_text, encoding="utf-8")
 
-    print("Prepared generated platform scaffolds with registered Firebase config and camera permission.")
+    # Flutter's generated host defaults to an older compile SDK. Some plugin
+    # manifests (for example flutter_plugin_android_lifecycle) require API 36.
+    # Set compileSdk only; targetSdk/minSdk remain at Flutter defaults.
+    android_gradle = scaffold / "android/app/build.gradle.kts"
+    if not android_gradle.is_file():
+        android_gradle = scaffold / "android/app/build.gradle"
+    if not android_gradle.is_file():
+        raise SystemExit("Could not find the generated Android app Gradle build file")
+    gradle_text = android_gradle.read_text(encoding="utf-8")
+    gradle_text, sdk_count = re.subn(
+        r"(?m)^(\s*compileSdk\s*=\s*)(?:flutter\.compileSdkVersion|[0-9]+)(\s*(?://.*)?$)",
+        r"\g<1>36\g<2>",
+        gradle_text,
+        count=1,
+    )
+    if sdk_count == 0:
+        gradle_text, sdk_count = re.subn(
+            r"(?m)^(\s*compileSdkVersion\s+)(?:flutter\.compileSdkVersion|[0-9]+)(\s*(?://.*)?$)",
+            r"\g<1>36\g<2>",
+            gradle_text,
+            count=1,
+        )
+    if sdk_count != 1:
+        raise SystemExit("Could not set generated Android compileSdk to 36")
+    android_gradle.write_text(gradle_text, encoding="utf-8")
+
+    print("Prepared generated platform scaffolds with registered Firebase config, camera permission, and Android compileSdk 36.")
 
 
 if __name__ == "__main__":

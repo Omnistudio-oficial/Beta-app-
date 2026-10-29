@@ -26,6 +26,10 @@ jobs:
         with:
           channel: stable
           cache: true
+      - name: Install Android API 36 platform
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-36"
       - name: Generate iOS scaffold with Firebase configuration
         run: |
           flutter create --platforms=android,ios --project-name=omnistudio_flutter_prototype --org=com.omnistudio --no-pub .ci_scaffold
