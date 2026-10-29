@@ -14,7 +14,7 @@ permissions:
 jobs:
   flutter:
     runs-on: macos-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     defaults:
       run:
         working-directory: flutter_app
