@@ -39,6 +39,23 @@ jobs:
           rm -rf android
           cp -R .ci_scaffold/android ./android
           rm -rf .ci_scaffold
+          python3 - <<'PYGRADLE'
+          from pathlib import Path
+          import re
+          candidates = [Path("android/app/build.gradle.kts"), Path("android/app/build.gradle")]
+          gradle = next((p for p in candidates if p.is_file()), None)
+          if gradle is None:
+              raise SystemExit("Generated Android app Gradle file is missing")
+          text = gradle.read_text()
+          updated, count = re.subn(r"(?m)^(\s*compileSdk\s*=\s*)(?:flutter\.compileSdkVersion|[0-9]+)(\s*(?://.*)?$)", r"\g<1>36\g<2>", text, count=1)
+          if count != 1:
+              updated, count = re.subn(r"(?m)^(\s*compileSdkVersion\s+)(?:flutter\.compileSdkVersion|[0-9]+)(\s*(?://.*)?$)", r"\g<1>36\g<2>", text, count=1)
+          if count != 1:
+              raise SystemExit("Could not force generated Android compile SDK to 36")
+          gradle.write_text(updated)
+          print("Verified generated Android Gradle compileSdk line:")
+          print(next(line.strip() for line in updated.splitlines() if "compileSdk" in line))
+          PYGRADLE
       - name: Resolve Flutter packages
         run: flutter pub get
       - name: Analyze Flutter sources
