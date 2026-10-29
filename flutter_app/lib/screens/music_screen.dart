@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui' show FontFeature;
 import 'package:beta_app/models/music_item.dart';
 import 'package:beta_app/services/music_service.dart';
 import 'package:flutter/material.dart';
