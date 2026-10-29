@@ -77,7 +77,9 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
     expect(find.text('Vista previa de cámara'), findsOneWidget);
-    expect(find.textContaining('Los filtros faciales aún no están disponibles'), findsOneWidget);
+    expect(find.byKey(const ValueKey('social-filter-dog-ears')), findsOneWidget);
+    expect(find.byKey(const ValueKey('social-filter-glasses')), findsOneWidget);
+    expect(find.byKey(const ValueKey('social-filter-crown')), findsOneWidget);
   });
 
 
