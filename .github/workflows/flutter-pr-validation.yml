@@ -28,10 +28,12 @@ jobs:
           cache: true
       - name: Generate iOS scaffold with Firebase configuration
         run: |
-          flutter create --platforms=ios --project-name=omnistudio_flutter_prototype --org=com.omnistudio --no-pub .ci_scaffold
+          flutter create --platforms=android,ios --project-name=omnistudio_flutter_prototype --org=com.omnistudio --no-pub .ci_scaffold
           python3 tool/prepare_platforms.py .ci_scaffold
           rm -rf ios
           cp -R .ci_scaffold/ios ./ios
+          rm -rf android
+          cp -R .ci_scaffold/android ./android
           rm -rf .ci_scaffold
       - name: Resolve Flutter packages
         run: flutter pub get
@@ -46,6 +48,17 @@ jobs:
           OPENROUTESERVICE_API_KEY: ${{ secrets.OPENROUTESERVICE_API_KEY }}
         run: >-
           flutter build ios --debug --no-codesign --no-pub
+          --dart-define=SUPABASE_PROJECT_URL=$SUPABASE_PROJECT_URL
+          --dart-define=SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY
+          --dart-define=OPENROUTESERVICE_API_KEY=$OPENROUTESERVICE_API_KEY
+
+      - name: Build generated Android host
+        env:
+          SUPABASE_PROJECT_URL: ${{ secrets.SUPABASE_PROJECT_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          OPENROUTESERVICE_API_KEY: ${{ secrets.OPENROUTESERVICE_API_KEY }}
+        run: >-
+          flutter build apk --debug --no-pub
           --dart-define=SUPABASE_PROJECT_URL=$SUPABASE_PROJECT_URL
           --dart-define=SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY
           --dart-define=OPENROUTESERVICE_API_KEY=$OPENROUTESERVICE_API_KEY

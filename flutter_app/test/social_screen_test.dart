@@ -67,6 +67,20 @@ class _FakeSocialService implements SocialService {
 }
 
 void main() {
+  testWidgets('camera preview is opened only by an explicit Social tap', (tester) async {
+    final service = _FakeSocialService();
+    await tester.pumpWidget(MaterialApp(home: SocialScreen(service: service)));
+    await tester.pump();
+    final openCamera = find.byKey(const ValueKey('social-open-camera'));
+    await tester.ensureVisible(openCamera);
+    await tester.tap(openCamera);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(find.text('Vista previa de cámara'), findsOneWidget);
+    expect(find.textContaining('Los filtros faciales aún no están disponibles'), findsOneWidget);
+  });
+
+
   testWidgets('discloses private-by-default and synchronizes text post via service', (tester) async {
     final service = _FakeSocialService();
     addTearDown(service.controller.close);

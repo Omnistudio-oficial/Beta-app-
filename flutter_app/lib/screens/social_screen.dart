@@ -3,6 +3,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:mime/mime.dart';
 import 'package:video_player/video_player.dart';
 
+import 'package:beta_app/screens/social_camera_preview_screen.dart';
+
 import 'package:beta_app/social/social_repository.dart';
 
 class SocialScreen extends StatefulWidget {
@@ -191,6 +193,15 @@ class _SocialScreenState extends State<SocialScreen> {
                       padding: const EdgeInsets.all(16),
                       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                         const Text('Publica en tu cuenta', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: OutlinedButton.icon(
+                            key: const ValueKey('social-open-camera'),
+                            onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const SocialCameraPreviewScreen())),
+                            icon: const Icon(Icons.camera_alt_outlined),
+                            label: const Text('Abrir cámara'),
+                          ),
+                        ),
                         const SizedBox(height: 6),
                         const Text('Tus publicaciones se sincronizan con tu cuenta y permanecen privadas por defecto. No se publican en el feed público.'),
                         const SizedBox(height: 12),

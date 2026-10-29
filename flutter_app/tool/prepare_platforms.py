@@ -173,14 +173,27 @@ end
         "Permite seleccionar fotos y videos para publicarlos de forma privada en tu cuenta de Social."
     )
     app_info["NSMicrophoneUsageDescription"] = "OmniStudio usa el micrófono para grabar notas de voz y realizar llamadas que tú inicias o respondes."
-    app_info["NSCameraUsageDescription"] = "OmniStudio usa la cámara durante videollamadas que tú inicias o respondes."
+    app_info["NSCameraUsageDescription"] = "La cámara se activa solo cuando abres la vista previa de Social o usas una videollamada."
     app_info["NSLocationWhenInUseUsageDescription"] = (
         "La ubicación se usa para mostrar tu posición en el mapa y guiarte por una ruta mientras usas la aplicación."
     )
     with info_plist.open("wb") as stream:
         plistlib.dump(app_info, stream)
 
-    print("Prepared iOS scaffold with the registered Firebase client plist and bundle ID.")
+    # The Android host is generated transiently in CI, so declare camera
+    # permission here rather than editing a non-persistent native scaffold.
+    android_manifest = scaffold / "android/app/src/main/AndroidManifest.xml"
+    if android_manifest.is_file():
+        android_text = android_manifest.read_text(encoding="utf-8")
+        camera_permission = '<uses-permission android:name="android.permission.CAMERA" />'
+        if camera_permission not in android_text:
+            application_start = android_text.find("<application")
+            if application_start < 0:
+                raise SystemExit("Could not find the generated Android application element")
+            android_text = android_text[:application_start] + "    " + camera_permission + "\n    " + android_text[application_start:]
+            android_manifest.write_text(android_text, encoding="utf-8")
+
+    print("Prepared generated platform scaffolds with registered Firebase config and camera permission.")
 
 
 if __name__ == "__main__":
