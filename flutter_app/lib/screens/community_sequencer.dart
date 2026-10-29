@@ -17,23 +17,37 @@ class SequencerPattern {
 
   factory SequencerPattern.blank() => SequencerPattern(name: 'Mi patrón', bpm: 120, lanes: const {});
 
-  factory SequencerPattern.fromJson(String name, String encoded) {
+  factory SequencerPattern.fromJson(String name, String encoded, {int? fallbackBpm}) {
     final decoded = jsonDecode(encoded);
     if (decoded is! Map) throw const FormatException('El patrón publicado no tiene un formato válido.');
-    final rawBpm = decoded['bpm'];
+    final rawBpm = decoded['bpm'] ?? fallbackBpm;
     final bpm = rawBpm is num ? rawBpm.round() : 120;
     if (bpm < 40 || bpm > 240) throw const FormatException('El tempo publicado debe estar entre 40 y 240 BPM.');
     final rawLanes = decoded['lanes'] ?? decoded['tracks'];
-    if (rawLanes is! Map) throw const FormatException('El patrón publicado no contiene pistas compatibles.');
     final lanes = <String, List<bool>>{};
+    // Current Kotlin sequencer JSON stores named boolean arrays at the root,
+    // and also a `tracks` list of {soundType, steps} records. Accept both.
     for (final type in sequencerSoundTypes) {
-      final raw = rawLanes[type];
-      if (raw is List) {
-        lanes[type] = List<bool>.generate(16, (index) => index < raw.length && raw[index] == true);
+      final raw = decoded[type] ?? (rawLanes is Map ? rawLanes[type] : null);
+      if (raw is List) lanes[type] = _steps(raw);
+    }
+    if (rawLanes is List) {
+      for (final item in rawLanes) {
+        if (item is! Map) continue;
+        final type = item['soundType']?.toString().toLowerCase();
+        final steps = item['steps'];
+        if (type != null && sequencerSoundTypes.contains(type) && steps is List) {
+          lanes[type] = _steps(steps);
+        }
       }
     }
+    if (lanes.isEmpty) throw const FormatException('El patrón publicado no contiene pistas compatibles.');
     return SequencerPattern(name: name, bpm: bpm, lanes: lanes);
   }
+
+
+  static List<bool> _steps(List<dynamic> raw) =>
+      List<bool>.generate(16, (index) => index < raw.length && raw[index] == true);
 
   String toJson() => jsonEncode({'bpm': bpm, 'lanes': lanes});
 }
@@ -55,7 +69,12 @@ class CommunityPatternRepository implements CommunityPatternSource {
       final json = data['patternDataJson'];
       if (json is! String) continue;
       try {
-        patterns.add(SequencerPattern.fromJson(data['title']?.toString() ?? 'Patrón comunitario', json));
+        final bpm = data['bpm'];
+        patterns.add(SequencerPattern.fromJson(
+          data['title']?.toString() ?? 'Patrón comunitario',
+          json,
+          fallbackBpm: bpm is num ? bpm.round() : null,
+        ));
       } on FormatException {
         // Skip legacy/community documents that do not use the supported 16-step format.
       }
