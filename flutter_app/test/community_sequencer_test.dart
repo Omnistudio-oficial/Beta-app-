@@ -7,6 +7,7 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: CommunitySequencerScreen(synth: _FakeSynth(), repository: _FakePatternSource())));
     expect(find.text('KICK'), findsOneWidget);
     expect(find.byKey(const Key('step-kick-15')), findsOneWidget);
+    await tester.scrollUntilVisible(find.byKey(const Key('load-public-patterns')), 350, scrollable: find.byType(Scrollable).first);
     await tester.tap(find.byKey(const Key('load-public-patterns')));
     await tester.pumpAndSettle();
     expect(find.text('Public groove'), findsOneWidget);
