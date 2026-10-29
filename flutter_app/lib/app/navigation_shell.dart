@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import 'package:beta_app/screens/ai_screen.dart';
@@ -22,7 +23,7 @@ class _NavigationShellState extends State<NavigationShell> {
   int _selectedIndex = 0;
 
   static const List<Widget> _pages = <Widget>[
-    HomeScreen(),
+    SizedBox.shrink(), // Home is built with current account data below.
     ChatScreen(),
     MusicScreen(),
     MapsScreen(),
@@ -36,16 +37,19 @@ class _NavigationShellState extends State<NavigationShell> {
 
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    final pages = List<Widget>.of(_pages);
+    pages[0] = HomeScreen(
+      displayName: user?.displayName ?? user?.email?.split('@').first ?? '',
+      onNavigate: (index) => setState(() => _selectedIndex = index),
+      onSignOut: () async => FirebaseAuth.instance.signOut(),
+    );
+
     return Scaffold(
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: _pages,
-      ),
+      body: IndexedStack(index: _selectedIndex, children: pages),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
-        onDestinationSelected: (value) {
-          setState(() => _selectedIndex = value);
-        },
+        onDestinationSelected: (value) => setState(() => _selectedIndex = value),
         destinations: const [
           NavigationDestination(icon: Icon(Icons.home_outlined), label: 'Home'),
           NavigationDestination(icon: Icon(Icons.chat_bubble_outline), label: 'Chat'),
