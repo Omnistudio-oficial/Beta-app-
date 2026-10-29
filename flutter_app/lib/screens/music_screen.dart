@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:beta_app/models/music_item.dart';
 import 'package:beta_app/services/music_service.dart';
 import 'package:flutter/material.dart';
+import 'community_sequencer.dart';
 
 class MusicScreen extends StatefulWidget {
   const MusicScreen({super.key, this.workspace});
@@ -167,6 +168,7 @@ class _MusicScreenState extends State<MusicScreen> {
         const Text('Reproduce tus archivos de audio, importa una pista o graba una toma.'),
         const SizedBox(height: 12),
         Wrap(spacing: 8, runSpacing: 8, children: [
+          OutlinedButton.icon(key: const Key('open-community-sequencer'), onPressed: _busy ? null : () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const CommunitySequencerScreen())), icon: const Icon(Icons.grid_view), label: const Text('Secuenciador')),
           OutlinedButton.icon(key: const Key('import-audio'), onPressed: _busy ? null : () => _run(_service.importAudio, success: 'Audio importado.'), icon: const Icon(Icons.file_upload), label: const Text('Importar audio')),
           FilledButton.icon(key: const Key('start-recording'), onPressed: (_busy || _recording) ? null : () => _run(() async { await _service.startRecording(); _startRecordingClock(); }), icon: const Icon(Icons.mic), label: const Text('Grabar')),
           if (_recording) ...[
