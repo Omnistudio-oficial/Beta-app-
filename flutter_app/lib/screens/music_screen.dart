@@ -1,1 +1,213 @@
-aW1wb3J0ICdkYXJ0OmFzeW5jJzsKaW1wb3J0ICdkYXJ0OnVpJyBzaG93IEZvbnRGZWF0dXJlOwppbXBvcnQgJ3BhY2thZ2U6YmV0YV9hcHAvbW9kZWxzL211c2ljX2l0ZW0uZGFydCc7CmltcG9ydCAncGFja2FnZTpiZXRhX2FwcC9zZXJ2aWNlcy9tdXNpY19zZXJ2aWNlLmRhcnQnOwppbXBvcnQgJ3BhY2thZ2U6Zmx1dHRlci9tYXRlcmlhbC5kYXJ0JzsKCmNsYXNzIE11c2ljU2NyZWVuIGV4dGVuZHMgU3RhdGVmdWxXaWRnZXQgewogIGNvbnN0IE11c2ljU2NyZWVuKHtzdXBlci5rZXksIHRoaXMud29ya3NwYWNlfSk7CiAgZmluYWwgTXVzaWNXb3Jrc3BhY2U/IHdvcmtzcGFjZTsKICBAb3ZlcnJpZGUKICBTdGF0ZTxNdXNpY1NjcmVlbj4gY3JlYXRlU3RhdGUoKSA9PiBfTXVzaWNTY3JlZW5TdGF0ZSgpOwp9CgpjbGFzcyBfTXVzaWNTY3JlZW5TdGF0ZSBleHRlbmRzIFN0YXRlPE11c2ljU2NyZWVuPiB7CiAgbGF0ZSBmaW5hbCBNdXNpY1dvcmtzcGFjZSBfc2VydmljZSA9IHdpZGdldC53b3Jrc3BhY2UgPz8gTXVzaWNTZXJ2aWNlKCk7CiAgZmluYWwgU3RvcHdhdGNoIF9yZWNvcmRpbmdDbG9jayA9IFN0b3B3YXRjaCgpOwogIFRpbWVyPyBfcmVjb3JkaW5nVGlja2VyOwogIFN0cmVhbVN1YnNjcmlwdGlvbjxEdXJhdGlvbj4/IF9kdXJhdGlvblN1YnNjcmlwdGlvbjsKICBTdHJlYW1TdWJzY3JpcHRpb248RHVyYXRpb24+PyBfcG9zaXRpb25TdWJzY3JpcHRpb247CiAgU3RyZWFtU3Vic2NyaXB0aW9uPGJvb2w+PyBfcGxheWluZ1N1YnNjcmlwdGlvbjsKICBTZXQ8U3RyaW5nPiBfZmF2b3JpdGVJZHMgPSA8U3RyaW5nPnt9OwogIE11c2ljSXRlbT8gX3NlbGVjdGVkVHJhY2s7CiAgYm9vbCBfc2hvd0Zhdm9yaXRlc09ubHkgPSBmYWxzZTsKICBib29sIF9mYXZvcml0ZXNMb2FkZWQgPSBmYWxzZTsKICBib29sIF9yZWNvcmRpbmcgPSBmYWxzZTsKICBib29sIF9wbGF5aW5nID0gZmFsc2U7CiAgYm9vbCBfYnVzeSA9IGZhbHNlOwogIER1cmF0aW9uIF9kdXJhdGlvbiA9IER1cmF0aW9uLnplcm87CiAgRHVyYXRpb24gX3Bvc2l0aW9uID0gRHVyYXRpb24uemVybzsKICBEdXJhdGlvbiBfcmVjb3JkaW5nRWxhcHNlZCA9IER1cmF0aW9uLnplcm87CiAgTGlzdDxBdWRpb1Byb2plY3Q+IF9wcm9qZWN0cyA9IGNvbnN0IFtdOwoKICBAb3ZlcnJpZGUKICB2b2lkIGluaXRTdGF0ZSgpIHsKICAgIHN1cGVyLmluaXRTdGF0ZSgpOwogICAgZmluYWwgZXhpc3RpbmdUcmFja3MgPSBfc2VydmljZS50cmFja3M7CiAgICBfc2VsZWN0ZWRUcmFjayA9IGV4aXN0aW5nVHJhY2tzLmlzRW1wdHkgPyBudWxsIDogZXhpc3RpbmdUcmFja3MuZmlyc3Q7CiAgICBfZHVyYXRpb25TdWJzY3JpcHRpb24gPSBfc2VydmljZS5kdXJhdGlvbkNoYW5nZXMubGlzdGVuKCh2YWx1ZSkgewogICAgICBpZiAobW91bnRlZCkgc2V0U3RhdGUoKCkgPT4gX2R1cmF0aW9uID0gdmFsdWUpOwogICAgfSk7CiAgICBfcG9zaXRpb25TdWJzY3JpcHRpb24gPSBfc2VydmljZS5wb3NpdGlvbkNoYW5nZXMubGlzdGVuKCh2YWx1ZSkgewogICAgICBpZiAobW91bnRlZCkgc2V0U3RhdGUoKCkgPT4gX3Bvc2l0aW9uID0gdmFsdWUpOwogICAgfSk7CiAgICBfcGxheWluZ1N1YnNjcmlwdGlvbiA9IF9zZXJ2aWNlLnBsYXlpbmdDaGFuZ2VzLmxpc3RlbigodmFsdWUpIHsKICAgICAgaWYgKCFtb3VudGVkKSByZXR1cm47CiAgICAgIHNldFN0YXRlKCgpIHsKICAgICAgICBfcGxheWluZyA9IHZhbHVlOwogICAgICAgIGlmICghdmFsdWUgJiYgX2R1cmF0aW9uID4gRHVyYXRpb24uemVybyAmJiBfcG9zaXRpb24gPj0gX2R1cmF0aW9uKSBfcG9zaXRpb24gPSBfZHVyYXRpb247CiAgICAgIH0pOwogICAgfSk7CiAgICBfbG9hZEZhdm9yaXRlcygpOwogICAgX2xvYWRQcm9qZWN0cygpOwogIH0KCiAgRnV0dXJlPHZvaWQ+IF9sb2FkUHJvamVjdHMoKSBhc3luYyB7CiAgICB0cnkgewogICAgICBmaW5hbCBwcm9qZWN0cyA9IGF3YWl0IF9zZXJ2aWNlLmxvYWRQcm9qZWN0cygpOwogICAgICBpZiAobW91bnRlZCkgc2V0U3RhdGUoKCkgPT4gX3Byb2plY3RzID0gcHJvamVjdHMpOwogICAgfSBjYXRjaCAoXykgeyAvKiB1bmF2YWlsYWJsZSB3aGlsZSBzaWduZWQgb3V0L29mZmxpbmUgKi8gfQogIH0KCiAgQG92ZXJyaWRlCiAgdm9pZCBkaXNwb3NlKCkgewogICAgX3JlY29yZGluZ1RpY2tlcj8uY2FuY2VsKCk7CiAgICBfZHVyYXRpb25TdWJzY3JpcHRpb24/LmNhbmNlbCgpOwogICAgX3Bvc2l0aW9uU3Vic2NyaXB0aW9uPy5jYW5jZWwoKTsKICAgIF9wbGF5aW5nU3Vic2NyaXB0aW9uPy5jYW5jZWwoKTsKICAgIF9zZXJ2aWNlLmRpc3Bvc2UoKTsKICAgIHN1cGVyLmRpc3Bvc2UoKTsKICB9CgogIEZ1dHVyZTx2b2lkPiBfbG9hZEZhdm9yaXRlcygpIGFzeW5jIHsKICAgIGZpbmFsIGZhdm9yaXRlcyA9IGF3YWl0IF9zZXJ2aWNlLmxvYWRGYXZvcml0ZXMoKTsKICAgIGlmICghbW91bnRlZCkgcmV0dXJuOwogICAgc2V0U3RhdGUoKCkgeyBfZmF2b3JpdGVJZHMgPSBmYXZvcml0ZXM7IF9mYXZvcml0ZXNMb2FkZWQgPSB0cnVlOyB9KTsKICB9CgogIHZvaWQgX21lc3NhZ2UoU3RyaW5nIHRleHQpIHsKICAgIGlmIChtb3VudGVkKSBTY2FmZm9sZE1lc3Nlbmdlci5vZihjb250ZXh0KS5zaG93U25hY2tCYXIoU25hY2tCYXIoY29udGVudDogVGV4dCh0ZXh0KSkpOwogIH0KCiAgRnV0dXJlPHZvaWQ+IF90b2dnbGVGYXZvcml0ZShNdXNpY0l0ZW0gdHJhY2spIGFzeW5jIHsKICAgIGZpbmFsIG5leHQgPSBTZXQ8U3RyaW5nPi5mcm9tKF9mYXZvcml0ZUlkcyk7CiAgICBpZiAoIW5leHQuYWRkKHRyYWNrLmlkKSkgbmV4dC5yZW1vdmUodHJhY2suaWQpOwogICAgc2V0U3RhdGUoKCkgPT4gX2Zhdm9yaXRlSWRzID0gbmV4dCk7CiAgICB0cnkgeyBhd2FpdCBfc2VydmljZS5zYXZlRmF2b3JpdGVzKG5leHQpOyB9IGNhdGNoIChfKSB7IF9tZXNzYWdlKCdObyBzZSBwdWRpZXJvbiBndWFyZGFyIGxvcyBmYXZvcml0b3MgZW4gZXN0ZSBkaXNwb3NpdGl2by4nKTsgfQogIH0KCiAgRnV0dXJlPHZvaWQ+IF9ydW4oRnV0dXJlPHZvaWQ+IEZ1bmN0aW9uKCkgYWN0aW9uLCB7U3RyaW5nPyBzdWNjZXNzfSkgYXN5bmMgewogICAgaWYgKF9idXN5KSByZXR1cm47CiAgICBzZXRTdGF0ZSgoKSA9PiBfYnVzeSA9IHRydWUpOwogICAgdHJ5IHsKICAgICAgYXdhaXQgYWN0aW9uKCk7CiAgICAgIGlmIChzdWNjZXNzICE9IG51bGwpIF9tZXNzYWdlKHN1Y2Nlc3MpOwogICAgICBpZiAoc3VjY2VzcyA9PSAnUHJveWVjdG8gZ3VhcmRhZG8gZW4gdHUgY3VlbnRhLicpIGF3YWl0IF9sb2FkUHJvamVjdHMoKTsKICAgIH0gY2F0Y2ggKGUpIHsKICAgICAgX21lc3NhZ2UoZS50b1N0cmluZygpLnJlcGxhY2VGaXJzdCgnQmFkIHN0YXRlOiAnLCAnJykpOwogICAgfSBmaW5hbGx5IHsKICAgICAgaWYgKG1vdW50ZWQpIHsKICAgICAgICBzZXRTdGF0ZSgoKSB7CiAgICAgICAgICBfYnVzeSA9IGZhbHNlOwogICAgICAgICAgX3JlY29yZGluZyA9IF9zZXJ2aWNlLmlzUmVjb3JkaW5nOwogICAgICAgICAgX3BsYXlpbmcgPSBfc2VydmljZS5pc1BsYXlpbmc7CiAgICAgICAgICBpZiAoIV9yZWNvcmRpbmcpIF9maW5pc2hSZWNvcmRpbmdDbG9jaygpOwogICAgICAgIH0pOwogICAgICB9CiAgICB9CiAgfQoKICB2b2lkIF9zdGFydFJlY29yZGluZ0Nsb2NrKCkgewogICAgX3JlY29yZGluZ0Nsb2NrCiAgICAgIC4ucmVzZXQoKQogICAgICAuLnN0YXJ0KCk7CiAgICBfcmVjb3JkaW5nRWxhcHNlZCA9IER1cmF0aW9uLnplcm87CiAgICBfcmVjb3JkaW5nVGlja2VyPy5jYW5jZWwoKTsKICAgIF9yZWNvcmRpbmdUaWNrZXIgPSBUaW1lci5wZXJpb2RpYyhjb25zdCBEdXJhdGlvbihzZWNvbmRzOiAxKSwgKF8pIHsKICAgICAgaWYgKG1vdW50ZWQgJiYgX3JlY29yZGluZykgc2V0U3RhdGUoKCkgPT4gX3JlY29yZGluZ0VsYXBzZWQgPSBfcmVjb3JkaW5nQ2xvY2suZWxhcHNlZCk7CiAgICB9KTsKICB9CgogIHZvaWQgX2ZpbmlzaFJlY29yZGluZ0Nsb2NrKCkgewogICAgX3JlY29yZGluZ0Nsb2NrLnN0b3AoKTsKICAgIF9yZWNvcmRpbmdUaWNrZXI/LmNhbmNlbCgpOwogICAgX3JlY29yZGluZ1RpY2tlciA9IG51bGw7CiAgICBfcmVjb3JkaW5nRWxhcHNlZCA9IER1cmF0aW9uLnplcm87CiAgfQoKICBTdHJpbmcgX2Zvcm1hdFRpbWUoRHVyYXRpb24gdmFsdWUpIHsKICAgIGZpbmFsIHRvdGFsU2Vjb25kcyA9IHZhbHVlLmluU2Vjb25kczsKICAgIGZpbmFsIG1pbnV0ZXMgPSAodG90YWxTZWNvbmRzIH4vIDYwKS50b1N0cmluZygpLnBhZExlZnQoMiwgJzAnKTsKICAgIGZpbmFsIHNlY29uZHMgPSAodG90YWxTZWNvbmRzICUgNjApLnRvU3RyaW5nKCkucGFkTGVmdCgyLCAnMCcpOwogICAgcmV0dXJuICckbWludXRlczokc2Vjb25kcyc7CiAgfQoKICBGdXR1cmU8dm9pZD4gX3NlbGVjdFRyYWNrKE11c2ljSXRlbSB0cmFjaykgYXN5bmMgewogICAgaWYgKF9wbGF5aW5nKSBhd2FpdCBfcnVuKCgpIGFzeW5jIHsgYXdhaXQgX3NlcnZpY2Uuc3RvcCgpOyB9KTsKICAgIGlmICghbW91bnRlZCkgcmV0dXJuOwogICAgc2V0U3RhdGUoKCkgewogICAgICBfc2VsZWN0ZWRUcmFjayA9IHRyYWNrOwogICAgICBfcG9zaXRpb24gPSBEdXJhdGlvbi56ZXJvOwogICAgICBfZHVyYXRpb24gPSBEdXJhdGlvbi56ZXJvOwogICAgICBfcGxheWluZyA9IGZhbHNlOwogICAgfSk7CiAgfQoKICBGdXR1cmU8dm9pZD4gX3NhdmVQcm9qZWN0KE11c2ljSXRlbSB0cmFjaykgYXN5bmMgewogICAgZmluYWwgY29udHJvbGxlciA9IFRleHRFZGl0aW5nQ29udHJvbGxlcih0ZXh0OiB0cmFjay50aXRsZSk7CiAgICBmaW5hbCB0aXRsZSA9IGF3YWl0IHNob3dEaWFsb2c8U3RyaW5nPihjb250ZXh0OiBjb250ZXh0LCBidWlsZGVyOiAoY29udGV4dCkgPT4gQWxlcnREaWFsb2coCiAgICAgIHRpdGxlOiBjb25zdCBUZXh0KCdHdWFyZGFyIHByb3llY3RvJyksCiAgICAgIGNvbnRlbnQ6IFRleHRGaWVsZChjb250cm9sbGVyOiBjb250cm9sbGVyLCBhdXRvZm9jdXM6IHRydWUsIGRlY29yYXRpb246IGNvbnN0IElucHV0RGVjb3JhdGlvbihsYWJlbFRleHQ6ICdOb21icmUgZGVsIHByb3llY3RvJykpLAogICAgICBhY3Rpb25zOiBbVGV4dEJ1dHRvbihvblByZXNzZWQ6ICgpID0+IE5hdmlnYXRvci5wb3AoY29udGV4dCksIGNoaWxkOiBjb25zdCBUZXh0KCdDYW5jZWxhcicpKSwgRmlsbGVkQnV0dG9uKG9uUHJlc3NlZDogKCkgPT4gTmF2aWdhdG9yLnBvcChjb250ZXh0LCBjb250cm9sbGVyLnRleHQpLCBjaGlsZDogY29uc3QgVGV4dCgnR3VhcmRhcicpKV0sCiAgICApKTsKICAgIFdpZGdldHNCaW5kaW5nLmluc3RhbmNlLmFkZFBvc3RGcmFtZUNhbGxiYWNrKChfKSA9PiBjb250cm9sbGVyLmRpc3Bvc2UoKSk7CiAgICBpZiAodGl0bGUgPT0gbnVsbCkgcmV0dXJuOwogICAgYXdhaXQgX3J1bigoKSA9PiBfc2VydmljZS5zYXZlUHJvamVjdCh0aXRsZSwgdHJhY2spLCBzdWNjZXNzOiAnUHJveWVjdG8gZ3VhcmRhZG8gZW4gdHUgY3VlbnRhLicpOwogIH0KCiAgQG92ZXJyaWRlCiAgV2lkZ2V0IGJ1aWxkKEJ1aWxkQ29udGV4dCBjb250ZXh0KSB7CiAgICBmaW5hbCB0cmFja3MgPSBfc2VydmljZS50cmFja3M7CiAgICBmaW5hbCB2aXNpYmxlVHJhY2tzID0gX3Nob3dGYXZvcml0ZXNPbmx5ID8gdHJhY2tzLndoZXJlKCh0KSA9PiBfZmF2b3JpdGVJZHMuY29udGFpbnModC5pZCkpLnRvTGlzdCgpIDogdHJhY2tzOwogICAgZmluYWwgc2VsZWN0ZWQgPSBfc2VsZWN0ZWRUcmFjazsKICAgIGZpbmFsIGNhblNlZWsgPSBzZWxlY3RlZD8uYXVkaW9QYXRoICE9IG51bGwgJiYgX2R1cmF0aW9uID4gRHVyYXRpb24uemVybzsKICAgIGZpbmFsIG1heE1pbGxpc2Vjb25kcyA9IF9kdXJhdGlvbi5pbk1pbGxpc2Vjb25kczsKICAgIGZpbmFsIHNhZmVQb3NpdGlvbiA9IF9wb3NpdGlvbi5pbk1pbGxpc2Vjb25kcy5jbGFtcCgwLCBtYXhNaWxsaXNlY29uZHMpOwogICAgcmV0dXJuIFNjYWZmb2xkKAogICAgICBhcHBCYXI6IEFwcEJhcih0aXRsZTogY29uc3QgVGV4dCgnTXVzaWMgU3R1ZGlvJyksIGFjdGlvbnM6IFtJY29uQnV0dG9uKGtleTogY29uc3QgS2V5KCd0b2dnbGUtZmF2b3JpdGVzLWZpbHRlcicpLCB0b29sdGlwOiBfc2hvd0Zhdm9yaXRlc09ubHkgPyAnTW9zdHJhciB0b2RhIGxhIGJpYmxpb3RlY2EnIDogJ01vc3RyYXIgZmF2b3JpdG9zJywgaWNvbjogSWNvbihfc2hvd0Zhdm9yaXRlc09ubHkgPyBJY29ucy5saWJyYXJ5X211c2ljIDogSWNvbnMuZmF2b3JpdGUpLCBvblByZXNzZWQ6ICgpID0+IHNldFN0YXRlKCgpID0+IF9zaG93RmF2b3JpdGVzT25seSA9ICFfc2hvd0Zhdm9yaXRlc09ubHkpKV0pLAogICAgICBib2R5OiBTYWZlQXJlYShjaGlsZDogUGFkZGluZyhwYWRkaW5nOiBjb25zdCBFZGdlSW5zZXRzLmFsbCgyMCksIGNoaWxkOiBDb2x1bW4oY3Jvc3NBeGlzQWxpZ25tZW50OiBDcm9zc0F4aXNBbGlnbm1lbnQuc3RhcnQsIGNoaWxkcmVuOiBbCiAgICAgICAgY29uc3QgVGV4dCgnQmlibGlvdGVjYScsIHN0eWxlOiBUZXh0U3R5bGUoZm9udFNpemU6IDI0LCBmb250V2VpZ2h0OiBGb250V2VpZ2h0LmJvbGQpKSwKICAgICAgICBjb25zdCBTaXplZEJveChoZWlnaHQ6IDYpLAogICAgICAgIGNvbnN0IFRleHQoJ1JlcHJvZHVjZSB0dXMgYXJjaGl2b3MgZGUgYXVkaW8sIGltcG9ydGEgdW5hIHBpc3RhIG8gZ3JhYmEgdW5hIHRvbWEuJyksCiAgICAgICAgY29uc3QgU2l6ZWRCb3goaGVpZ2h0OiAxMiksCiAgICAgICAgV3JhcChzcGFjaW5nOiA4LCBydW5TcGFjaW5nOiA4LCBjaGlsZHJlbjogWwogICAgICAgICAgT3V0bGluZWRCdXR0b24uaWNvbihrZXk6IGNvbnN0IEtleSgnaW1wb3J0LWF1ZGlvJyksIG9uUHJlc3NlZDogX2J1c3kgPyBudWxsIDogKCkgPT4gX3J1bihfc2VydmljZS5pbXBvcnRBdWRpbywgc3VjY2VzczogJ0F1ZGlvIGltcG9ydGFkby4nKSwgaWNvbjogY29uc3QgSWNvbihJY29ucy5maWxlX3VwbG9hZCksIGxhYmVsOiBjb25zdCBUZXh0KCdJbXBvcnRhciBhdWRpbycpKSwKICAgICAgICAgIEZpbGxlZEJ1dHRvbi5pY29uKGtleTogY29uc3QgS2V5KCdzdGFydC1yZWNvcmRpbmcnKSwgb25QcmVzc2VkOiAoX2J1c3kgfHwgX3JlY29yZGluZykgPyBudWxsIDogKCkgPT4gX3J1bigoKSBhc3luYyB7IGF3YWl0IF9zZXJ2aWNlLnN0YXJ0UmVjb3JkaW5nKCk7IF9zdGFydFJlY29yZGluZ0Nsb2NrKCk7IH0pLCBpY29uOiBjb25zdCBJY29uKEljb25zLm1pYyksIGxhYmVsOiBjb25zdCBUZXh0KCdHcmFiYXInKSksCiAgICAgICAgICBpZiAoX3JlY29yZGluZykgLi4uWwogICAgICAgICAgICBGaWxsZWRCdXR0b24uaWNvbihrZXk6IGNvbnN0IEtleSgnc3RvcC1yZWNvcmRpbmcnKSwgb25QcmVzc2VkOiBfYnVzeSA/IG51bGwgOiAoKSA9PiBfcnVuKCgpIGFzeW5jIHsgYXdhaXQgX3NlcnZpY2Uuc3RvcFJlY29yZGluZygpOyBpZiAoX3NlcnZpY2UudHJhY2tzLmlzTm90RW1wdHkpIF9zZWxlY3RlZFRyYWNrID0gX3NlcnZpY2UudHJhY2tzLmZpcnN0OyB9LCBzdWNjZXNzOiAnR3JhYmFjacOzbiBndWFyZGFkYSBlbiBsYSBiaWJsaW90ZWNhLicpLCBpY29uOiBjb25zdCBJY29uKEljb25zLnN0b3ApLCBsYWJlbDogY29uc3QgVGV4dCgnRGV0ZW5lciB5IGd1YXJkYXInKSksCiAgICAgICAgICAgIFRleHRCdXR0b24oa2V5OiBjb25zdCBLZXkoJ2NhbmNlbC1yZWNvcmRpbmcnKSwgb25QcmVzc2VkOiBfYnVzeSA/IG51bGwgOiAoKSA9PiBfcnVuKF9zZXJ2aWNlLmNhbmNlbFJlY29yZGluZywgc3VjY2VzczogJ0dyYWJhY2nDs24gY2FuY2VsYWRhLicpLCBjaGlsZDogY29uc3QgVGV4dCgnQ2FuY2VsYXInKSksCiAgICAgICAgICBdLAogICAgICAgIF0pLAogICAgICAgIGlmIChfcmVjb3JkaW5nKSBQYWRkaW5nKGtleTogY29uc3QgS2V5KCdyZWNvcmRpbmctc3RhdHVzJyksIHBhZGRpbmc6IGNvbnN0IEVkZ2VJbnNldHMub25seSh0b3A6IDgpLCBjaGlsZDogUm93KGNoaWxkcmVuOiBbY29uc3QgSWNvbihJY29ucy5maWJlcl9tYW51YWxfcmVjb3JkLCBjb2xvcjogQ29sb3JzLnJlZCwgc2l6ZTogMTYpLCBjb25zdCBTaXplZEJveCh3aWR0aDogNiksIFRleHQoJ0dyYWJhbmRvICR7X2Zvcm1hdFRpbWUoX3JlY29yZGluZ0VsYXBzZWQpfScsIHN0eWxlOiBjb25zdCBUZXh0U3R5bGUoZm9udEZlYXR1cmVzOiBbRm9udEZlYXR1cmUudGFidWxhckZpZ3VyZXMoKV0pKV0pKSwKICAgICAgICBjb25zdCBTaXplZEJveChoZWlnaHQ6IDEwKSwKICAgICAgICBpZiAoc2VsZWN0ZWQgIT0gbnVsbCkgQ2FyZChrZXk6IGNvbnN0IEtleSgnc2VsZWN0ZWQtdHJhY2snKSwgY2hpbGQ6IFBhZGRpbmcocGFkZGluZzogY29uc3QgRWRnZUluc2V0cy5zeW1tZXRyaWModmVydGljYWw6IDgpLCBjaGlsZDogQ29sdW1uKGNoaWxkcmVuOiBbCiAgICAgICAgICBMaXN0VGlsZShsZWFkaW5nOiBjb25zdCBJY29uKEljb25zLm11c2ljX25vdGUsIGNvbG9yOiBDb2xvcnMuZGVlcFB1cnBsZSwgc2l6ZTogMzQpLCB0aXRsZTogVGV4dChzZWxlY3RlZC50aXRsZSksIHN1YnRpdGxlOiBUZXh0KCcke3NlbGVjdGVkLmFydGlzdH0gwrcgJHtzZWxlY3RlZC5kdXJhdGlvbn0nKSwgdHJhaWxpbmc6IFJvdyhtYWluQXhpc1NpemU6IE1haW5BeGlzU2l6ZS5taW4sIGNoaWxkcmVuOiBbCiAgICAgICAgICAgIEljb25CdXR0b24oa2V5OiBjb25zdCBLZXkoJ3BsYXktcGF1c2UnKSwgdG9vbHRpcDogX3BsYXlpbmcgPyAnUGF1c2FyJyA6ICdSZXByb2R1Y2lyJywgaWNvbjogSWNvbihfcGxheWluZyA/IEljb25zLnBhdXNlIDogSWNvbnMucGxheV9hcnJvdyksIG9uUHJlc3NlZDogX2J1c3kgPyBudWxsIDogKCkgPT4gX3J1bigoKSBhc3luYyB7IGlmIChfcGxheWluZykgeyBhd2FpdCBfc2VydmljZS5wYXVzZSgpOyB9IGVsc2UgeyBhd2FpdCBfc2VydmljZS5wbGF5KHNlbGVjdGVkKTsgfSB9KSksCiAgICAgICAgICAgIEljb25CdXR0b24oa2V5OiBjb25zdCBLZXkoJ3N0b3AtcGxheWJhY2snKSwgdG9vbHRpcDogJ0RldGVuZXInLCBpY29uOiBjb25zdCBJY29uKEljb25zLnN0b3ApLCBvblByZXNzZWQ6IChfYnVzeSB8fCAoIV9wbGF5aW5nICYmIF9wb3NpdGlvbiA9PSBEdXJhdGlvbi56ZXJvKSkgPyBudWxsIDogKCkgPT4gX3J1bigoKSBhc3luYyB7IGF3YWl0IF9zZXJ2aWNlLnN0b3AoKTsgc2V0U3RhdGUoKCkgPT4gX3Bvc2l0aW9uID0gRHVyYXRpb24uemVybyk7IH0pKSwKICAgICAgICAgICAgSWNvbkJ1dHRvbihrZXk6IGNvbnN0IEtleSgnc2VsZWN0ZWQtdHJhY2stZmF2b3JpdGUnKSwgdG9vbHRpcDogX2Zhdm9yaXRlSWRzLmNvbnRhaW5zKHNlbGVjdGVkLmlkKSA/ICdRdWl0YXIgZGUgZmF2b3JpdG9zJyA6ICdBw7FhZGlyIGEgZmF2b3JpdG9zJywgaWNvbjogSWNvbihfZmF2b3JpdGVJZHMuY29udGFpbnMoc2VsZWN0ZWQuaWQpID8gSWNvbnMuZmF2b3JpdGUgOiBJY29ucy5mYXZvcml0ZV9ib3JkZXIsIGNvbG9yOiBfZmF2b3JpdGVJZHMuY29udGFpbnMoc2VsZWN0ZWQuaWQpID8gQ29sb3JzLnJlZCA6IG51bGwpLCBvblByZXNzZWQ6ICgpID0+IF90b2dnbGVGYXZvcml0ZShzZWxlY3RlZCkpLAogICAgICAgICAgICBJY29uQnV0dG9uKGtleTogY29uc3QgS2V5KCdzYXZlLXByb2plY3QnKSwgdG9vbHRpcDogJ0d1YXJkYXIgcHJveWVjdG8nLCBpY29uOiBjb25zdCBJY29uKEljb25zLmNsb3VkX3VwbG9hZF9vdXRsaW5lZCksIG9uUHJlc3NlZDogKCkgPT4gX3NhdmVQcm9qZWN0KHNlbGVjdGVkKSksCiAgICAgICAgICBdKSksCiAgICAgICAgICBQYWRkaW5nKHBhZGRpbmc6IGNvbnN0IEVkZ2VJbnNldHMuc3ltbWV0cmljKGhvcml6b250YWw6IDE2KSwgY2hpbGQ6IENvbHVtbihjaGlsZHJlbjogWwogICAgICAgICAgICBTbGlkZXIoa2V5OiBjb25zdCBLZXkoJ3BsYXliYWNrLXNlZWsnKSwgdmFsdWU6IGNhblNlZWsgPyBzYWZlUG9zaXRpb24udG9Eb3VibGUoKSA6IDAsIG1heDogbWF4TWlsbGlzZWNvbmRzID4gMCA/IG1heE1pbGxpc2Vjb25kcy50b0RvdWJsZSgpIDogMSwgb25DaGFuZ2VkOiBjYW5TZWVrICYmICFfYnVzeSA/ICh2YWx1ZSkgPT4gc2V0U3RhdGUoKCkgPT4gX3Bvc2l0aW9uID0gRHVyYXRpb24obWlsbGlzZWNvbmRzOiB2YWx1ZS5yb3VuZCgpKSkgOiBudWxsLCBvbkNoYW5nZUVuZDogY2FuU2VlayA/ICh2YWx1ZSkgPT4gX3J1bigoKSA9PiBfc2VydmljZS5zZWVrKER1cmF0aW9uKG1pbGxpc2Vjb25kczogdmFsdWUucm91bmQoKSkpKSA6IG51bGwpLAogICAgICAgICAgICBSb3cobWFpbkF4aXNBbGlnbm1lbnQ6IE1haW5BeGlzQWxpZ25tZW50LnNwYWNlQmV0d2VlbiwgY2hpbGRyZW46IFtUZXh0KF9mb3JtYXRUaW1lKF9wb3NpdGlvbiksIGtleTogY29uc3QgS2V5KCdwbGF5YmFjay1wb3NpdGlvbicpKSwgVGV4dChfZHVyYXRpb24gPiBEdXJhdGlvbi56ZXJvID8gX2Zvcm1hdFRpbWUoX2R1cmF0aW9uKSA6ICctLTotLScsIGtleTogY29uc3QgS2V5KCdwbGF5YmFjay1kdXJhdGlvbicpKV0pLAogICAgICAgICAgXSkpLAogICAgICAgIF0pKSksCiAgICAgICAgY29uc3QgU2l6ZWRCb3goaGVpZ2h0OiAxMCksCiAgICAgICAgaWYgKF9wcm9qZWN0cy5pc05vdEVtcHR5KSAuLi5bCiAgICAgICAgICBUZXh0KCdNaXMgcHJveWVjdG9zICgke19wcm9qZWN0cy5sZW5ndGh9KScsIHN0eWxlOiBjb25zdCBUZXh0U3R5bGUoZm9udFdlaWdodDogRm9udFdlaWdodC5ib2xkKSksCiAgICAgICAgICBTaXplZEJveChoZWlnaHQ6IDUyLCBjaGlsZDogTGlzdFZpZXcuYnVpbGRlcihzY3JvbGxEaXJlY3Rpb246IEF4aXMuaG9yaXpvbnRhbCwgaXRlbUNvdW50OiBfcHJvamVjdHMubGVuZ3RoLCBpdGVtQnVpbGRlcjogKGNvbnRleHQsIGluZGV4KSA9PiBQYWRkaW5nKHBhZGRpbmc6IGNvbnN0IEVkZ2VJbnNldHMub25seShyaWdodDogOCksIGNoaWxkOiBDaGlwKGtleTogS2V5KCdwcm9qZWN0LSR7X3Byb2plY3RzW2luZGV4XS5pZH0nKSwgYXZhdGFyOiBjb25zdCBJY29uKEljb25zLmF1ZGlvX2ZpbGUsIHNpemU6IDE4KSwgbGFiZWw6IFRleHQoX3Byb2plY3RzW2luZGV4XS50aXRsZSkpKSkpLAogICAgICAgIF0sCiAgICAgICAgVGV4dChfc2hvd0Zhdm9yaXRlc09ubHkgPyAnRmF2b3JpdG9zJyA6ICdQaXN0YXMgeSB0b21hcycsIHN0eWxlOiBjb25zdCBUZXh0U3R5bGUoZm9udFNpemU6IDE4LCBmb250V2VpZ2h0OiBGb250V2VpZ2h0LmJvbGQpKSwKICAgICAgICBjb25zdCBTaXplZEJveChoZWlnaHQ6IDgpLAogICAgICAgIEV4cGFuZGVkKGNoaWxkOiAhX2Zhdm9yaXRlc0xvYWRlZCA/IGNvbnN0IENlbnRlcihjaGlsZDogQ2lyY3VsYXJQcm9ncmVzc0luZGljYXRvcigpKSA6IHZpc2libGVUcmFja3MuaXNFbXB0eQogICAgICAgICAgPyBDZW50ZXIoY2hpbGQ6IFRleHQoX3Nob3dGYXZvcml0ZXNPbmx5ID8gJ1RvZGF2w61hIG5vIHRpZW5lcyBwaXN0YXMgZmF2b3JpdGFzLicgOiAnVHUgYmlibGlvdGVjYSBlc3TDoSB2YWPDrWEuIEltcG9ydGEgdW4gYXJjaGl2byBvIGdyYWJhIHVuYSB0b21hLicpKQogICAgICAgICAgOiBMaXN0Vmlldy5idWlsZGVyKGl0ZW1Db3VudDogdmlzaWJsZVRyYWNrcy5sZW5ndGgsIGl0ZW1CdWlsZGVyOiAoY29udGV4dCwgaW5kZXgpIHsKICAgICAgICAgICAgZmluYWwgdHJhY2sgPSB2aXNpYmxlVHJhY2tzW2luZGV4XTsKICAgICAgICAgICAgcmV0dXJuIExpc3RUaWxlKGtleTogS2V5KCd0cmFjay0ke3RyYWNrLmlkfScpLCBsZWFkaW5nOiBDaXJjbGVBdmF0YXIoYmFja2dyb3VuZENvbG9yOiBDb2xvcnMuZGVlcFB1cnBsZS53aXRoVmFsdWVzKGFscGhhOiAuMTIpLCBjaGlsZDogY29uc3QgSWNvbihJY29ucy5tdXNpY19ub3RlLCBjb2xvcjogQ29sb3JzLmRlZXBQdXJwbGUpKSwgdGl0bGU6IFRleHQodHJhY2sudGl0bGUpLCBzdWJ0aXRsZTogVGV4dCgnJHt0cmFjay5hcnRpc3R9IMK3ICR7dHJhY2suZHVyYXRpb259JyksIHNlbGVjdGVkOiB0cmFjay5pZCA9PSBzZWxlY3RlZD8uaWQsCiAgICAgICAgICAgICAgdHJhaWxpbmc6IEljb25CdXR0b24oa2V5OiBLZXkoJ2Zhdm9yaXRlLSR7dHJhY2suaWR9JyksIHRvb2x0aXA6IF9mYXZvcml0ZUlkcy5jb250YWlucyh0cmFjay5pZCkgPyAnUXVpdGFyIGRlIGZhdm9yaXRvcycgOiAnQcOxYWRpciBhIGZhdm9yaXRvcycsIGljb246IEljb24oX2Zhdm9yaXRlSWRzLmNvbnRhaW5zKHRyYWNrLmlkKSA/IEljb25zLmZhdm9yaXRlIDogSWNvbnMuZmF2b3JpdGVfYm9yZGVyLCBjb2xvcjogX2Zhdm9yaXRlSWRzLmNvbnRhaW5zKHRyYWNrLmlkKSA/IENvbG9ycy5yZWQgOiBudWxsKSwgb25QcmVzc2VkOiAoKSA9PiBfdG9nZ2xlRmF2b3JpdGUodHJhY2spKSwKICAgICAgICAgICAgICBvblRhcDogKCkgPT4gX3NlbGVjdFRyYWNrKHRyYWNrKSk7CiAgICAgICAgICB9KSksCiAgICAgIF0pKSksCiAgICApOwogIH0KfQo=
+import 'dart:async';
+import 'dart:ui' show FontFeature;
+import 'package:beta_app/models/music_item.dart';
+import 'package:beta_app/services/music_service.dart';
+import 'package:flutter/material.dart';
+
+class MusicScreen extends StatefulWidget {
+  const MusicScreen({super.key, this.workspace});
+  final MusicWorkspace? workspace;
+  @override
+  State<MusicScreen> createState() => _MusicScreenState();
+}
+
+class _MusicScreenState extends State<MusicScreen> {
+  late final MusicWorkspace _service = widget.workspace ?? MusicService();
+  final Stopwatch _recordingClock = Stopwatch();
+  Timer? _recordingTicker;
+  StreamSubscription<Duration>? _durationSubscription;
+  StreamSubscription<Duration>? _positionSubscription;
+  StreamSubscription<bool>? _playingSubscription;
+  Set<String> _favoriteIds = <String>{};
+  MusicItem? _selectedTrack;
+  bool _showFavoritesOnly = false;
+  bool _favoritesLoaded = false;
+  bool _recording = false;
+  bool _playing = false;
+  bool _busy = false;
+  Duration _duration = Duration.zero;
+  Duration _position = Duration.zero;
+  Duration _recordingElapsed = Duration.zero;
+  List<AudioProject> _projects = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    final existingTracks = _service.tracks;
+    _selectedTrack = existingTracks.isEmpty ? null : existingTracks.first;
+    _durationSubscription = _service.durationChanges.listen((value) {
+      if (mounted) setState(() => _duration = value);
+    });
+    _positionSubscription = _service.positionChanges.listen((value) {
+      if (mounted) setState(() => _position = value);
+    });
+    _playingSubscription = _service.playingChanges.listen((value) {
+      if (!mounted) return;
+      setState(() {
+        _playing = value;
+        if (!value && _duration > Duration.zero && _position >= _duration) _position = _duration;
+      });
+    });
+    _loadFavorites();
+    _loadProjects();
+  }
+
+  Future<void> _loadProjects() async {
+    try {
+      final projects = await _service.loadProjects();
+      if (mounted) setState(() => _projects = projects);
+    } catch (_) { /* unavailable while signed out/offline */ }
+  }
+
+  @override
+  void dispose() {
+    _recordingTicker?.cancel();
+    _durationSubscription?.cancel();
+    _positionSubscription?.cancel();
+    _playingSubscription?.cancel();
+    _service.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadFavorites() async {
+    final favorites = await _service.loadFavorites();
+    if (!mounted) return;
+    setState(() { _favoriteIds = favorites; _favoritesLoaded = true; });
+  }
+
+  void _message(String text) {
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  Future<void> _toggleFavorite(MusicItem track) async {
+    final next = Set<String>.from(_favoriteIds);
+    if (!next.add(track.id)) next.remove(track.id);
+    setState(() => _favoriteIds = next);
+    try { await _service.saveFavorites(next); } catch (_) { _message('No se pudieron guardar los favoritos en este dispositivo.'); }
+  }
+
+  Future<void> _run(Future<void> Function() action, {String? success}) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await action();
+      if (success != null) _message(success);
+      if (success == 'Proyecto guardado en tu cuenta.') await _loadProjects();
+    } catch (e) {
+      _message(e.toString().replaceFirst('Bad state: ', ''));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _recording = _service.isRecording;
+          _playing = _service.isPlaying;
+          if (!_recording) _finishRecordingClock();
+        });
+      }
+    }
+  }
+
+  void _startRecordingClock() {
+    _recordingClock
+      ..reset()
+      ..start();
+    _recordingElapsed = Duration.zero;
+    _recordingTicker?.cancel();
+    _recordingTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted && _recording) setState(() => _recordingElapsed = _recordingClock.elapsed);
+    });
+  }
+
+  void _finishRecordingClock() {
+    _recordingClock.stop();
+    _recordingTicker?.cancel();
+    _recordingTicker = null;
+    _recordingElapsed = Duration.zero;
+  }
+
+  String _formatTime(Duration value) {
+    final totalSeconds = value.inSeconds;
+    final minutes = (totalSeconds ~/ 60).toString().padLeft(2, '0');
+    final seconds = (totalSeconds % 60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
+
+  Future<void> _selectTrack(MusicItem track) async {
+    if (_playing) await _run(() async { await _service.stop(); });
+    if (!mounted) return;
+    setState(() {
+      _selectedTrack = track;
+      _position = Duration.zero;
+      _duration = Duration.zero;
+      _playing = false;
+    });
+  }
+
+  Future<void> _saveProject(MusicItem track) async {
+    final controller = TextEditingController(text: track.title);
+    final title = await showDialog<String>(context: context, builder: (context) => AlertDialog(
+      title: const Text('Guardar proyecto'),
+      content: TextField(controller: controller, autofocus: true, decoration: const InputDecoration(labelText: 'Nombre del proyecto')),
+      actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')), FilledButton(onPressed: () => Navigator.pop(context, controller.text), child: const Text('Guardar'))],
+    ));
+    WidgetsBinding.instance.addPostFrameCallback((_) => controller.dispose());
+    if (title == null) return;
+    await _run(() => _service.saveProject(title, track), success: 'Proyecto guardado en tu cuenta.');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tracks = _service.tracks;
+    final visibleTracks = _showFavoritesOnly ? tracks.where((t) => _favoriteIds.contains(t.id)).toList() : tracks;
+    final selected = _selectedTrack;
+    final canSeek = selected?.audioPath != null && _duration > Duration.zero;
+    final maxMilliseconds = _duration.inMilliseconds;
+    final safePosition = _position.inMilliseconds.clamp(0, maxMilliseconds);
+    return Scaffold(
+      appBar: AppBar(title: const Text('Music Studio'), actions: [IconButton(key: const Key('toggle-favorites-filter'), tooltip: _showFavoritesOnly ? 'Mostrar toda la biblioteca' : 'Mostrar favoritos', icon: Icon(_showFavoritesOnly ? Icons.library_music : Icons.favorite), onPressed: () => setState(() => _showFavoritesOnly = !_showFavoritesOnly))]),
+      body: SafeArea(child: Padding(padding: const EdgeInsets.all(20), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('Biblioteca', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 6),
+        const Text('Reproduce tus archivos de audio, importa una pista o graba una toma.'),
+        const SizedBox(height: 12),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          OutlinedButton.icon(key: const Key('import-audio'), onPressed: _busy ? null : () => _run(_service.importAudio, success: 'Audio importado.'), icon: const Icon(Icons.file_upload), label: const Text('Importar audio')),
+          FilledButton.icon(key: const Key('start-recording'), onPressed: (_busy || _recording) ? null : () => _run(() async { await _service.startRecording(); _startRecordingClock(); }), icon: const Icon(Icons.mic), label: const Text('Grabar')),
+          if (_recording) ...[
+            FilledButton.icon(key: const Key('stop-recording'), onPressed: _busy ? null : () => _run(() async { await _service.stopRecording(); if (_service.tracks.isNotEmpty) _selectedTrack = _service.tracks.first; }, success: 'Grabación guardada en la biblioteca.'), icon: const Icon(Icons.stop), label: const Text('Detener y guardar')),
+            TextButton(key: const Key('cancel-recording'), onPressed: _busy ? null : () => _run(_service.cancelRecording, success: 'Grabación cancelada.'), child: const Text('Cancelar')),
+          ],
+        ]),
+        if (_recording) Padding(key: const Key('recording-status'), padding: const EdgeInsets.only(top: 8), child: Row(children: [const Icon(Icons.fiber_manual_record, color: Colors.red, size: 16), const SizedBox(width: 6), Text('Grabando ${_formatTime(_recordingElapsed)}', style: const TextStyle(fontFeatures: [FontFeature.tabularFigures()]))])),
+        const SizedBox(height: 10),
+        if (selected != null) Card(key: const Key('selected-track'), child: Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Column(children: [
+          ListTile(leading: const Icon(Icons.music_note, color: Colors.deepPurple, size: 34), title: Text(selected.title), subtitle: Text('${selected.artist} · ${selected.duration}'), trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+            IconButton(key: const Key('play-pause'), tooltip: _playing ? 'Pausar' : 'Reproducir', icon: Icon(_playing ? Icons.pause : Icons.play_arrow), onPressed: _busy ? null : () => _run(() async { if (_playing) { await _service.pause(); } else { await _service.play(selected); } })),
+            IconButton(key: const Key('stop-playback'), tooltip: 'Detener', icon: const Icon(Icons.stop), onPressed: (_busy || (!_playing && _position == Duration.zero)) ? null : () => _run(() async { await _service.stop(); setState(() => _position = Duration.zero); })),
+            IconButton(key: const Key('selected-track-favorite'), tooltip: _favoriteIds.contains(selected.id) ? 'Quitar de favoritos' : 'Añadir a favoritos', icon: Icon(_favoriteIds.contains(selected.id) ? Icons.favorite : Icons.favorite_border, color: _favoriteIds.contains(selected.id) ? Colors.red : null), onPressed: () => _toggleFavorite(selected)),
+            IconButton(key: const Key('save-project'), tooltip: 'Guardar proyecto', icon: const Icon(Icons.cloud_upload_outlined), onPressed: () => _saveProject(selected)),
+          ])),
+          Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Column(children: [
+            Slider(key: const Key('playback-seek'), value: canSeek ? safePosition.toDouble() : 0, max: maxMilliseconds > 0 ? maxMilliseconds.toDouble() : 1, onChanged: canSeek && !_busy ? (value) => setState(() => _position = Duration(milliseconds: value.round())) : null, onChangeEnd: canSeek ? (value) => _run(() => _service.seek(Duration(milliseconds: value.round()))) : null),
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(_formatTime(_position), key: const Key('playback-position')), Text(_duration > Duration.zero ? _formatTime(_duration) : '--:--', key: const Key('playback-duration'))]),
+          ])),
+        ]))),
+        const SizedBox(height: 10),
+        if (_projects.isNotEmpty) ...[
+          Text('Mis proyectos (${_projects.length})', style: const TextStyle(fontWeight: FontWeight.bold)),
+          SizedBox(height: 52, child: ListView.builder(scrollDirection: Axis.horizontal, itemCount: _projects.length, itemBuilder: (context, index) => Padding(padding: const EdgeInsets.only(right: 8), child: Chip(key: Key('project-${_projects[index].id}'), avatar: const Icon(Icons.audio_file, size: 18), label: Text(_projects[index].title))))),
+        ],
+        Text(_showFavoritesOnly ? 'Favoritos' : 'Pistas y tomas', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Expanded(child: !_favoritesLoaded ? const Center(child: CircularProgressIndicator()) : visibleTracks.isEmpty
+          ? Center(child: Text(_showFavoritesOnly ? 'Todavía no tienes pistas favoritas.' : 'Tu biblioteca está vacía. Importa un archivo o graba una toma.'))
+          : ListView.builder(itemCount: visibleTracks.length, itemBuilder: (context, index) {
+            final track = visibleTracks[index];
+            return ListTile(key: Key('track-${track.id}'), leading: CircleAvatar(backgroundColor: Colors.deepPurple.withValues(alpha: .12), child: const Icon(Icons.music_note, color: Colors.deepPurple)), title: Text(track.title), subtitle: Text('${track.artist} · ${track.duration}'), selected: track.id == selected?.id,
+              trailing: IconButton(key: Key('favorite-${track.id}'), tooltip: _favoriteIds.contains(track.id) ? 'Quitar de favoritos' : 'Añadir a favoritos', icon: Icon(_favoriteIds.contains(track.id) ? Icons.favorite : Icons.favorite_border, color: _favoriteIds.contains(track.id) ? Colors.red : null), onPressed: () => _toggleFavorite(track)),
+              onTap: () => _selectTrack(track));
+          })),
+      ]))),
+    );
+  }
+}
