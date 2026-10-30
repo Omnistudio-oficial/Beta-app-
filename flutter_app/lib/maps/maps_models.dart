@@ -52,3 +52,14 @@ int nearestPointIndex(List<MapPoint> points, MapPoint position) {
   }
   return best;
 }
+
+/// Returns the upcoming instruction based on the point where its maneuver occurs.
+/// ORS step waypoints span the segment; using the first waypoint repeats a step
+/// for most of its length, while the final waypoint tracks the maneuver itself.
+RouteStep? nextRouteStep(NavigationRoute route, int progressIndex) {
+  if (route.steps.isEmpty) return null;
+  for (final step in route.steps) {
+    if (step.maneuverIndex >= progressIndex) return step;
+  }
+  return route.steps.last;
+}

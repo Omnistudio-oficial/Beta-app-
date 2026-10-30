@@ -7,6 +7,7 @@ import 'package:beta_app/maps/navigation_guidance.dart';
 import 'package:beta_app/maps/tts_speech_output.dart';
 import 'package:beta_app/maps/maps_models.dart';
 import 'package:beta_app/maps/ors_maps_api.dart';
+import 'package:beta_app/maps/maps_controls.dart';
 
 class MapsScreen extends StatefulWidget {
   const MapsScreen({super.key, this.api, this.positionStream, this.currentPosition, this.showMap = true, this.autoLocate = true, this.speechOutput});
@@ -36,6 +37,7 @@ class _MapsScreenState extends State<MapsScreen> {
   bool _guiding = false;
   bool _rerouting = false;
   bool _voiceEnabled = true;
+  MapBaseLayer _layer = MapBaseLayer.options.first;
   int _progressIndex = 0;
   final FlutterTts _tts = FlutterTts();
   late final VoiceGuidanceEngine _voice;
@@ -79,7 +81,7 @@ class _MapsScreenState extends State<MapsScreen> {
 
   void _setOrigin(Position p) {
     final point = MapPoint(p.latitude, p.longitude);
-    _api.reverseGeocode(point).then((address) { if (mounted) setState(() => _originAddress = address); }).catchError((_) { if (mounted) setState(() => _originAddress = 'Ubicación actual'); });
+    _api.reverseGeocode(point).then((address) { if (mounted) setState(() => _originAddress = address); }).catchError((_) { if (mounted) setState(() => _originAddress = 'Tu ubicación actual'); });
     _map?.animateCamera(CameraUpdate.newLatLngZoom(LatLng(p.latitude, p.longitude), 15));
   }
 
@@ -173,8 +175,8 @@ class _MapsScreenState extends State<MapsScreen> {
   }
 
   RouteStep? get _nextStep {
-    final route = _route; if (route == null || route.steps.isEmpty) return null;
-    return route.steps.firstWhere((step) => step.waypointIndex >= _progressIndex, orElse: () => route.steps.last);
+    final route = _route;
+    return route == null ? null : nextRouteStep(route, _progressIndex);
   }
 
   @override
@@ -182,7 +184,14 @@ class _MapsScreenState extends State<MapsScreen> {
     final route = _route;
     return Scaffold(appBar: AppBar(title: const Text('Maps')),
       body: Stack(children: [
-        if (widget.showMap) MapLibreMap(styleString: 'https://tiles.openfreemap.org/styles/liberty', initialCameraPosition: CameraPosition(target: LatLng(_position?.latitude ?? 9.992299, _position?.longitude ?? -84.1248515), zoom: 12), myLocationEnabled: true, myLocationTrackingMode: _guiding ? MyLocationTrackingMode.tracking : MyLocationTrackingMode.none, onMapCreated: (map) { _map = map; if (route != null) _drawRoute(route); }, compassEnabled: true) else const ColoredBox(color: Color(0xFF101018)),
+        if (widget.showMap) MapLibreMap(styleString: _layer.styleUrl, initialCameraPosition: CameraPosition(target: LatLng(_position?.latitude ?? 9.992299, _position?.longitude ?? -84.1248515), zoom: 12), myLocationEnabled: true, myLocationTrackingMode: _guiding ? MyLocationTrackingMode.tracking : MyLocationTrackingMode.none, onMapCreated: (map) { _map = map; if (route != null) _drawRoute(route); }, onStyleLoadedCallback: () { final current = _route; if (current != null) _drawRoute(current); }, compassEnabled: true) else const ColoredBox(color: Color(0xFF101018)),
+        Positioned(top: _guiding ? 100 : 96, right: 12, child: MapsControls(
+          layer: _layer,
+          onZoomIn: () => _zoom(1),
+          onZoomOut: () => _zoom(-1),
+          onLocate: _recenter,
+          onLayerChanged: _changeLayer,
+        )),
         if (!_guiding) Positioned(top: 10, left: 12, right: 12, child: _searchPanel()),
         if (_guiding && route != null) Positioned(top: 12, left: 12, right: 12, child: Card(child: Padding(padding: const EdgeInsets.all(16), child: Row(children: [const Icon(Icons.turn_right, size: 32), const SizedBox(width: 12), Expanded(child: Text(_nextStep?.instruction ?? 'Sigue la ruta', style: Theme.of(context).textTheme.titleMedium))])))),
         if (route != null) Positioned(left: 12, right: 12, bottom: 16, child: _routePanel(route)),
@@ -191,8 +200,34 @@ class _MapsScreenState extends State<MapsScreen> {
       ]));
   }
 
+  void _zoom(double amount) {
+    final map = _map;
+    if (map == null) return;
+    map.animateCamera(CameraUpdate.zoomBy(amount));
+  }
+
+  void _recenter() {
+    final position = _position;
+    if (position == null) {
+      if (mounted) setState(() => _error = 'Esperando una ubicación GPS válida para centrar el mapa.');
+      return;
+    }
+    _map?.animateCamera(CameraUpdate.newLatLngZoom(LatLng(position.latitude, position.longitude), 16));
+  }
+
+  Future<void> _changeLayer(MapBaseLayer layer) async {
+    setState(() => _layer = layer);
+    final map = _map;
+    if (map == null) return;
+    try {
+      await map.setStyleString(layer.styleUrl);
+    } catch (_) {
+      if (mounted) setState(() => _error = 'No se pudo cargar esa capa. Revisa tu conexión e inténtalo de nuevo.');
+    }
+  }
+
   Widget _searchPanel() => Card(elevation: 6, child: Padding(padding: const EdgeInsets.all(12), child: Column(mainAxisSize: MainAxisSize.min, children: [
-    Row(children: [const Icon(Icons.my_location), const SizedBox(width: 8), Expanded(child: Text(_originAddress ?? (_position == null ? 'Obteniendo ubicación…' : 'Ubicación actual'), maxLines: 1, overflow: TextOverflow.ellipsis))]),
+    Row(children: [const Icon(Icons.my_location), const SizedBox(width: 8), Expanded(child: Text(_originAddress ?? (_position == null ? 'Obteniendo ubicación…' : 'Tu ubicación actual'), maxLines: 1, overflow: TextOverflow.ellipsis))]),
     const SizedBox(height: 8), Row(children: [Expanded(child: TextField(controller: _destinationController, textInputAction: TextInputAction.search, onSubmitted: _search, decoration: const InputDecoration(hintText: 'Buscar destino', prefixIcon: Icon(Icons.search), isDense: true))), IconButton(onPressed: () => _search(_destinationController.text), icon: const Icon(Icons.search))]),
     if (_suggestions.isNotEmpty) ..._suggestions.map((place) => ListTile(dense: true, leading: const Icon(Icons.place), title: Text(place.label, maxLines: 1, overflow: TextOverflow.ellipsis), onTap: () { setState(() { _destination = place; _destinationController.text = place.label; _suggestions = []; }); _makeRoute(); })),
     Row(children: [const Text('Ruta:'), const SizedBox(width: 8), Expanded(child: DropdownButton<String>(isExpanded: true, value: _profile, items: _profiles.entries.map((e) => DropdownMenuItem(value: e.value, child: Text(e.key))).toList(), onChanged: (value) { if (value != null) setState(() { _profile = value; _route = null; }); }))]),
@@ -203,7 +238,7 @@ class _MapsScreenState extends State<MapsScreen> {
     final seconds = _guiding ? route.durationSeconds * (remaining / (route.distanceMeters == 0 ? 1 : route.distanceMeters)) : route.durationSeconds;
     final arrived = _guiding && remaining < 35;
     return Card(elevation: 8, child: Padding(padding: const EdgeInsets.all(16), child: Column(mainAxisSize: MainAxisSize.min, children: [
-      Text(arrived ? 'Llegaste a ${_destination?.label ?? "tu destino"}' : _guiding ? (_nextStep?.instruction ?? 'Continúa por la ruta') : (_destination?.label ?? 'Ruta'), style: Theme.of(context).textTheme.titleMedium),
+      Text(arrived ? 'Llegaste a tu destino' : _guiding ? (_nextStep?.instruction ?? 'Continúa por la ruta') : (_destination?.label ?? 'Ruta'), style: Theme.of(context).textTheme.titleMedium),
       const SizedBox(height: 8), Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [Text(_formatDistance(remaining)), Text(_formatDuration(seconds)), Text(_arrival(seconds))]),
       if (_guiding) Row(children: [
         const Icon(Icons.volume_up_outlined),
