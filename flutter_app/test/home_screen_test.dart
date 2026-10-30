@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   testWidgets('home greets the user and opens a selected module', (tester) async {
-    int? selectedIndex;
+    AppDestination? selectedIndex;
     var signedOut = false;
     await tester.pumpWidget(MaterialApp(
       home: HomeScreen(
