@@ -1,8 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import 'package:beta_app/app/app_destination.dart';
 import 'package:beta_app/screens/ai_screen.dart';
-import 'package:beta_app/screens/auth_screen.dart';
 import 'package:beta_app/screens/chat_screen.dart';
 import 'package:beta_app/screens/converter_screen.dart';
 import 'package:beta_app/screens/docs_screen.dart';
@@ -12,55 +12,72 @@ import 'package:beta_app/screens/music_screen.dart';
 import 'package:beta_app/screens/profile_screen.dart';
 import 'package:beta_app/screens/social_screen.dart';
 
+/// Hosts all migrated screens in one authenticated environment. Optional
+/// overrides make route behavior testable without initializing Firebase.
 class NavigationShell extends StatefulWidget {
-  const NavigationShell({super.key});
+  const NavigationShell({
+    super.key,
+    this.pageOverrides = const {},
+    this.displayName,
+    this.onSignOut,
+  });
+
+  final Map<AppDestination, Widget> pageOverrides;
+  final String? displayName;
+  final VoidCallback? onSignOut;
 
   @override
   State<NavigationShell> createState() => _NavigationShellState();
 }
 
 class _NavigationShellState extends State<NavigationShell> {
-  int _selectedIndex = 0;
+  AppDestination _selectedDestination = AppDestination.home;
 
-  static const List<Widget> _pages = <Widget>[
-    SizedBox.shrink(), // Home is built with current account data below.
-    ChatScreen(),
-    MusicScreen(),
-    MapsScreen(),
-    AIScreen(),
-    DocsScreen(),
-    SocialScreen(),
-    ConverterScreen(),
-    AuthScreen(),
-    ProfileScreen(),
-  ];
+  void _navigate(AppDestination destination) {
+    if (!authenticatedDestinations.contains(destination)) return;
+    setState(() => _selectedDestination = destination);
+  }
+
+  Widget _pageFor(AppDestination destination, User? user) {
+    final override = widget.pageOverrides[destination];
+    if (override != null) return override;
+    return switch (destination) {
+      AppDestination.home => HomeScreen(
+          displayName: widget.displayName ?? user?.displayName ?? user?.email?.split('@').first ?? '',
+          onNavigate: _navigate,
+          onSignOut: widget.onSignOut ?? () => FirebaseAuth.instance.signOut(),
+        ),
+      AppDestination.chat => const ChatScreen(),
+      AppDestination.music => const MusicScreen(),
+      AppDestination.maps => const MapsScreen(),
+      AppDestination.assistant => const AIScreen(),
+      AppDestination.docs => const DocsScreen(),
+      AppDestination.social => const SocialScreen(),
+      AppDestination.converter => const ConverterScreen(),
+      AppDestination.profile => const ProfileScreen(),
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
-    final pages = List<Widget>.of(_pages);
-    pages[0] = HomeScreen(
-      displayName: user?.displayName ?? user?.email?.split('@').first ?? '',
-      onNavigate: (index) => setState(() => _selectedIndex = index),
-      onSignOut: () async => FirebaseAuth.instance.signOut(),
-    );
+    // An injected display name signals a test host and avoids touching the
+    // Firebase singleton before the Firebase-dependent app is initialized.
+    final user = widget.displayName == null ? FirebaseAuth.instance.currentUser : null;
+    final pages = [for (final destination in authenticatedDestinations) _pageFor(destination, user)];
+    final selectedIndex = authenticatedDestinations.indexOf(_selectedDestination);
 
     return Scaffold(
-      body: IndexedStack(index: _selectedIndex, children: pages),
+      body: IndexedStack(index: selectedIndex, children: pages),
       bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: (value) => setState(() => _selectedIndex = value),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_outlined), label: 'Home'),
-          NavigationDestination(icon: Icon(Icons.chat_bubble_outline), label: 'Chat'),
-          NavigationDestination(icon: Icon(Icons.music_note_outlined), label: 'Music'),
-          NavigationDestination(icon: Icon(Icons.map_outlined), label: 'Maps'),
-          NavigationDestination(icon: Icon(Icons.smart_toy_outlined), label: 'AI'),
-          NavigationDestination(icon: Icon(Icons.description_outlined), label: 'Docs'),
-          NavigationDestination(icon: Icon(Icons.groups_outlined), label: 'Social'),
-          NavigationDestination(icon: Icon(Icons.swap_horiz_outlined), label: 'Convert'),
-          NavigationDestination(icon: Icon(Icons.login_outlined), label: 'Auth'),
-          NavigationDestination(icon: Icon(Icons.person_outline), label: 'Profile'),
+        selectedIndex: selectedIndex,
+        onDestinationSelected: (index) => _navigate(authenticatedDestinations[index]),
+        destinations: [
+          for (final destination in authenticatedDestinations)
+            NavigationDestination(
+              key: Key('navigation_${destination.name}'),
+              icon: Icon(destination.icon),
+              label: destination.label,
+            ),
         ],
       ),
     );

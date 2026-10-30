@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:beta_app/app/app_destination.dart';
+
 /// Flutter landing page for the migrated OmniStudio modules.
 /// Navigation stays owned by [NavigationShell], so the dashboard does not
 /// create duplicate routes or alter the existing module state.
@@ -12,18 +14,18 @@ class HomeScreen extends StatelessWidget {
   });
 
   final String displayName;
-  final ValueChanged<int> onNavigate;
+  final ValueChanged<AppDestination> onNavigate;
   final VoidCallback onSignOut;
 
   static const _tools = <_HomeTool>[
-    _HomeTool('Chat', 'Conversaciones y llamadas', Icons.chat_bubble_outline, 1),
-    _HomeTool('Música', 'Tus proyectos de audio', Icons.music_note_outlined, 2),
-    _HomeTool('Maps', 'Mapas y rutas', Icons.map_outlined, 3),
-    _HomeTool('Asistente IA', 'Pregunta o crea con IA', Icons.smart_toy_outlined, 4),
-    _HomeTool('Documentos', 'Documentos y archivos', Icons.description_outlined, 5),
-    _HomeTool('Social', 'Publicaciones y comunidad', Icons.groups_outlined, 6),
-    _HomeTool('Convertir', 'Convierte formatos', Icons.swap_horiz, 7),
-    _HomeTool('Perfil', 'Tu cuenta y preferencias', Icons.person_outline, 9),
+    _HomeTool('Chat', 'Conversaciones y llamadas', Icons.chat_bubble_outline, AppDestination.chat),
+    _HomeTool('Música', 'Tus proyectos de audio', Icons.music_note_outlined, AppDestination.music),
+    _HomeTool('Maps', 'Mapas y rutas', Icons.map_outlined, AppDestination.maps),
+    _HomeTool('Asistente IA', 'Pregunta o crea con IA', Icons.smart_toy_outlined, AppDestination.assistant),
+    _HomeTool('Documentos', 'Documentos y archivos', Icons.description_outlined, AppDestination.docs),
+    _HomeTool('Social', 'Publicaciones y comunidad', Icons.groups_outlined, AppDestination.social),
+    _HomeTool('Convertir', 'Convierte formatos', Icons.swap_horiz, AppDestination.converter),
+    _HomeTool('Perfil', 'Tu cuenta y preferencias', Icons.person_outline, AppDestination.profile),
   ];
 
   @override
@@ -129,5 +131,5 @@ class _HomeTool {
   final String label;
   final String description;
   final IconData icon;
-  final int destination;
+  final AppDestination destination;
 }

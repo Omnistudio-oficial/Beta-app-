@@ -1,3 +1,4 @@
+import 'package:beta_app/app/app_destination.dart';
 import 'package:beta_app/screens/home_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,7 +10,7 @@ void main() {
     await tester.pumpWidget(MaterialApp(
       home: HomeScreen(
         displayName: 'Cris',
-        onNavigate: (index) => selectedIndex = index,
+        onNavigate: (destination) => selectedIndex = destination,
         onSignOut: () => signedOut = true,
       ),
     ));
@@ -18,7 +19,7 @@ void main() {
     expect(find.text('Accesos rápidos'), findsOneWidget);
     expect(find.text('Documentos'), findsOneWidget);
     await tester.tap(find.byKey(const Key('home_tool_chat')));
-    expect(selectedIndex, 1);
+    expect(selectedIndex, AppDestination.chat);
     await tester.tap(find.byKey(const Key('home_sign_out')));
     expect(signedOut, isTrue);
   });
