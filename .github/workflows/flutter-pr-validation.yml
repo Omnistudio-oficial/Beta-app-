@@ -118,3 +118,11 @@ jobs:
           --dart-define=SUPABASE_PROJECT_URL=$SUPABASE_PROJECT_URL
           --dart-define=SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY
           --dart-define=OPENROUTESERVICE_API_KEY=$OPENROUTESERVICE_API_KEY
+
+      - name: Upload installable Android debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: omnistudio-flutter-debug-apk
+          path: flutter_app/build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
