@@ -93,6 +93,46 @@ jobs:
           if not changed:
               raise SystemExit("Could not find plugin compileSdk declaration to update")
           PYPLUGIN
+      - name: Restore and verify persistent Flutter test signing
+        env:
+          TEST_OAUTH_KEYSTORE_B64: ${{ secrets.TEST_OAUTH_KEYSTORE_B64 }}
+          TEST_OAUTH_KEYSTORE_PASSWORD: ${{ secrets.TEST_OAUTH_KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${TEST_OAUTH_KEYSTORE_B64:-}" || -z "${TEST_OAUTH_KEYSTORE_PASSWORD:-}" ]]; then
+            echo 'Persistent test signing secrets are required; refusing to build with an ephemeral debug key.' >&2
+            exit 1
+          fi
+          KEYSTORE="${RUNNER_TEMP}/omnistudio-test-signing.p12"
+          printf '%s' "$TEST_OAUTH_KEYSTORE_B64" | base64 --decode > "$KEYSTORE"
+          chmod 600 "$KEYSTORE"
+          SHA1="$(keytool -list -v -keystore "$KEYSTORE" -storetype PKCS12 -storepass "$TEST_OAUTH_KEYSTORE_PASSWORD" -alias androiddebugkey | awk -F': ' '/SHA1:/{print $2; exit}' | tr -d ': ' | tr '[:lower:]' '[:upper:]')"
+          EXPECTED_SHA1='9763B6272094D4BE951B681A5358D38869B34C84'
+          if [[ "$SHA1" != "$EXPECTED_SHA1" ]]; then
+            echo 'Persistent test certificate does not match the SHA-1 registered in Firebase; refusing to build.' >&2
+            exit 1
+          fi
+          echo "Verified persistent test certificate SHA-1: $SHA1"
+          python3 - <<'PYGRADLE'
+          from pathlib import Path
+          import re
+          p = Path("android/app/build.gradle.kts")
+          if not p.is_file():
+              raise SystemExit("Generated Android Gradle Kotlin build file is missing")
+          text = p.read_text()
+          if 'create("testPersistent")' in text:
+              raise SystemExit("Refusing duplicate persistent signing configuration")
+          if not re.search(r"(?m)^\s*buildTypes\s*\{", text):
+              raise SystemExit("Generated Android buildTypes block is missing")
+          signing = "\n    signingConfigs {\n        create(\"testPersistent\") {\n            storeFile = file(System.getenv(\"OMNISTUDIO_TEST_KEYSTORE_PATH\") ?: error(\"Test keystore path missing\"))\n            storePassword = System.getenv(\"OMNISTUDIO_TEST_KEYSTORE_PASSWORD\") ?: error(\"Test keystore password missing\")\n            keyAlias = \"androiddebugkey\"\n            keyPassword = System.getenv(\"OMNISTUDIO_TEST_KEYSTORE_PASSWORD\") ?: error(\"Test key password missing\")\n            storeType = \"PKCS12\"\n        }\n    }\n"
+          text = re.sub(r"(?m)^(android\s*\{)", lambda m: m.group(1) + signing, text, count=1)
+          debug = "\n        debug {\n            signingConfig = signingConfigs.getByName(\"testPersistent\")\n        }\n"
+          text, count = re.subn(r"(?m)^(\s*buildTypes\s*\{)", lambda m: m.group(1) + debug, text, count=1)
+          if count != 1 or 'create("testPersistent")' not in text:
+              raise SystemExit("Could not inject persistent test signing into generated Android build")
+          p.write_text(text)
+          print("Configured generated Android debug build to use persistent test signing.")
+          PYGRADLE
       - name: Analyze Flutter sources
         run: flutter analyze --no-pub
       - name: Run offline-capable widget tests
@@ -110,6 +150,8 @@ jobs:
 
       - name: Build generated Android host
         env:
+          OMNISTUDIO_TEST_KEYSTORE_PATH: ${{ runner.temp }}/omnistudio-test-signing.p12
+          OMNISTUDIO_TEST_KEYSTORE_PASSWORD: ${{ secrets.TEST_OAUTH_KEYSTORE_PASSWORD }}
           SUPABASE_PROJECT_URL: ${{ secrets.SUPABASE_PROJECT_URL }}
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
           OPENROUTESERVICE_API_KEY: ${{ secrets.OPENROUTESERVICE_API_KEY }}
@@ -126,3 +168,6 @@ jobs:
           path: flutter_app/build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
           retention-days: 14
+      - name: Remove temporary test signing material
+        if: always()
+        run: rm -f "${RUNNER_TEMP}/omnistudio-test-signing.p12"
