@@ -1,5 +1,6 @@
 import 'package:beta_app/app/app_destination.dart';
 import 'package:beta_app/app/navigation_shell.dart';
+import 'package:beta_app/screens/home_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -13,7 +14,7 @@ void main() {
       home: NavigationShell(pageOverrides: overrides, displayName: 'Cris', onSignOut: () {}),
     ));
 
-    expect(find.text('Hola, Cris'), findsOneWidget);
+    _expectHomeSelected(tester);
     for (final entry in <({Key key, AppDestination destination})>[
       (key: const Key('home_tool_chat'), destination: AppDestination.chat),
       (key: const Key('home_tool_música'), destination: AppDestination.music),
@@ -35,7 +36,7 @@ void main() {
       await tester.ensureVisible(homeDestination);
       await tester.tap(homeDestination);
       await tester.pumpAndSettle();
-      expect(find.text('Hola, Cris'), findsOneWidget);
+      _expectHomeSelected(tester);
     }
   });
 
@@ -53,4 +54,15 @@ void main() {
       AppDestination.profile,
     ]));
   });
+}
+
+void _expectHomeSelected(WidgetTester tester) {
+  // The dashboard's greeting can be offscreen after scrolling through its
+  // shortcuts. Assert the stable page identity and selected navigation state
+  // instead of requiring that scrollable text to be currently built.
+  expect(find.byType(HomeScreen), findsOneWidget);
+  expect(
+    tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
+    authenticatedDestinations.indexOf(AppDestination.home),
+  );
 }
