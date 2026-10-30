@@ -287,7 +287,6 @@ class _ChatScreenState extends State<ChatScreen> {
         ],
       ),
       body: Column(children: [
-        const MaterialBanner(content: Text('Los adjuntos usan almacenamiento público: cualquier persona con el enlace puede verlos. No envíes archivos sensibles.'), leading: Icon(Icons.public, color: Colors.deepOrange), actions: [SizedBox.shrink()]),
         Padding(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2), child: Row(children: [
           const Icon(Icons.translate, size: 18), const SizedBox(width: 6), const Text('Traducir a'), const SizedBox(width: 8),
           DropdownButton<String>(key: const ValueKey('chat-translation-target'), value: _targetLanguage, items: ChatTranslationLanguages.items.map((language) => DropdownMenuItem(value: language.code, child: Text(language.name))).toList(), onChanged: (value) { if (value != null) setState(() => _targetLanguage = value); }),
@@ -346,7 +345,6 @@ class _ChatScreenState extends State<ChatScreen> {
                               message: message,
                               onOpen: () => _openDocument(message),
                             ),
-                          Text('Este archivo está en un bucket público: quien tenga el enlace puede acceder.', style: Theme.of(context).textTheme.labelSmall),
                         ],
                         if (message.text.trim().isNotEmpty)
                           Align(
