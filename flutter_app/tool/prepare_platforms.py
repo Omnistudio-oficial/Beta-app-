@@ -38,6 +38,54 @@ def main() -> None:
     if not ANDROID_FIREBASE_JSON.is_file() or not android_firebase_config.parent.is_dir():
         raise SystemExit("Registered Android Firebase config or generated Android app directory is missing")
     shutil.copy2(ANDROID_FIREBASE_JSON, android_firebase_config)
+
+    # `flutter create` makes a fresh Gradle host, so it does not inherit the
+    # Google Services plugin declared in the checked-in Android project. The
+    # JSON file alone is not processed unless the plugin is registered and
+    # applied to the generated app.
+    settings_gradle = scaffold / "android/settings.gradle"
+    if not settings_gradle.is_file():
+        settings_gradle = scaffold / "android/settings.gradle.kts"
+    app_gradle = scaffold / "android/app/build.gradle"
+    if not app_gradle.is_file():
+        app_gradle = scaffold / "android/app/build.gradle.kts"
+    if not settings_gradle.is_file() or not app_gradle.is_file():
+        raise SystemExit("Generated Android Gradle settings or app build file is missing")
+
+    settings_text = settings_gradle.read_text(encoding="utf-8")
+    if "com.google.gms.google-services" not in settings_text:
+        plugin_block = re.search(r"(?ms)^plugins\s*\{.*?^\}", settings_text)
+        if plugin_block is None:
+            raise SystemExit("Could not find the generated Android settings plugins block")
+        plugin_declaration = (
+            '    id("com.google.gms.google-services") version "4.4.2" apply false\n'
+            if settings_gradle.suffix == ".kts"
+            else '    id "com.google.gms.google-services" version "4.4.2" apply false\n'
+        )
+        settings_text = (
+            settings_text[:plugin_block.end() - 1]
+            + plugin_declaration
+            + settings_text[plugin_block.end() - 1:]
+        )
+        settings_gradle.write_text(settings_text, encoding="utf-8")
+
+    app_text = app_gradle.read_text(encoding="utf-8")
+    if "com.google.gms.google-services" not in app_text:
+        app_plugins = re.search(r"(?ms)^plugins\s*\{.*?^\}", app_text)
+        if app_plugins is None:
+            raise SystemExit("Could not find the generated Android app plugins block")
+        plugin_declaration = (
+            '    id("com.google.gms.google-services")\n'
+            if app_gradle.suffix == ".kts"
+            else '    id "com.google.gms.google-services"\n'
+        )
+        app_text = (
+            app_text[:app_plugins.end() - 1]
+            + plugin_declaration
+            + app_text[app_plugins.end() - 1:]
+        )
+        app_gradle.write_text(app_text, encoding="utf-8")
+
     project = project_file.read_text(encoding="utf-8")
     if "GoogleService-Info.plist" not in project:
         project = project.replace(
@@ -228,7 +276,7 @@ end
         raise SystemExit("Could not set generated Android compileSdk to 36")
     android_gradle.write_text(gradle_text, encoding="utf-8")
 
-    print("Prepared generated platform scaffolds with registered Android/iOS Firebase config, camera permission, and Android compileSdk 36.")
+    print("Prepared generated platform scaffolds with registered Android/iOS Firebase config, Google Services Gradle plugin, camera permission, and Android compileSdk 36.")
 
 
 if __name__ == "__main__":
