@@ -221,7 +221,7 @@ class _MapsScreenState extends State<MapsScreen> {
     final map = _map;
     if (map == null) return;
     try {
-      await map.setStyleString(layer.styleUrl);
+      await map.setStyle(layer.styleUrl);
     } catch (_) {
       if (mounted) setState(() { _layer = previous; _error = 'No se pudo cargar esa capa. Revisa tu conexión e inténtalo de nuevo.'; });
     }
