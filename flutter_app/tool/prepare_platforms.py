@@ -8,6 +8,7 @@ import sys
 
 BUNDLE_ID = "com.omnistudio.omnistudioFlutterPrototype"
 FIREBASE_PLIST = Path("ios/Runner/GoogleService-Info.plist")
+ANDROID_FIREBASE_JSON = Path("android/app/google-services.json")
 BUILD_FILE_ID = "F1A5E0000000000000000001"
 FILE_REF_ID = "F1A5E0000000000000000002"
 
@@ -29,6 +30,14 @@ def main() -> None:
         raise SystemExit("Registered iOS Firebase config does not match the app bundle identifier")
 
     shutil.copy2(plist_source, runner / "GoogleService-Info.plist")
+
+    # The Android host is also generated from a fresh Flutter scaffold in CI.
+    # Copy the registered Firebase client config into that transient scaffold,
+    # or Firebase.initializeApp() fails at app launch on Android.
+    android_firebase_config = scaffold / "android/app/google-services.json"
+    if not ANDROID_FIREBASE_JSON.is_file() or not android_firebase_config.parent.is_dir():
+        raise SystemExit("Registered Android Firebase config or generated Android app directory is missing")
+    shutil.copy2(ANDROID_FIREBASE_JSON, android_firebase_config)
     project = project_file.read_text(encoding="utf-8")
     if "GoogleService-Info.plist" not in project:
         project = project.replace(
@@ -219,7 +228,7 @@ end
         raise SystemExit("Could not set generated Android compileSdk to 36")
     android_gradle.write_text(gradle_text, encoding="utf-8")
 
-    print("Prepared generated platform scaffolds with registered Firebase config, camera permission, and Android compileSdk 36.")
+    print("Prepared generated platform scaffolds with registered Android/iOS Firebase config, camera permission, and Android compileSdk 36.")
 
 
 if __name__ == "__main__":
