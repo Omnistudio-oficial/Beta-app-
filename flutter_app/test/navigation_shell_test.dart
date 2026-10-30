@@ -28,7 +28,12 @@ void main() {
       await tester.tap(find.byKey(entry.key));
       await tester.pumpAndSettle();
       expect(find.text('module_${entry.destination.name}'), findsOneWidget);
-      await tester.tap(find.byKey(const Key('navigation_home')));
+      final homeDestination = find.byKey(const Key('navigation_home'));
+      // NavigationBar can horizontally scroll when the shell exposes all
+      // authenticated destinations; bring Home into the hit-testable area
+      // before tapping so this assertion tests navigation, not viewport.
+      await tester.ensureVisible(homeDestination);
+      await tester.tap(homeDestination);
       await tester.pumpAndSettle();
       expect(find.text('Hola, Cris'), findsOneWidget);
     }
