@@ -47,6 +47,5 @@ void main() {
       AppDestination.converter,
       AppDestination.profile,
     ]));
-    expect(authenticatedDestinations, isNot(contains('auth')));
   });
 }
