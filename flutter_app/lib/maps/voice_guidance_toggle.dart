@@ -11,7 +11,7 @@ class VoiceGuidanceToggle extends StatelessWidget {
   Widget build(BuildContext context) => Row(children: [
     const Icon(Icons.volume_up_outlined),
     const SizedBox(width: 8),
-    const Expanded(child: Text('Indicaciones por voz')),
+    const Expanded(child: ExcludeSemantics(child: Text('Indicaciones por voz'))),
     Semantics(
       label: 'Indicaciones por voz',
       value: enabled ? 'Activadas' : 'Desactivadas',
