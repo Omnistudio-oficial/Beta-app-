@@ -75,13 +75,13 @@ class _MapsScreenState extends State<MapsScreen> {
       if (!mounted) return;
       setState(() { _position = position; _error = null; });
       _setOrigin(position);
-      _positionSubscription ??= (widget.positionStream ?? Geolocator.getPositionStream(locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, distanceFilter: 5))).listen(_onPosition, onError: (_) {});
+      _positionSubscription ??= (widget.positionStream ?? Geolocator.getPositionStream(locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, distanceFilter: 5))).listen(_onPosition, onError: (_) { if (mounted) setState(() => _error = 'Se perdió la señal GPS. La navegación continúa con la última ubicación disponible.'); });
     } catch (error) { if (mounted) setState(() => _error = error.toString().replaceFirst('Exception: ', '')); }
   }
 
   void _setOrigin(Position p) {
     final point = MapPoint(p.latitude, p.longitude);
-    _api.reverseGeocode(point).then((address) { if (mounted) setState(() => _originAddress = address); }).catchError((_) { if (mounted) setState(() => _originAddress = 'Tu ubicación actual'); });
+    _api.reverseGeocode(point).then((address) { if (mounted) setState(() => _originAddress = address == 'Ubicación actual' ? 'Tu ubicación actual' : address); }).catchError((_) { if (mounted) setState(() => _originAddress = 'Tu ubicación actual'); });
     _map?.animateCamera(CameraUpdate.newLatLngZoom(LatLng(p.latitude, p.longitude), 15));
   }
 
@@ -104,7 +104,7 @@ class _MapsScreenState extends State<MapsScreen> {
     if (query.trim().length < 3) return;
     setState(() { _loading = true; _error = null; });
     try { final found = await _api.searchPlaces(query.trim()); if (mounted) setState(() => _suggestions = found); }
-    catch (error) { if (mounted) setState(() => _error = error.toString()); }
+    catch (_) { if (mounted) setState(() => _error = 'No se pudo buscar el destino. Revisa tu conexión e inténtalo de nuevo.'); }
     finally { if (mounted) setState(() => _loading = false); }
   }
 
@@ -120,7 +120,7 @@ class _MapsScreenState extends State<MapsScreen> {
       _map?.animateCamera(CameraUpdate.newLatLngBounds(LatLngBounds(
         southwest: LatLng(route.points.map((p) => p.latitude).reduce((a,b) => a < b ? a : b), route.points.map((p) => p.longitude).reduce((a,b) => a < b ? a : b)),
         northeast: LatLng(route.points.map((p) => p.latitude).reduce((a,b) => a > b ? a : b), route.points.map((p) => p.longitude).reduce((a,b) => a > b ? a : b))), left: 32, top: 120, right: 32, bottom: 220));
-    } catch (error) { if (mounted) setState(() => _error = error.toString()); }
+    } catch (_) { if (mounted) setState(() => _error = 'No se pudo calcular la ruta. Revisa la conexión, el destino o el modo de viaje e inténtalo de nuevo.'); }
     finally { if (mounted) setState(() => _loading = false); }
   }
 
@@ -216,13 +216,14 @@ class _MapsScreenState extends State<MapsScreen> {
   }
 
   Future<void> _changeLayer(MapBaseLayer layer) async {
-    setState(() => _layer = layer);
+    final previous = _layer;
+    setState(() { _layer = layer; _error = null; });
     final map = _map;
     if (map == null) return;
     try {
       await map.setStyleString(layer.styleUrl);
     } catch (_) {
-      if (mounted) setState(() => _error = 'No se pudo cargar esa capa. Revisa tu conexión e inténtalo de nuevo.');
+      if (mounted) setState(() { _layer = previous; _error = 'No se pudo cargar esa capa. Revisa tu conexión e inténtalo de nuevo.'; });
     }
   }
 
