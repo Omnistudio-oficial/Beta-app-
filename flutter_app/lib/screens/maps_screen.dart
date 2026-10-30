@@ -8,6 +8,7 @@ import 'package:beta_app/maps/tts_speech_output.dart';
 import 'package:beta_app/maps/maps_models.dart';
 import 'package:beta_app/maps/ors_maps_api.dart';
 import 'package:beta_app/maps/maps_controls.dart';
+import 'package:beta_app/maps/voice_guidance_toggle.dart';
 
 class MapsScreen extends StatefulWidget {
   const MapsScreen({super.key, this.api, this.positionStream, this.currentPosition, this.showMap = true, this.autoLocate = true, this.speechOutput});
@@ -241,20 +242,7 @@ class _MapsScreenState extends State<MapsScreen> {
     return Card(elevation: 8, child: Padding(padding: const EdgeInsets.all(16), child: Column(mainAxisSize: MainAxisSize.min, children: [
       Text(arrived ? 'Llegaste a tu destino' : _guiding ? (_nextStep?.instruction ?? 'Continúa por la ruta') : (_destination?.label ?? 'Ruta'), style: Theme.of(context).textTheme.titleMedium),
       const SizedBox(height: 8), Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [Text(_formatDistance(remaining)), Text(_formatDuration(seconds)), Text(_arrival(seconds))]),
-      if (_guiding) Row(children: [
-        const Icon(Icons.volume_up_outlined),
-        const SizedBox(width: 8),
-        const Expanded(child: Text('Indicaciones por voz')),
-        Semantics(
-          label: 'Indicaciones por voz',
-          value: _voiceEnabled ? 'Activadas' : 'Desactivadas',
-          toggled: _voiceEnabled,
-          child: Switch.adaptive(
-            value: _voiceEnabled,
-            onChanged: _setVoiceEnabled,
-          ),
-        ),
-      ]),
+      if (_guiding) VoiceGuidanceToggle(enabled: _voiceEnabled, onChanged: _setVoiceEnabled),
       if (_rerouting) const Align(alignment: Alignment.centerLeft, child: Text('Recalculando ruta…')),
       if (_guiding && !_voiceEnabled) const Align(alignment: Alignment.centerLeft, child: Text('Indicaciones por voz desactivadas')),
       if (_guiding && _voiceEnabled) const Align(alignment: Alignment.centerLeft, child: Text('Indicaciones por voz activadas')), 
