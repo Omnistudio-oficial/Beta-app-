@@ -203,7 +203,6 @@ class _ChatScreenState extends State<ChatScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Chat'), actions: [IconButton(key: const ValueKey('chat-create-group'), tooltip: 'Crear grupo', onPressed: () => _createGroup(user), icon: const Icon(Icons.group_add))]),
       body: Column(children: [
-        const _AccessNotice(),
         Expanded(
           child: StreamBuilder<List<ChatChannel>>(
             stream: _channels,
@@ -288,7 +287,6 @@ class _ChatScreenState extends State<ChatScreen> {
         ],
       ),
       body: Column(children: [
-        const _AccessNotice(),
         const MaterialBanner(content: Text('Los adjuntos usan almacenamiento público: cualquier persona con el enlace puede verlos. No envíes archivos sensibles.'), leading: Icon(Icons.public, color: Colors.deepOrange), actions: [SizedBox.shrink()]),
         Padding(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2), child: Row(children: [
           const Icon(Icons.translate, size: 18), const SizedBox(width: 6), const Text('Traducir a'), const SizedBox(width: 8),
@@ -632,16 +630,6 @@ class _MessageTimestamp extends StatelessWidget {
       ),
     );
   }
-}
-
-class _AccessNotice extends StatelessWidget {
-  const _AccessNotice();
-  @override
-  Widget build(BuildContext context) => MaterialBanner(
-    content: const Text('Aviso: las reglas actuales de Firebase permiten que cualquier usuario autenticado lea todos los chats. El filtro de membresía en la app no protege los datos en el servidor.'),
-    leading: const Icon(Icons.warning_amber_rounded),
-    actions: const [SizedBox.shrink()],
-  );
 }
 
 class _ErrorPanel extends StatelessWidget {

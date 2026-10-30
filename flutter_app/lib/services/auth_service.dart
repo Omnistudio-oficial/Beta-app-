@@ -1,7 +1,14 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class AuthService {
-  final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
+  AuthService({FirebaseAuth? firebaseAuth, GoogleSignIn? googleSignIn})
+      : _firebaseAuth = firebaseAuth ?? FirebaseAuth.instance,
+        _googleSignIn = googleSignIn ?? GoogleSignIn.instance;
+
+  final FirebaseAuth _firebaseAuth;
+  final GoogleSignIn _googleSignIn;
+  Future<void>? _googleSignInInitialization;
 
   User? get currentUser => _firebaseAuth.currentUser;
 
@@ -15,6 +22,28 @@ class AuthService {
       email: email.trim(),
       password: password,
     );
+  }
+
+  Future<UserCredential?> signInWithGoogle() async {
+    try {
+      _googleSignInInitialization ??= _googleSignIn.initialize();
+      await _googleSignInInitialization;
+
+      final account = await _googleSignIn.authenticate();
+      final idToken = account.authentication.idToken;
+      if (idToken == null || idToken.isEmpty) {
+        throw FirebaseAuthException(
+          code: 'missing-google-id-token',
+          message: 'No se recibió el token de Google. Inténtalo de nuevo.',
+        );
+      }
+
+      final credential = GoogleAuthProvider.credential(idToken: idToken);
+      return _firebaseAuth.signInWithCredential(credential);
+    } on GoogleSignInException catch (error) {
+      if (error.code == GoogleSignInExceptionCode.canceled) return null;
+      rethrow;
+    }
   }
 
   Future<UserCredential> createUserWithEmailAndPassword({

@@ -4,21 +4,44 @@ import 'package:flutter/material.dart';
 import 'package:beta_app/services/auth_service.dart';
 
 class AuthScreen extends StatefulWidget {
-  const AuthScreen({super.key});
+  const AuthScreen({super.key, this.authService, this.onGoogleSignIn});
+
+  final AuthService? authService;
+
+  /// Injectable so widget tests can exercise Google sign-in without native UI.
+  final Future<UserCredential?> Function()? onGoogleSignIn;
 
   @override
   State<AuthScreen> createState() => _AuthScreenState();
 }
 
 class _AuthScreenState extends State<AuthScreen> {
-  final AuthService _authService = AuthService();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
   bool _isLoading = false;
   bool _isRegisterMode = false;
 
+  late final AuthService _authService = widget.authService ?? AuthService();
+
+  Future<void> _signInWithGoogle() async {
+    if (_isLoading) return;
+    setState(() => _isLoading = true);
+    try {
+      final result = await (widget.onGoogleSignIn?.call() ??
+          _authService.signInWithGoogle());
+      if (result != null) _showMessage('Sesión iniciada correctamente');
+    } on FirebaseAuthException catch (e) {
+      _showMessage(e.message ?? 'No se pudo iniciar sesión con Google');
+    } catch (_) {
+      _showMessage('No se pudo iniciar sesión con Google. Inténtalo de nuevo.');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   Future<void> _submit() async {
+    if (_isLoading) return;
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
@@ -102,6 +125,26 @@ class _AuthScreenState extends State<AuthScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
+                  if (!_isRegisterMode) ...[
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: _isLoading ? null : _signInWithGoogle,
+                        icon: const Text(
+                          'G',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF4285F4),
+                          ),
+                        ),
+                        label: const Text('Iniciar sesión con Google'),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text('o continúa con tu correo'),
+                    const SizedBox(height: 16),
+                  ],
                   FilledButton.icon(
                     onPressed: _isLoading ? null : _submit,
                     icon: _isLoading
@@ -117,9 +160,11 @@ class _AuthScreenState extends State<AuthScreen> {
                   ),
                   const SizedBox(height: 12),
                   TextButton(
-                    onPressed: () {
-                      setState(() => _isRegisterMode = !_isRegisterMode);
-                    },
+                    onPressed: _isLoading
+                        ? null
+                        : () {
+                            setState(() => _isRegisterMode = !_isRegisterMode);
+                          },
                     child: Text(
                       _isRegisterMode
                           ? '¿Ya tienes cuenta? Inicia sesión'

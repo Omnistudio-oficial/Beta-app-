@@ -117,6 +117,20 @@ void main() {
     await tester.pump(const Duration(milliseconds: 10));
   }
 
+  testWidgets('chat list is not displaced by Firebase access warning', (tester) async {
+    final repo = FakeChatRepository();
+    try {
+      await openScreen(repo, MemoryChatDraftStorage(), tester, visibleChannels: [channelOne]);
+      expect(find.text('Room A'), findsOneWidget);
+      expect(find.textContaining('reglas actuales de Firebase'), findsNothing);
+      expect(find.byType(MaterialBanner), findsNothing);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await repo.close();
+    }
+  });
+
   testWidgets('displays localized message date and time but hides zero or invalid timestamps', (tester) async {
     final repo = FakeChatRepository();
     try {
