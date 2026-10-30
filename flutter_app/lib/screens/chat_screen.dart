@@ -55,6 +55,9 @@ class _ChatScreenState extends State<ChatScreen> {
     return ChatIdentity(uid: user.uid, email: user.email ?? '', displayName: user.displayName ?? '');
   }
   final TextEditingController _controller = TextEditingController();
+  final ScrollController _messageScrollController = ScrollController();
+  bool _showScrollToLatest = false;
+  int _lastVisibleMessageCount = -1;
   late final ChatCallController? _callController = _createCallController();
   late final Stream<List<ChatCallSignal>> _calls = _callController == null ? const Stream.empty() : FirebaseChatCallSignaling().watchCalls(_user!.uid);
   StreamSubscription<List<ChatCallSignal>>? _callSubscription;
@@ -84,6 +87,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    _messageScrollController.addListener(_handleMessageScroll);
     _attachmentPicker = widget.attachmentPicker ?? DeviceChatAttachmentPicker();
     _mediaActions = widget.mediaActions ?? ChatMediaActions();
     final user = _user;
@@ -183,8 +187,40 @@ class _ChatScreenState extends State<ChatScreen> {
     setState(() => _channels = _repository.watchChannels(uid: user.uid, email: user.email));
   }
 
+  void _handleMessageScroll() {
+    if (!_messageScrollController.hasClients || !mounted) return;
+    final position = _messageScrollController.position;
+    final shouldShow = position.maxScrollExtent - position.pixels > 96;
+    if (shouldShow != _showScrollToLatest) setState(() => _showScrollToLatest = shouldShow);
+  }
+
+  void _followLatestMessages(int messageCount) {
+    final firstLoad = _lastVisibleMessageCount < 0;
+    final wasNearLatest = !_messageScrollController.hasClients ||
+        _messageScrollController.position.maxScrollExtent - _messageScrollController.position.pixels <= 96;
+    if (messageCount == _lastVisibleMessageCount) return;
+    _lastVisibleMessageCount = messageCount;
+    if (!firstLoad && !wasNearLatest) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_messageScrollController.hasClients) return;
+      _messageScrollController.jumpTo(_messageScrollController.position.maxScrollExtent);
+      _handleMessageScroll();
+    });
+  }
+
+  void _scrollToLatest() {
+    if (!_messageScrollController.hasClients) return;
+    _messageScrollController.animateTo(
+      _messageScrollController.position.maxScrollExtent,
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOut,
+    );
+  }
+
   @override
   void dispose() {
+    _messageScrollController.removeListener(_handleMessageScroll);
+    _messageScrollController.dispose();
     _controller.dispose();
     _searchController.dispose();
     _translation.close();
@@ -308,11 +344,16 @@ class _ChatScreenState extends State<ChatScreen> {
                   child: Text('No se encontraron mensajes.'),
                 );
               }
-              return ListView.builder(
-                reverse: false,
-                padding: const EdgeInsets.all(12),
-                itemCount: visibleMessages.length,
-                itemBuilder: (context, index) {
+              _followLatestMessages(visibleMessages.length);
+              return Stack(
+                children: [
+                  ListView.builder(
+                    key: const ValueKey('chat-message-list'),
+                    controller: _messageScrollController,
+                    reverse: false,
+                    padding: const EdgeInsets.all(12),
+                    itemCount: visibleMessages.length,
+                    itemBuilder: (context, index) {
                   final message = visibleMessages[index];
                   final mine = message.senderEmail.trim().toLowerCase() == user.email.trim().toLowerCase();
                   if (_autoTranslate && !mine && !_hasYouTubeLink(message) && !_translatedMessages.containsKey(message.id) && !_translatingMessageIds.contains(message.id) && message.text.trim().isNotEmpty) {
@@ -360,6 +401,19 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
                   );
                 },
+              ),
+                  if (_showScrollToLatest)
+                    Positioned(
+                      right: 16,
+                      bottom: 16,
+                      child: FloatingActionButton.small(
+                        key: const ValueKey('chat-scroll-latest'),
+                        tooltip: 'Ir a los mensajes más recientes',
+                        onPressed: _scrollToLatest,
+                        child: const Icon(Icons.arrow_downward),
+                      ),
+                    ),
+                ],
               );
             },
           ),

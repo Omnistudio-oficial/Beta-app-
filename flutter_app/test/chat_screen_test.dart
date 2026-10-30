@@ -203,6 +203,32 @@ void main() {
     expect(filterChannelsForIdentity([const ChatChannel(id: 'uid-room', name: 'UID room', memberUids: ['user-2'])], uid: 'user-2', email: ''), hasLength(1));
   });
 
+  testWidgets('shows a jump-to-latest control when scrolled up and returns to latest', (tester) async {
+    final repo = FakeChatRepository();
+    try {
+      await tester.pumpWidget(MaterialApp(home: ChatScreen(repository: repo, identity: const ChatIdentity(uid: 'auth-user-82', email: 'alice@example.com'))));
+      repo.channels.add([channelOne]);
+      await tester.pump();
+      await tester.tap(find.text('Room A'));
+      await tester.pump();
+      repo.messages.add(List.generate(35, (index) => ChatMessage(
+        id: 'scroll-$index', senderName: 'Bob', senderEmail: 'bob@example.com',
+        text: 'Message $index with enough text to occupy the conversation viewport and make scrolling possible.',
+        timestamp: index + 1,
+      )));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('chat-scroll-latest')), findsNothing);
+      await tester.drag(find.byKey(const ValueKey('chat-message-list')), const Offset(0, 500));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('chat-scroll-latest')), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('chat-scroll-latest')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('chat-scroll-latest')), findsNothing);
+    } finally {
+      await repo.close();
+    }
+  });
+
   testWidgets(
     'shows live member channels, streams messages, and sends text',
     (tester) async {
