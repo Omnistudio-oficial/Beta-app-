@@ -39,6 +39,18 @@ def main() -> None:
         raise SystemExit("Registered Android Firebase config or generated Android app directory is missing")
     shutil.copy2(ANDROID_FIREBASE_JSON, android_firebase_config)
 
+    # Use the exact package registered in Firebase, not Flutter create's
+    # project-name-derived package (which includes underscores).
+    import json
+    with android_firebase_config.open(encoding="utf-8") as stream:
+        android_firebase = json.load(stream)
+    registered_packages = {
+        client.get("client_info", {}).get("android_client_info", {}).get("package_name")
+        for client in android_firebase.get("client", [])
+    }
+    if BUNDLE_ID not in registered_packages:
+        raise SystemExit("Registered Android Firebase config has no client for the app package")
+
     # `flutter create` makes a fresh Gradle host, so it does not inherit the
     # Google Services plugin declared in the checked-in Android project. The
     # JSON file alone is not processed unless the plugin is registered and
@@ -51,6 +63,34 @@ def main() -> None:
         app_gradle = scaffold / "android/app/build.gradle.kts"
     if not settings_gradle.is_file() or not app_gradle.is_file():
         raise SystemExit("Generated Android Gradle settings or app build file is missing")
+
+    app_text = app_gradle.read_text(encoding="utf-8")
+    app_text, namespace_count = re.subn(
+        r'(?m)^(\s*namespace\s*=\s*)["\'][^"\']+["\']',
+        lambda match: match.group(1) + '"' + BUNDLE_ID + '"',
+        app_text, count=1,
+    )
+    app_text, application_id_count = re.subn(
+        r'(?m)^(\s*applicationId\s*=\s*)["\'][^"\']+["\']',
+        lambda match: match.group(1) + '"' + BUNDLE_ID + '"',
+        app_text, count=1,
+    )
+    if namespace_count != 1 or application_id_count != 1:
+        raise SystemExit("Could not align generated Android namespace/applicationId with Firebase")
+    app_gradle.write_text(app_text, encoding="utf-8")
+
+    main_activities = list((scaffold / "android/app/src/main").rglob("MainActivity.kt"))
+    if len(main_activities) != 1:
+        raise SystemExit("Could not find exactly one generated Android MainActivity")
+    activity_text = main_activities[0].read_text(encoding="utf-8")
+    activity_text, package_count = re.subn(
+        r"(?m)^package\s+[A-Za-z0-9_.]+\s*$",
+        "package " + BUNDLE_ID,
+        activity_text, count=1,
+    )
+    if package_count != 1:
+        raise SystemExit("Could not align generated Android MainActivity package with Firebase")
+    main_activities[0].write_text(activity_text, encoding="utf-8")
 
     settings_text = settings_gradle.read_text(encoding="utf-8")
     if "com.google.gms.google-services" not in settings_text:
@@ -69,7 +109,6 @@ def main() -> None:
         )
         settings_gradle.write_text(settings_text, encoding="utf-8")
 
-    app_text = app_gradle.read_text(encoding="utf-8")
     if "com.google.gms.google-services" not in app_text:
         app_plugins = re.search(r"(?ms)^plugins\s*\{.*?^\}", app_text)
         if app_plugins is None:
@@ -276,7 +315,7 @@ end
         raise SystemExit("Could not set generated Android compileSdk to 36")
     android_gradle.write_text(gradle_text, encoding="utf-8")
 
-    print("Prepared generated platform scaffolds with registered Android/iOS Firebase config, Google Services Gradle plugin, camera permission, and Android compileSdk 36.")
+    print("Prepared generated platform scaffolds with registered Android/iOS Firebase config, matching Android package, Google Services Gradle plugin, camera permission, and Android compileSdk 36.")
 
 
 if __name__ == "__main__":
