@@ -24,6 +24,13 @@ void main() {
     expect(signedOut, isTrue);
   });
 
+  testWidgets('home personalizes the greeting for another user', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      home: HomeScreen(displayName: 'Ana', onNavigate: (_) {}, onSignOut: () {}),
+    ));
+    expect(find.text('Hola, Ana'), findsOneWidget);
+  });
+
   testWidgets('home uses a generic greeting when the name is blank', (tester) async {
     await tester.pumpWidget(MaterialApp(
       home: HomeScreen(displayName: '  ', onNavigate: (_) {}, onSignOut: () {}),
