@@ -11,7 +11,7 @@ void main() {
     await tester.pumpWidget(
       StartupGate(
         initialize: () => completer.future,
-        appBuilder: (_) => const Text('Application ready'),
+        appBuilder: (_) => const MaterialApp(home: Scaffold(body: Text('Application ready'))),
       ),
     );
 
@@ -30,7 +30,7 @@ void main() {
     await tester.pumpWidget(
       StartupGate(
         initialize: () async {},
-        appBuilder: (_) => const Text('Application ready'),
+        appBuilder: (_) => const MaterialApp(home: Scaffold(body: Text('Application ready'))),
       ),
     );
     await tester.pumpAndSettle();
@@ -49,7 +49,7 @@ void main() {
             throw StateError('private configuration detail');
           }
         },
-        appBuilder: (_) => const Text('Application ready'),
+        appBuilder: (_) => const MaterialApp(home: Scaffold(body: Text('Application ready'))),
       ),
     );
     await tester.pumpAndSettle();
@@ -77,7 +77,7 @@ void main() {
               ? Future<void>.error(Exception('initial failure'))
               : retry.future;
         },
-        appBuilder: (_) => const Text('Application ready'),
+        appBuilder: (_) => const MaterialApp(home: Scaffold(body: Text('Application ready'))),
       ),
     );
     await tester.pumpAndSettle();
