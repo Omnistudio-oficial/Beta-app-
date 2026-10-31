@@ -562,7 +562,7 @@ class FirebaseSocialService implements SocialService {
         final baseUri = Uri.parse(_supabaseUrl);
         final projectId = baseUri.host.split('.').first;
         final tusEndpoint = Uri.https('$projectId.storage.supabase.co', '/storage/v1/upload/resumable');
-        final uploader = SupabaseTusUploader(client: _http, sessions: await _tusSessions);
+        final uploader = SupabaseTusUploader(client: _http, sessions: await _tusSessions, publishableKey: _publishableKey);
         final session = await uploader.upload(
           source: source,
           mimeType: mime,
