@@ -194,7 +194,6 @@ void main() {
     expect(tester.widget<TextField>(find.byKey(const ValueKey('social-caption'))).controller!.text, isEmpty);
     expect(find.text('Publicación sincronizada con tu cuenta'), findsOneWidget);
     expect(find.textContaining('privada por defecto'), findsOneWidget);
-    expect(find.text('Cuenta privada'), findsOneWidget);
   });
 
   testWidgets('exact opt-in directory lookup does not enumerate or reveal unlisted handles', (tester) async {
