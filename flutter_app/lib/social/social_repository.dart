@@ -5,6 +5,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:http/http.dart' as http;
 
+import 'tus_upload.dart';
+
 const socialMaxCaptionLength = 2200;
 const socialMaxMediaItems = 5;
 const socialMaxFileBytes = 50 * 1024 * 1024;
@@ -158,12 +160,13 @@ class SocialPostValidation {
 /// Uses the deployed private-media function and authenticated Social RTDB paths.
 class FirebaseSocialService implements SocialService {
   FirebaseSocialService({FirebaseAuth? auth, FirebaseDatabase? database, http.Client? client,
-    String? supabaseUrl, String? publishableKey})
+    String? supabaseUrl, String? publishableKey, TusUploadSessionStore? tusSessions})
       : _auth = auth ?? FirebaseAuth.instance,
         _database = database ?? FirebaseDatabase.instance,
         _http = client ?? http.Client(),
         _supabaseUrl = supabaseUrl ?? _defaultSupabaseUrl,
-        _publishableKey = publishableKey ?? _defaultPublishableKey;
+        _publishableKey = publishableKey ?? _defaultPublishableKey,
+        _tusSessionsOverride = tusSessions;
 
   static const _defaultSupabaseUrl = String.fromEnvironment('SUPABASE_PROJECT_URL');
   static const _defaultPublishableKey = String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
@@ -172,6 +175,9 @@ class FirebaseSocialService implements SocialService {
   final http.Client _http;
   final String _supabaseUrl;
   final String _publishableKey;
+  final TusUploadSessionStore? _tusSessionsOverride;
+  late final Future<TusUploadSessionStore> _tusSessions =
+      _tusSessionsOverride == null ? TusUploadSessionStore.appPrivate() : Future.value(_tusSessionsOverride);
 
   User _user() => _auth.currentUser ?? (throw StateError('Inicia sesión para usar Social.'));
   @override
@@ -551,27 +557,31 @@ class FirebaseSocialService implements SocialService {
         }
         final token = await user.getIdToken();
         if (token == null || token.isEmpty) throw StateError('No se pudo verificar la sesión.');
-        final prepared = await _callFunction(token, {
-          'action': 'create-upload', 'entityType': 'post', 'mimeType': mime,
-        });
-        final path = prepared['storagePath'] as String?;
-        final signedUpload = prepared['signedUrl'] as String?;
-        if (path == null || path.isEmpty || signedUpload == null || signedUpload.isEmpty) {
-          throw StateError('No se pudo preparar la carga privada.');
-        }
-        final upload = http.StreamedRequest('PUT', _url(signedUpload))
-          ..headers['apikey'] = _publishableKey
-          ..headers['content-type'] = mime
-          ..contentLength = length;
-        uploaded.add(path);
-        await upload.sink.addStream(source.openRead());
-        await upload.sink.close();
-        final response = await _http.send(upload);
-        await response.stream.drain<void>();
-        if (response.statusCode < 200 || response.statusCode >= 300) {
-          throw StateError('La carga privada fue rechazada (${response.statusCode}).');
-        }
-        mediaItems.add(SocialMediaItem(path: path, mimeType: mime));
+        final baseUri = Uri.parse(_supabaseUrl);
+        final projectId = baseUri.host.split('.').first;
+        final tusEndpoint = Uri.https('$projectId.storage.supabase.co', '/storage/v1/upload/resumable');
+        final uploader = SupabaseTusUploader(client: _http, sessions: await _tusSessions);
+        final session = await uploader.upload(
+          source: source,
+          mimeType: mime,
+          endpoint: tusEndpoint,
+          bucket: 'social-test-media',
+          createSignedSession: () async {
+            final prepared = await _callFunction(token, {
+              'action': 'create-upload', 'entityType': 'post', 'mimeType': mime,
+            });
+            final path = prepared['storagePath'] as String?;
+            final signedToken = prepared['token'] as String?;
+            if (path == null || path.isEmpty || signedToken == null || signedToken.isEmpty) {
+              throw StateError('No se pudo preparar la carga privada.');
+            }
+            return TusUploadSession(storagePath: path, signedToken: signedToken);
+          },
+          onStoragePath: (storagePath) {
+            if (!uploaded.contains(storagePath)) uploaded.add(storagePath);
+          },
+        );
+        mediaItems.add(SocialMediaItem(path: session.storagePath, mimeType: mime));
       }
 
       postRef = _posts.push();
