@@ -70,9 +70,10 @@ class TusSessionExpiredException implements Exception {
 
 /// Supabase TUS client with signed uploads, 6 MiB chunks and bounded resumption.
 class SupabaseTusUploader {
-  SupabaseTusUploader({required http.Client client, required TusUploadSessionStore sessions})
+  SupabaseTusUploader({required http.Client client, required TusUploadSessionStore sessions, required this.publishableKey})
       : _client = client, _sessions = sessions;
   final http.Client _client;
+  final String publishableKey;
   final TusUploadSessionStore _sessions;
 
   Future<TusUploadSession> upload({
@@ -116,6 +117,7 @@ class SupabaseTusUploader {
     final request = http.Request('POST', endpoint)..headers.addAll({
       'Tus-Resumable': _tusVersion, 'Upload-Length': '$length', 'Upload-Metadata': metadata,
       'x-signature': session.signedToken,
+      'apikey': publishableKey,
     });
     final response = await _send(request);
     if (response.statusCode == 404 || response.statusCode == 410) throw const TusSessionExpiredException('La sesión de carga venció.');
@@ -140,7 +142,7 @@ class SupabaseTusUploader {
           final request = http.Request('PATCH', url)
             ..headers.addAll({
               'Tus-Resumable': _tusVersion, 'Upload-Offset': '$offset',
-              'Content-Type': 'application/offset+octet-stream', 'x-signature': token,
+              'Content-Type': 'application/offset+octet-stream', 'x-signature': token, 'apikey': publishableKey,
             })
             ..bodyBytes = chunk;
           final response = await _send(request);
@@ -172,7 +174,7 @@ class SupabaseTusUploader {
   }
 
   Future<int> _head(Uri url, String token, int expectedLength) async {
-    final response = await _send(http.Request('HEAD', url)..headers.addAll({'Tus-Resumable': _tusVersion, 'x-signature': token}));
+    final response = await _send(http.Request('HEAD', url)..headers.addAll({'Tus-Resumable': _tusVersion, 'x-signature': token, 'apikey': publishableKey}));
     if (response.statusCode == 401 || response.statusCode == 403 || response.statusCode == 404 || response.statusCode == 410) throw const TusSessionExpiredException('La sesión de carga venció o dejó de ser válida.');
     if (response.statusCode != 200 && response.statusCode != 204) throw StateError('No se pudo consultar el avance TUS (${response.statusCode}).');
     final offset = int.tryParse(response.headers['upload-offset'] ?? '');
