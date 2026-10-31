@@ -56,7 +56,7 @@ void main() {
           expect(request.headers['x-signature'], 'signed-token');
           expect(request.headers['upload-offset'], '$offset');
           expect(request.headers['content-type'], 'application/offset+octet-stream');
-          offset += request.contentLength ?? 0;
+          offset += request.contentLength;
           return response(204, {'upload-offset': '$offset'});
         }
         fail('Unexpected method ${request.method}');
@@ -107,7 +107,7 @@ void main() {
         if (request.method == 'PATCH') {
           patchAttempts++;
           if (patchAttempts == 1) return response(500);
-          offset += request.contentLength ?? 0;
+          offset += request.contentLength;
           return response(204, {'upload-offset': '$offset'});
         }
         fail('Unexpected method ${request.method}');

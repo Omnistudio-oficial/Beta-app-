@@ -179,7 +179,7 @@ class FirebaseSocialService implements SocialService {
   late final Future<TusUploadSessionStore> _tusSessions =
       _tusSessionsOverride == null
           ? Future<TusUploadSessionStore>.value(TusUploadSessionStore.appPrivate())
-          : Future<TusUploadSessionStore>.value(_tusSessionsOverride!);
+          : Future<TusUploadSessionStore>.value(_tusSessionsOverride);
 
   User _user() => _auth.currentUser ?? (throw StateError('Inicia sesión para usar Social.'));
   @override
