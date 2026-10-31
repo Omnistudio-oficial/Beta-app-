@@ -19,7 +19,6 @@ class _AppRootState extends State<AppRoot> {
   final _messengerKey = GlobalKey<ScaffoldMessengerState>();
   final _messaging = FirebaseMessagingService();
   StreamSubscription<User?>? _authSubscription;
-  bool _initialMessageHandled = false;
 
   @override
   void initState() {
@@ -27,7 +26,6 @@ class _AppRootState extends State<AppRoot> {
     _messaging.installListeners(
       onForegroundMessage: _onForegroundMessage,
       onMessageOpened: _onMessageOpened,
-      onTokenRefresh: (_) {},
     );
     _authSubscription = FirebaseAuth.instance.authStateChanges().listen((user) {
       if (user == null) {
@@ -40,25 +38,24 @@ class _AppRootState extends State<AppRoot> {
 
   Future<void> _register(String uid) async {
     await _messaging.registerForUser(uid);
-    if (!mounted || _initialMessageHandled) return;
-    _initialMessageHandled = true;
-    final message = await _messaging.getInitialMessage();
-    if (mounted && message != null) _onMessageOpened(message);
+    if (mounted) await _messaging.getInitialMessage();
+  }
+
+  Future<void> _signOut() async {
+    final uid = _messaging.currentUid;
+    if (uid != null) await _messaging.unregisterCurrentDevice(uid);
+    await FirebaseAuth.instance.signOut();
   }
 
   void _onForegroundMessage(RemoteMessage message) {
     final parts = [message.notification?.title, message.notification?.body]
-        .whereType<String>()
-        .where((part) => part.isNotEmpty)
-        .toList();
+        .whereType<String>().where((part) => part.isNotEmpty).toList();
     if (parts.isEmpty) return;
-    _messengerKey.currentState?.showSnackBar(
-      SnackBar(content: Text(parts.join(' — '))),
-    );
+    _messengerKey.currentState?.showSnackBar(SnackBar(content: Text(parts.join(' — '))));
   }
 
   void _onMessageOpened(RemoteMessage message) {
-    // Deep-link routing will be added once the sender payload contract is set.
+    // Chat/Social deep links will be connected when the event payload contract is approved.
     _onForegroundMessage(message);
   }
 
@@ -81,10 +78,8 @@ class _AppRootState extends State<AppRoot> {
         home: StreamBuilder<User?>(
           stream: FirebaseAuth.instance.authStateChanges(),
           builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const SplashScreen();
-            }
-            if (snapshot.hasData) return const NavigationShell();
+            if (snapshot.connectionState == ConnectionState.waiting) return const SplashScreen();
+            if (snapshot.hasData) return NavigationShell(onSignOut: _signOut);
             return const AuthScreen();
           },
         ),
