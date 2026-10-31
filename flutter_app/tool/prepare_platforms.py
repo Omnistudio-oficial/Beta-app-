@@ -322,7 +322,13 @@ end
                 if application_start < 0:
                     raise SystemExit("Could not find the generated Android application element")
                 android_text = android_text[:application_start] + "    " + camera_permission + "\n    " + android_text[application_start:]
-                android_manifest.write_text(android_text, encoding="utf-8")
+            channel_metadata = '<meta-data android:name="com.google.firebase.messaging.default_notification_channel_id" android:value="general" />'
+            if channel_metadata not in android_text:
+                closing_application = android_text.rfind("</application>")
+                if closing_application < 0:
+                    raise SystemExit("Could not find generated Android application closing tag")
+                android_text = android_text[:closing_application] + "        " + channel_metadata + "\n    " + android_text[closing_application:]
+            android_manifest.write_text(android_text, encoding="utf-8")
 
         # Flutter's generated host defaults to an older compile SDK. Some plugin
         # manifests (for example flutter_plugin_android_lifecycle) require API 36.
