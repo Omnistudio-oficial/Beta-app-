@@ -122,7 +122,9 @@ fun VideoPlayer(
     thumbnailUrl: String? = null,
     showActionButtons: Boolean = true,
     onLaunchOverlay: ((videoId: String, title: String) -> Unit)? = null,
-    onLaunchStandardVideo: ((videoUrl: String, title: String) -> Unit)? = null
+    onLaunchStandardVideo: ((videoUrl: String, title: String) -> Unit)? = null,
+    /** Optional caller-owned diagnostics; payloads are stable event names, numeric codes, and exception class only. */
+    onDiagnosticEvent: ((event: String, code: Int?, errorClass: String?) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val videoId = remember(videoUrl) {
@@ -681,13 +683,16 @@ fun StandardVideoPlayerDialog(
                                         ViewGroup.LayoutParams.MATCH_PARENT
                                     )
                                     try {
+                                        onDiagnosticEvent?.invoke("video_render_start", null, null)
                                         setVideoURI(Uri.parse(videoUrl))
                                     } catch (e: Exception) {
+                                        onDiagnosticEvent?.invoke("video_uri_error", null, e.javaClass.simpleName)
                                         hasError = true
                                         errorMessage = e.localizedMessage ?: "Error al cargar video"
                                     }
 
                                     setOnPreparedListener { mp ->
+                                        onDiagnosticEvent?.invoke("video_prepared", null, null)
                                         mediaPlayerRef = mp
                                         isBuffering = false
                                         durationMs = mp.duration.toLong()
@@ -712,6 +717,7 @@ fun StandardVideoPlayerDialog(
                                     }
 
                                     setOnErrorListener { mp, what, _ ->
+                                        onDiagnosticEvent?.invoke("video_playback_error", what, null)
                                         isBuffering = false
                                         hasError = true
                                         errorMessage = "No se pudo decodificar el formato de video (Código: $what)"
