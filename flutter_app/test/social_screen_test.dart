@@ -166,9 +166,12 @@ void main() {
     expect(service.likeChanges, [true]);
     final commentField = find.byKey(const ValueKey('social-comment'));
     await tester.ensureVisible(commentField);
+    await tester.pumpAndSettle();
     await tester.enterText(commentField, 'A comment');
     final sendComment = find.byIcon(Icons.send).first;
     await tester.ensureVisible(sendComment);
+    await tester.pumpAndSettle();
+    expect(tester.getRect(sendComment).overlaps(tester.getRect(find.byType(ListView).first)), isTrue);
     await tester.tap(sendComment);
     await tester.pump();
     expect(service.comments, ['A comment']);
