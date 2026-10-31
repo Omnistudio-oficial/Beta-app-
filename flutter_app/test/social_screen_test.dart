@@ -171,9 +171,10 @@ void main() {
     await tester.pump(const Duration(milliseconds: 250));
     await tester.enterText(commentField, 'A comment');
     final sendComment = find.byIcon(Icons.send).first;
-    await tester.ensureVisible(sendComment);
+    await Scrollable.ensureVisible(tester.element(sendComment), alignment: 0.5);
     await tester.pump(const Duration(milliseconds: 250));
     expect(tester.getRect(sendComment).overlaps(tester.getRect(find.byType(ListView).first)), isTrue);
+    expect(sendComment.hitTestable(), findsOneWidget);
     await tester.tap(sendComment);
     await tester.pump();
     expect(service.comments, ['A comment']);
