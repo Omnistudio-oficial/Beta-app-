@@ -113,12 +113,32 @@ abstract interface class SocialService {
   Future<List<SocialFollowRequest>> pendingFollowRequests();
   Future<void> acceptFollowRequest(String requesterUid);
   Future<void> rejectFollowRequest(String requesterUid);
+  Future<String> currentVisibility();
+  Future<void> updateCurrentVisibility(String visibility);
   Stream<Set<String>> watchLikes(SocialPost post);
   Stream<List<SocialComment>> watchComments(SocialPost post);
   Future<void> toggleLike(SocialPost post, bool liked);
   Future<void> addComment(SocialPost post, String text);
   Future<void> createPost({required String caption, required List<SocialMediaFile> media});
   Future<String> signedMediaUrl(SocialPost post, SocialMediaItem media);
+}
+
+/// Pure helpers keep public-index policy explicit and unit-testable.
+class SocialVisibilityPolicy {
+  static String normalize(Object? visibility) => visibility == 'public' ? 'public' : 'private';
+
+  static bool shouldIndexPost(String visibility) => normalize(visibility) == 'public';
+
+  static Map<String, Object?>? publicPostEntry(String visibility, Map<String, Object?> post) =>
+      shouldIndexPost(visibility) ? post : null;
+
+  static Map<String, Object?> publicPostIndexChanges(
+      String uid, Map<String, Map<String, Object?>> posts, String visibility) => {
+        for (final entry in posts.entries)
+          'publicFeed/${publicFeedKey(uid, entry.key)}': publicPostEntry(visibility, entry.value),
+      };
+
+  static String publicFeedKey(String uid, String postId) => '${uid}_$postId';
 }
 
 class SocialPostValidation {
@@ -135,8 +155,7 @@ class SocialPostValidation {
   }
 }
 
-/// Uses the deployed private-media function and authenticated per-user RTDB path.
-/// It deliberately never writes publicFeed, profiles, or directory records.
+/// Uses the deployed private-media function and authenticated Social RTDB paths.
 class FirebaseSocialService implements SocialService {
   FirebaseSocialService({FirebaseAuth? auth, FirebaseDatabase? database, http.Client? client,
     String? supabaseUrl, String? publishableKey})
@@ -290,6 +309,139 @@ class FirebaseSocialService implements SocialService {
   }
 
   @override
+  Future<String> currentVisibility() async {
+    final uid = _user().uid;
+    final profile = await _social.child('profiles/$uid').get();
+    return SocialVisibilityPolicy.normalize(profile.child('visibility').value);
+  }
+
+  @override
+  Future<void> updateCurrentVisibility(String visibility) async {
+    final user = _user();
+    final uid = user.uid;
+    final normalized = SocialVisibilityPolicy.normalize(visibility);
+    final profileRef = _social.child('profiles/$uid');
+    final profileSnapshot = await profileRef.get();
+    final raw = profileSnapshot.value;
+    final profile = raw is Map
+        ? Map<String, Object?>.from(raw.map((key, value) => MapEntry('$key', value)))
+        : <String, Object?>{};
+    var username = (profile['username'] as String?)?.trim().replaceFirst(RegExp(r'^@'), '');
+    if (username == null || !RegExp(r'^[a-zA-Z0-9_]{3,20}$').hasMatch(username)) {
+      username = await _availableUsername(_defaultUsername(user, uid), uid);
+    }
+    final displayName = (profile['displayName'] as String?)?.trim().isNotEmpty == true
+        ? (profile['displayName'] as String).trim()
+        : (user.displayName ?? user.email?.split('@').first ?? 'Usuario');
+    profile['uid'] = uid;
+    profile['username'] = username;
+    profile['displayName'] = displayName;
+    profile['visibility'] = normalized;
+    profile['createdAt'] ??= DateTime.now().millisecondsSinceEpoch;
+
+    final directoryEntry = <String, Object?>{
+      'uid': uid,
+      'username': username,
+      'usernameLower': username.toLowerCase(),
+      'displayName': displayName,
+      'visibility': normalized,
+      'updatedAt': ServerValue.timestamp,
+      if (normalized == 'public' && profile['avatarUrl'] is String && (profile['avatarUrl'] as String).isNotEmpty)
+        'avatarUrl': profile['avatarUrl'],
+    };
+    final currentUsernameValue = profileSnapshot.child('username').value;
+    final currentUsername = currentUsernameValue is String ? currentUsernameValue.toLowerCase() : null;
+    final directoryPath = 'directory/${username.toLowerCase()}/$uid';
+    final posts = await _posts.get();
+    final indexedPosts = <String, Map<String, Object?>>{};
+    for (final child in posts.children) {
+      final postId = child.key;
+      final value = child.value;
+      if (postId == null || value is! Map) continue;
+      final post = Map<String, Object?>.from(value.map((key, item) => MapEntry('$key', item)))
+        ..['ownerUid'] = uid
+        ..['id'] = postId
+        ..['username'] = username
+        ..['displayName'] = displayName;
+      indexedPosts[postId] = post;
+    }
+
+    final storySnapshot = await _social.child('storiesByUser/$uid').get();
+    final indexedStories = storySnapshot.children
+        .where((story) => story.key != null && story.value is Map)
+        .map((story) {
+          final id = story.key!;
+          final values = Map<String, Object?>.from(
+              (story.value as Map).map((key, item) => MapEntry('$key', item)))
+            ..['ownerUid'] = uid
+            ..['id'] = id
+            ..['username'] = username
+            ..['displayName'] = displayName
+            ..['avatarUrl'] = profile['avatarUrl'] ?? '';
+          return MapEntry(id, values);
+        }).toList();
+
+    if (normalized == 'private') {
+      // RTDB multi-location update makes the privacy downgrade and all public
+      // index removals atomic. Delete rules authorize each own index by ownerUid.
+      final changes = <String, Object?>{
+        'profiles/$uid': profile,
+        directoryPath: directoryEntry,
+        for (final entry in indexedPosts.entries) 'postsByUser/$uid/${entry.key}': entry.value,
+        for (final entry in indexedStories) 'storiesByUser/$uid/${entry.key}': entry.value,
+      };
+      if (currentUsername != null && currentUsername != username.toLowerCase()) {
+        final oldDirectory = await _social.child('directory/$currentUsername/$uid').get();
+        if (oldDirectory.exists) changes['directory/$currentUsername/$uid'] = null;
+      }
+      for (final entry in indexedPosts.entries) {
+        final feedPath = 'publicFeed/${SocialVisibilityPolicy.publicFeedKey(uid, entry.key)}';
+        if ((await _social.child(feedPath).get()).exists) changes[feedPath] = null;
+      }
+      for (final entry in indexedStories) {
+        final storyPath = 'publicStories/${uid}_${entry.key}';
+        if ((await _social.child(storyPath).get()).exists) changes[storyPath] = null;
+      }
+      await _social.update(changes);
+    } else {
+      await profileRef.set(profile);
+      await _social.child(directoryPath).set(directoryEntry);
+      for (final entry in indexedPosts.entries) {
+        await _posts.child(entry.key).set(entry.value);
+      }
+      for (final entry in indexedStories) {
+        await _social.child('storiesByUser/$uid/${entry.key}').set(entry.value);
+      }
+      if (currentUsername != null && currentUsername != username.toLowerCase()) {
+        await _social.child('directory/$currentUsername/$uid').remove();
+      }
+      final postIndexChanges = SocialVisibilityPolicy.publicPostIndexChanges(uid, indexedPosts, normalized);
+      if (postIndexChanges.isNotEmpty) await _social.update(postIndexChanges);
+      for (final entry in indexedStories) {
+        await _social.child('publicStories/${uid}_${entry.key}').set(entry.value);
+      }
+    }
+  }
+
+  String _defaultUsername(User user, String uid) {
+    final base = (user.email?.split('@').first ?? 'usuario').toLowerCase().replaceAll(RegExp(r'[^a-z0-9_]'), '');
+    final safeBase = base.length < 3 ? 'usuario' : base.substring(0, base.length.clamp(3, 15).toInt());
+    return '${safeBase}_${uid.substring(uid.length > 4 ? uid.length - 4 : 0).toLowerCase()}';
+  }
+
+  Future<String> _availableUsername(String requested, String uid) async {
+    final clean = requested.toLowerCase().replaceAll(RegExp(r'[^a-z0-9_]'), '');
+    final base = clean.substring(0, clean.length.clamp(3, 20).toInt());
+    for (var attempt = 1; attempt <= 999; attempt++) {
+      final suffix = attempt == 1 ? '' : '_$attempt';
+      final candidate = '${base.substring(0, (20 - suffix.length).clamp(3, base.length).toInt())}$suffix';
+      final occupants = await _social.child('directory/$candidate').get();
+      if (!occupants.children.any((child) => child.key != uid)) return candidate;
+    }
+    throw StateError('No se pudo preparar el nombre de usuario.');
+  }
+
+  @override
   Future<List<SocialFollowRequest>> pendingFollowRequests() async {
     final snapshot = await _social.child('followRequests/${_user().uid}').get();
     return snapshot.children.where((request) => request.child('status').value == 'pending').map((request) {
@@ -427,23 +579,44 @@ class FirebaseSocialService implements SocialService {
       if (id == null) throw StateError('No se pudo crear la publicación.');
       final videos = mediaItems.where((item) => item.isVideo).toList();
       final primary = videos.isNotEmpty ? videos.first : (mediaItems.isEmpty ? null : mediaItems.first);
-      final username = user.displayName ?? user.email?.split('@').first ?? 'usuario';
-      await postRef.set(<String, Object?>{
+      final profileSnapshot = await _social.child('profiles/${user.uid}').get();
+      final visibility = SocialVisibilityPolicy.normalize(profileSnapshot.child('visibility').value);
+      final username = profileSnapshot.child('username').value is String
+          ? profileSnapshot.child('username').value as String
+          : user.email?.split('@').first ?? 'usuario';
+      final displayName = profileSnapshot.child('displayName').value is String
+          ? profileSnapshot.child('displayName').value as String
+          : user.displayName ?? username;
+      final avatarUrl = profileSnapshot.child('avatarUrl').value is String
+          ? profileSnapshot.child('avatarUrl').value as String
+          : '';
+      final postData = <String, Object?>{
         'id': id,
         'ownerUid': user.uid,
         'username': username,
-        'displayName': username,
-        'avatarUrl': '',
+        'displayName': displayName,
+        'avatarUrl': avatarUrl,
         'caption': caption.trim(),
         'createdAt': DateTime.now().millisecondsSinceEpoch,
         'topics': <String, bool>{},
         'mediaPath': primary?.path ?? '',
         'mediaType': primary == null ? '' : (primary.isVideo ? 'video' : 'image'),
         if (mediaItems.isNotEmpty) 'mediaItems': mediaItems.map((item) => item.toMap()).toList(),
-      });
+      };
+      await postRef.set(postData);
+      final publicEntry = SocialVisibilityPolicy.publicPostEntry(visibility, postData);
+      if (publicEntry != null) {
+        await _social.child('publicFeed/${SocialVisibilityPolicy.publicFeedKey(user.uid, id)}').set(publicEntry);
+      }
     } catch (_) {
       if (postRef != null) {
-        try { await postRef.remove(); } catch (_) { /* best effort */ }
+        try {
+          final postId = postRef.key;
+          if (postId != null) {
+            await _social.child('publicFeed/${SocialVisibilityPolicy.publicFeedKey(user.uid, postId)}').remove();
+          }
+          await postRef.remove();
+        } catch (_) { /* best effort */ }
       }
       for (final path in uploaded) {
         try {
