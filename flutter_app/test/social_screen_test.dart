@@ -164,8 +164,12 @@ void main() {
     await tester.tap(find.byTooltip('Me gusta'));
     await tester.pump();
     expect(service.likeChanges, [true]);
-    await tester.enterText(find.byKey(const ValueKey('social-comment')), 'A comment');
-    await tester.tap(find.byIcon(Icons.send).first);
+    final commentField = find.byKey(const ValueKey('social-comment'));
+    await tester.ensureVisible(commentField);
+    await tester.enterText(commentField, 'A comment');
+    final sendComment = find.byIcon(Icons.send).first;
+    await tester.ensureVisible(sendComment);
+    await tester.tap(sendComment);
     await tester.pump();
     expect(service.comments, ['A comment']);
     await tester.enterText(find.byKey(const ValueKey('social-caption')), 'Hola mundo');
