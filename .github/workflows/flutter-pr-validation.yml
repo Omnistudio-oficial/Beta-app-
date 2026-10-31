@@ -16,6 +16,7 @@ on:
           - both
           - android
           - ios
+          - supabase
         default: both
 
 permissions:
@@ -219,3 +220,24 @@ jobs:
       - name: Remove temporary test signing material
         if: always()
         run: rm -f "${RUNNER_TEMP}/omnistudio-test-signing.p12"
+
+
+  supabase-fcm:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.platform == 'supabase' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type-check private FCM registration function
+        run: deno check supabase/functions/register-fcm-device/index.ts
+      - name: Test FCM registration validation
+        run: deno test supabase/functions/register-fcm-device/authorization_test.ts
+      - name: Type-check Flutter notification sender
+        run: deno check supabase/functions/send-flutter-push/index.ts
+      - name: Test Flutter FCM routing policy
+        run: deno test supabase/functions/send-flutter-push/push-routing_test.ts
