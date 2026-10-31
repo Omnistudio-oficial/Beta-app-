@@ -24,11 +24,56 @@ class _SocialScreenState extends State<SocialScreen> {
   String? _pickerError;
   bool _posting = false;
   bool _showPublicFeed = true;
+  bool _isPublic = false;
+  bool _visibilityLoading = true;
+  bool _visibilitySaving = false;
   bool _lookupBusy = false;
   SocialProfile? _lookupProfile;
   String? _lookupError;
   List<SocialFollowRequest> _followRequests = const [];
   bool _requestsLoaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVisibility();
+  }
+
+  Future<void> _loadVisibility() async {
+    try {
+      final visibility = await _service.currentVisibility();
+      if (mounted) setState(() { _isPublic = visibility == 'public'; _visibilityLoading = false; });
+    } catch (_) {
+      if (mounted) setState(() => _visibilityLoading = false);
+    }
+  }
+
+  Future<void> _setVisibility(bool value) async {
+    final previous = _isPublic;
+    setState(() { _visibilitySaving = true; _isPublic = value; });
+    try {
+      await _service.updateCurrentVisibility(value ? 'public' : 'private');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(value ? 'Tu cuenta ahora es pública.' : 'Tu cuenta ahora es privada.'),
+        ));
+      }
+    } catch (_) {
+      if (mounted) {
+        try {
+          final stored = await _service.currentVisibility();
+          setState(() => _isPublic = stored == 'public');
+        } catch (_) {
+          setState(() => _isPublic = previous);
+        }
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('No se pudo guardar la privacidad. No se cambió la configuración.'),
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _visibilitySaving = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -153,6 +198,21 @@ class _SocialScreenState extends State<SocialScreen> {
                   if (_lookupError != null) Text(_lookupError!, key: const ValueKey('social-profile-error'), style: TextStyle(color: Theme.of(context).colorScheme.error)),
                   if (_lookupProfile != null) _FollowProfileCard(profile: _lookupProfile!, service: _service),
                   const SizedBox(height: 16),
+                  Card(
+                    key: const ValueKey('social-own-visibility-card'),
+                    child: SwitchListTile(
+                      key: const ValueKey('social-own-visibility-switch'),
+                      title: Text(_isPublic ? 'Cuenta pública' : 'Cuenta privada'),
+                      subtitle: Text(_isPublic
+                          ? 'Tus publicaciones nuevas y existentes aparecen en el feed público.'
+                          : 'Tus publicaciones solo son visibles para ti y las personas autorizadas.'),
+                      secondary: Icon(_isPublic ? Icons.public : Icons.lock_outline),
+                      value: _isPublic,
+                      onChanged: _visibilityLoading || _visibilitySaving ? null : _setVisibility,
+                    ),
+                  ),
+                  if (_visibilityLoading) const LinearProgressIndicator(),
+                  const SizedBox(height: 16),
                   Row(children: [
                     const Expanded(child: Text('Feed público', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
                     Semantics(label: 'Mostrar feed público', child: Switch(value: _showPublicFeed, onChanged: (value) => setState(() => _showPublicFeed = value))),
@@ -203,7 +263,7 @@ class _SocialScreenState extends State<SocialScreen> {
                           ),
                         ),
                         const SizedBox(height: 6),
-                        const Text('Tus publicaciones se sincronizan con tu cuenta y permanecen privadas por defecto. No se publican en el feed público.'),
+                        const Text('La cuenta es privada por defecto. Al elegir Pública, tus publicaciones actuales y nuevas se incluyen en el feed público.'),
                         const SizedBox(height: 12),
                         TextField(
                           controller: _caption,
