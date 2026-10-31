@@ -391,11 +391,16 @@ class FirebaseSocialService implements SocialService {
         for (final entry in indexedStories) 'storiesByUser/$uid/${entry.key}': entry.value,
       };
       if (currentUsername != null && currentUsername != username.toLowerCase()) {
-        changes['directory/$currentUsername/$uid'] = null;
+        final oldDirectory = await _social.child('directory/$currentUsername/$uid').get();
+        if (oldDirectory.exists) changes['directory/$currentUsername/$uid'] = null;
       }
-      changes.addAll(SocialVisibilityPolicy.publicPostIndexChanges(uid, indexedPosts, normalized));
+      for (final entry in indexedPosts.entries) {
+        final feedPath = 'publicFeed/${SocialVisibilityPolicy.publicFeedKey(uid, entry.key)}';
+        if ((await _social.child(feedPath).get()).exists) changes[feedPath] = null;
+      }
       for (final entry in indexedStories) {
-        changes['publicStories/${uid}_${entry.key}'] = null;
+        final storyPath = 'publicStories/${uid}_${entry.key}';
+        if ((await _social.child(storyPath).get()).exists) changes[storyPath] = null;
       }
       await _social.update(changes);
     } else {
@@ -597,7 +602,13 @@ class FirebaseSocialService implements SocialService {
       }
     } catch (_) {
       if (postRef != null) {
-        try { await postRef.remove(); } catch (_) { /* best effort */ }
+        try {
+          final postId = postRef.key;
+          if (postId != null) {
+            await _social.child('publicFeed/${SocialVisibilityPolicy.publicFeedKey(user.uid, postId)}').remove();
+          }
+          await postRef.remove();
+        } catch (_) { /* best effort */ }
       }
       for (final path in uploaded) {
         try {
