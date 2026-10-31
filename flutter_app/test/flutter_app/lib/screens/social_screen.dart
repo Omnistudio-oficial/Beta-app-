@@ -399,4 +399,118 @@ class _PublicPostCardState extends State<_PublicPostCard> {
       Text(post.displayName.isEmpty ? (post.username.isEmpty ? 'Usuario' : '@${post.username}') : post.displayName, style: const TextStyle(fontWeight: FontWeight.bold)),
       if (post.ownerUid != widget.service.currentUid && post.username.isNotEmpty)
         _FollowProfileCard(profile: SocialProfile(uid: post.ownerUid, username: post.username, displayName: post.displayName.isEmpty ? post.username : post.displayName, visibility: 'public'), service: widget.service),
-      Text(DateTime.f
+      Text(DateTime.fromMillisecondsSinceEpoch(post.createdAt).toLocal().toString().substring(0, 16), style: Theme.of(context).textTheme.labelSmall),
+      if (post.caption.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 8), child: SelectableText(post.caption)),
+      if (post.mediaItems.isNotEmpty) const Padding(padding: EdgeInsets.only(top: 8), child: Text('Esta publicación incluye contenido multimedia; la vista segura de medios públicos aún no está disponible.')),
+      if (allowed) ...[
+        StreamBuilder<Set<String>>(stream: widget.service.watchLikes(post), builder: (context, snapshot) {
+          final likes = snapshot.data ?? const <String>{};
+          final liked = likes.contains(widget.service.currentUid);
+          return Row(children: [IconButton(tooltip: liked ? 'Quitar Me gusta' : 'Me gusta', onPressed: () async {
+            try { await widget.service.toggleLike(post, !liked); } catch (_) {
+              if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No se pudo actualizar Me gusta. Revisa si el autor permite interacciones.')));
+            }
+          }, icon: Icon(liked ? Icons.favorite : Icons.favorite_border)), Text('${likes.length}')]);
+        }),
+        StreamBuilder<List<SocialComment>>(stream: widget.service.watchComments(post), builder: (context, snapshot) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          for (final comment in (snapshot.data ?? const <SocialComment>[])) Padding(padding: const EdgeInsets.symmetric(vertical: 3), child: Text('${comment.authorName}: ${comment.text}')),
+        ])),
+        Row(children: [Expanded(child: TextField(key: const ValueKey('social-comment'), controller: _comment, maxLength: 1000, decoration: const InputDecoration(hintText: 'Escribe un comentario', counterText: ''))), IconButton(onPressed: _sending ? null : _sendComment, icon: const Icon(Icons.send))]),
+      ],
+    ])));
+  }
+}
+
+class _SelectedMediaChip extends StatelessWidget {
+  const _SelectedMediaChip({required this.file, required this.onRemove});
+  final SocialMediaFile file;
+  final VoidCallback onRemove;
+  @override
+  Widget build(BuildContext context) => InputChip(
+        avatar: Icon(file.mimeType.startsWith('video/') ? Icons.videocam_outlined : Icons.image_outlined, size: 18),
+        label: SizedBox(width: 110, child: Text(file.name, overflow: TextOverflow.ellipsis)),
+        onDeleted: onRemove,
+      );
+}
+
+class _PostCard extends StatelessWidget {
+  const _PostCard({required this.post, required this.service});
+  final SocialPost post;
+  final SocialService service;
+
+  @override
+  Widget build(BuildContext context) => Card(
+        margin: const EdgeInsets.only(bottom: 12),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Text(DateTime.fromMillisecondsSinceEpoch(post.createdAt).toLocal().toString().substring(0, 16), style: Theme.of(context).textTheme.labelSmall),
+            if (post.caption.isNotEmpty) ...[const SizedBox(height: 8), SelectableText(post.caption)],
+            for (final item in post.mediaItems)
+              Padding(padding: const EdgeInsets.only(top: 10), child: _PrivateMedia(post: post, media: item, service: service)),
+          ]),
+        ),
+      );
+}
+
+class _PrivateMedia extends StatelessWidget {
+  const _PrivateMedia({required this.post, required this.media, required this.service});
+  final SocialPost post;
+  final SocialMediaItem media;
+  final SocialService service;
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<String>(
+        future: service.signedMediaUrl(post, media),
+        builder: (context, snapshot) {
+          if (snapshot.hasError) return const ListTile(leading: Icon(Icons.lock_outline), title: Text('No se pudo cargar el archivo privado.'));
+          if (!snapshot.hasData) return const SizedBox(height: 100, child: Center(child: CircularProgressIndicator()));
+          final uri = Uri.tryParse(snapshot.data!);
+          if (uri == null) return const Text('Archivo privado no disponible.');
+          return media.isVideo ? _VideoMedia(uri: uri) : ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.network(uri.toString(), fit: BoxFit.contain,
+              errorBuilder: (_, __, ___) => const SizedBox(height: 100, child: Center(child: Text('No se pudo mostrar la foto.')))),
+          );
+        },
+      );
+}
+
+class _VideoMedia extends StatefulWidget {
+  const _VideoMedia({required this.uri});
+  final Uri uri;
+  @override
+  State<_VideoMedia> createState() => _VideoMediaState();
+}
+
+class _VideoMediaState extends State<_VideoMedia> {
+  late final VideoPlayerController _controller = VideoPlayerController.networkUrl(widget.uri);
+  bool _failed = false;
+  @override
+  void initState() {
+    super.initState();
+    _controller.initialize().then((_) { if (mounted) setState(() {}); }).catchError((_) { if (mounted) setState(() => _failed = true); });
+  }
+  @override
+  void dispose() { _controller.dispose(); super.dispose(); }
+  @override
+  Widget build(BuildContext context) {
+    if (_failed) return const SizedBox(height: 120, child: Center(child: Text('No se pudo reproducir el video.')));
+    if (!_controller.value.isInitialized) return const SizedBox(height: 120, child: Center(child: CircularProgressIndicator()));
+    return Column(children: [
+      AspectRatio(aspectRatio: _controller.value.aspectRatio, child: VideoPlayer(_controller)),
+      IconButton(
+        tooltip: _controller.value.isPlaying ? 'Pausar video' : 'Reproducir video',
+        onPressed: () => setState(() => _controller.value.isPlaying ? _controller.pause() : _controller.play()),
+        icon: Icon(_controller.value.isPlaying ? Icons.pause_circle : Icons.play_circle, size: 36),
+      ),
+    ]);
+  }
+}
+
+extension _FirstWhereOrNull<T> on Iterable<T> {
+  T? firstWhereOrNull(bool Function(T) test) {
+    for (final item in this) { if (test(item)) return item; }
+    return null;
+  }
+}
