@@ -1,5 +1,4 @@
 import 'package:firebase_core/firebase_core.dart';
-import 'package:device_preview/device_preview.dart';
 import 'package:flutter/material.dart';
 
 import 'package:beta_app/app/app.dart';
@@ -15,7 +14,6 @@ Future<void> _initializeFirebase() async {
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  DevicePreview.enable();
   runApp(
     StartupGate(
       initialize: _initializeFirebase,
