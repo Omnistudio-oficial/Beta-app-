@@ -41,8 +41,23 @@ async function readDevices(url:string,key:string,uid:string):Promise<DeviceRow[]
 async function removeStale(url:string,key:string,row:DeviceRow):Promise<void>{
  const q=new URLSearchParams({uid:`eq.${row.uid}`,app_id:`eq.${FLUTTER_FCM_APP_ID}`,platform:`eq.${row.platform}`,token_hash:`eq.${row.token_hash}`});const r=await fetch(`${url.replace(/\/$/,"")}/rest/v1/fcm_device_tokens?${q}`,{method:"DELETE",headers:{apikey:key,authorization:`Bearer ${key}`}});if(!r.ok)console.warn("Could not remove stale FCM token",{platform:row.platform,status:r.status});
 }
-async function send(token:string,platform:"android"|"ios",title:string,body:string,data:Record<string,string>,accessToken:string):Promise<Response>{
- return await fetch(`https://fcm.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/messages:send`,{method:"POST",headers:{authorization:`Bearer ${accessToken}`,"content-type":"application/json"},body:JSON.stringify({message:{token,notification:{title,body},data,...(platform==="android"?{android:{priority:"HIGH"}}:{apns:{headers:{"apns-priority":"10"},payload:{aps:{sound:"default"}}})}})});
+async function send(token: string, platform: "android" | "ios", title: string, body: string, data: Record<string, string>, accessToken: string): Promise<Response> {
+  const platformOptions = platform === "android"
+    ? { android: { priority: "HIGH" } }
+    : { apns: { headers: { "apns-priority": "10" }, payload: { aps: { sound: "default" } } } };
+  const payload = {
+    message: {
+      token,
+      notification: { title, body },
+      data,
+      ...platformOptions,
+    },
+  };
+  return await fetch(`https://fcm.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/messages:send`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${accessToken}`, "content-type": "application/json" },
+    body: JSON.stringify(payload),
+  });
 }
 Deno.serve(async request=>{
  if(request.method==="OPTIONS")return new Response("ok",{headers:corsHeaders});if(request.method!=="POST")return jsonResponse({error:"Method not allowed"},405);
