@@ -27,6 +27,10 @@ class _EmptySocialService implements SocialService {
   @override
   Future<void> rejectFollowRequest(String requesterUid) async {}
   @override
+  Future<String> currentVisibility() async => 'private';
+  @override
+  Future<void> updateCurrentVisibility(String visibility) async {}
+  @override
   Stream<Set<String>> watchLikes(SocialPost post) => Stream.value(const {});
   @override
   Stream<List<SocialComment>> watchComments(SocialPost post) => Stream.value(const []);
