@@ -47,13 +47,15 @@ void main() {
         seen.add(request.method);
         if (request.method == 'POST') {
           expect(request.headers['x-signature'], 'signed-token');
+          expect(request.headers['apikey'], 'test-publishable-key');
           expect(request.headers['upload-length'], '5');
           expect(request.headers['upload-metadata'], contains('bucketName '));
           return response(201, {'location': '/storage/v1/upload/resumable/session-1'});
         }
-        if (request.method == 'HEAD') return response(200, {'upload-offset': '$offset', 'upload-length': '5'});
+        if (request.method == 'HEAD') { expect(request.headers['apikey'], 'test-publishable-key'); return response(200, {'upload-offset': '$offset', 'upload-length': '5'}); }
         if (request.method == 'PATCH') {
           expect(request.headers['x-signature'], 'signed-token');
+          expect(request.headers['apikey'], 'test-publishable-key');
           expect(request.headers['upload-offset'], '$offset');
           expect(request.headers['content-type'], 'application/offset+octet-stream');
           offset += request.contentLength;
@@ -62,7 +64,7 @@ void main() {
         fail('Unexpected method ${request.method}');
       });
       final storedPaths = <String>[];
-      final result = await SupabaseTusUploader(client: client, sessions: sessions).upload(
+      final result = await SupabaseTusUploader(client: client, sessions: sessions, publishableKey: 'test-publishable-key').upload(
         source: source, mimeType: 'image/png', endpoint: endpoint, bucket: 'social-test-media',
         createSignedSession: () async => const TusUploadSession(storagePath: 'social_test/u/posts/a.png', signedToken: 'signed-token'),
         onStoragePath: storedPaths.add,
@@ -90,7 +92,7 @@ void main() {
         }
         fail('Unexpected method ${request.method}');
       });
-      await SupabaseTusUploader(client: client, sessions: sessions).upload(
+      await SupabaseTusUploader(client: client, sessions: sessions, publishableKey: 'test-publishable-key').upload(
         source: source, mimeType: 'image/png', endpoint: endpoint, bucket: 'social-test-media',
         createSignedSession: () async { createCount++; return sessions.value!; }, onStoragePath: (_) {},
       );
@@ -112,7 +114,7 @@ void main() {
         }
         fail('Unexpected method ${request.method}');
       });
-      await SupabaseTusUploader(client: client, sessions: sessions).upload(
+      await SupabaseTusUploader(client: client, sessions: sessions, publishableKey: 'test-publishable-key').upload(
         source: source, mimeType: 'image/png', endpoint: endpoint, bucket: 'social-test-media',
         createSignedSession: () async => const TusUploadSession(storagePath: 'social_test/u/posts/a.png', signedToken: 'signed-token'),
         onStoragePath: (_) {},
@@ -127,7 +129,7 @@ void main() {
         if (request.method == 'HEAD') return response(200, {'upload-offset': '6', 'upload-length': '5'});
         fail('Unexpected method ${request.method}');
       });
-      await expectLater(SupabaseTusUploader(client: client, sessions: sessions).upload(
+      await expectLater(SupabaseTusUploader(client: client, sessions: sessions, publishableKey: 'test-publishable-key').upload(
         source: source, mimeType: 'image/png', endpoint: endpoint, bucket: 'social-test-media',
         createSignedSession: () async => const TusUploadSession(storagePath: 'social_test/u/posts/a.png', signedToken: 'signed-token'),
         onStoragePath: (_) {},
