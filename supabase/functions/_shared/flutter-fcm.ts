@@ -78,19 +78,26 @@ export async function sendFlutterPushToUids(args: {
   if (!devices.length) return { sent: 0, devices: 0 };
   const bearer = await accessToken(args.account);
   let sent = 0;
-  for (const device of devices) {
-    const options = device.platform === "android"
-      ? { android: { priority: "HIGH" } }
-      : { apns: { headers: { "apns-priority": "10" }, payload: { aps: { sound: "default" } } } };
-    const response = await fetch(`https://fcm.googleapis.com/v1/projects/${PROJECT}/messages:send`, {
-      method: "POST", headers: { authorization: `Bearer ${bearer}`, "content-type": "application/json" },
-      body: JSON.stringify({ message: { token: device.fcm_token, notification: { title: args.title.slice(0, 120), body: args.body.slice(0, 500) }, data: args.data, ...options } }),
-    });
-    if (response.ok) { sent++; continue; }
-    const result = await response.json().catch(() => ({})) as { error?: { details?: Array<{ errorCode?: string }> } };
-    const codes = result.error?.details?.map((item) => item.errorCode) ?? [];
-    if (response.status === 404 || codes.includes("UNREGISTERED")) await removeStale(url, key, device);
-    else console.warn("FCM rejected Flutter device", { platform: device.platform, status: response.status });
+  // FCM v1 is one-token-per-request; keep concurrency bounded and never dump
+  // the full recipient list or token values into logs.
+  for (let offset = 0; offset < devices.length; offset += 20) {
+    const batch = devices.slice(offset, offset + 20);
+    const results = await Promise.all(batch.map(async (device) => {
+      const options = device.platform === "android"
+        ? { android: { priority: "HIGH" } }
+        : { apns: { headers: { "apns-priority": "10" }, payload: { aps: { sound: "default" } } } };
+      const response = await fetch(`https://fcm.googleapis.com/v1/projects/${PROJECT}/messages:send`, {
+        method: "POST", headers: { authorization: `Bearer ${bearer}`, "content-type": "application/json" },
+        body: JSON.stringify({ message: { token: device.fcm_token, notification: { title: args.title.slice(0, 120), body: args.body.slice(0, 500) }, data: args.data, ...options } }),
+      });
+      if (response.ok) return 1;
+      const result = await response.json().catch(() => ({})) as { error?: { details?: Array<{ errorCode?: string }> } };
+      const codes = result.error?.details?.map((item) => item.errorCode) ?? [];
+      if (response.status === 404 || codes.includes("UNREGISTERED")) await removeStale(url, key, device);
+      else console.warn("FCM rejected Flutter device", { platform: device.platform, status: response.status });
+      return 0;
+    }));
+    sent += results.reduce((sum, value) => sum + value, 0);
   }
   return { sent, devices: devices.length };
 }
