@@ -7,12 +7,23 @@ on:
       - "flutter_app/**"
       - ".github/workflows/flutter-pr-validation.yml"
   workflow_dispatch:
+    inputs:
+      platform:
+        description: "Which Flutter platform job to run"
+        required: true
+        type: choice
+        options:
+          - both
+          - android
+          - ios
+        default: both
 
 permissions:
   contents: read
 
 jobs:
-  flutter:
+  ios:
+    if: ${{ github.event_name == 'pull_request' || inputs.platform == 'both' || inputs.platform == 'ios' }}
     runs-on: macos-latest
     timeout-minutes: 35
     defaults:
@@ -26,10 +37,6 @@ jobs:
         with:
           channel: stable
           cache: true
-      - name: Install Android API 36 platform
-        run: |
-          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-36"
       - name: Generate iOS scaffold with Firebase configuration
         run: |
           flutter create --platforms=android,ios --project-name=omnistudio_flutter_prototype --org=com.omnistudio --no-pub .ci_scaffold
@@ -58,9 +65,73 @@ jobs:
           PYGRADLE
       - name: Resolve Flutter packages
         run: flutter pub get
+      - name: Analyze Flutter sources
+        run: flutter analyze --no-pub
+      - name: Run offline-capable widget tests
+        run: flutter test --no-pub
+      - name: Build unsigned iOS app
+        env:
+          SUPABASE_PROJECT_URL: ${{ secrets.SUPABASE_PROJECT_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          OPENROUTESERVICE_API_KEY: ${{ secrets.OPENROUTESERVICE_API_KEY }}
+        run: >-
+          flutter build ios --debug --no-codesign --no-pub
+          --dart-define=SUPABASE_PROJECT_URL=$SUPABASE_PROJECT_URL
+          --dart-define=SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY
+          --dart-define=OPENROUTESERVICE_API_KEY=$OPENROUTESERVICE_API_KEY
+
+  android:
+    if: ${{ github.event_name == 'pull_request' || inputs.platform == 'both' || inputs.platform == 'android' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: flutter_app
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+          cache-dependency-path: flutter_app/android/**/*.gradle*
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Install Android API 36 platform
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-36"
+      - name: Generate Android scaffold with Firebase configuration
+        run: |
+          flutter create --platforms=android,ios --project-name=omnistudio_flutter_prototype --org=com.omnistudio --no-pub .ci_scaffold
+          python3 tool/prepare_platforms.py .ci_scaffold
+          rm -rf android
+          cp -R .ci_scaffold/android ./android
+          rm -rf .ci_scaffold
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          candidates = [Path("android/app/build.gradle.kts"), Path("android/app/build.gradle")]
+          gradle = next((p for p in candidates if p.is_file()), None)
+          if gradle is None:
+              raise SystemExit("Generated Android app Gradle file is missing")
+          text = gradle.read_text()
+          updated, count = re.subn(r"(?m)^(\s*compileSdk\s*=\s*)(?:flutter\.compileSdkVersion|[0-9]+)(\s*(?://.*)?$)", r"\g<1>36\g<2>", text, count=1)
+          if count != 1:
+              updated, count = re.subn(r"(?m)^(\s*compileSdkVersion\s+)(?:flutter\.compileSdkVersion|[0-9]+)(\s*(?://.*)?$)", r"\g<1>36\g<2>", text, count=1)
+          if count != 1:
+              raise SystemExit("Could not force generated Android compile SDK to 36")
+          gradle.write_text(updated)
+          PY
+      - name: Resolve Flutter packages
+        run: flutter pub get
       - name: Set Android plugin compile SDK to API 36
         run: |
-          python3 - <<'PYPLUGIN'
+          python3 - <<'PY'
           import json, re
           from pathlib import Path
           metadata = Path(".flutter-plugins-dependencies")
@@ -68,31 +139,21 @@ jobs:
               raise SystemExit("Flutter plugin dependency metadata is missing")
           data = json.loads(metadata.read_text())
           plugins = data.get("plugins", {}).get("android", [])
-          if not plugins:
-              raise SystemExit("Flutter reports no Android plugins")
           pattern = re.compile(r"(?m)^(\s*compileSdk(?:Version)?\s*(?:=\s*|\s+))(?:flutter\.compileSdkVersion|[0-9]+)(\s*(?://.*)?$)")
           changed = []
-          untouched = []
           for plugin in plugins:
               base = Path(plugin["path"])
               for gradle in (base / "android/build.gradle", base / "android/build.gradle.kts"):
-                  if not gradle.is_file():
-                      continue
-                  text = gradle.read_text(errors="ignore")
-                  updated, count = pattern.subn(r"\g<1>36\g<2>", text, count=1)
-                  if count:
-                      gradle.write_text(updated)
-                      changed.append((plugin.get("name", base.name), str(gradle)))
-                  else:
-                      untouched.append((plugin.get("name", base.name), str(gradle)))
-          print(f"Flutter Android plugins: {len(plugins)}; patched Gradle files: {len(changed)}")
-          for name, path in changed:
-              print(f"API 36: {name}: {path}")
-          for name, path in untouched:
-              print(f"No compileSdk declaration: {name}: {path}")
+                  if gradle.is_file():
+                      text = gradle.read_text(errors="ignore")
+                      updated, count = pattern.subn(r"\g<1>36\g<2>", text, count=1)
+                      if count:
+                          gradle.write_text(updated)
+                          changed.append(plugin.get("name", base.name))
+          print(f"Flutter plugins patched for API 36: {len(changed)}")
           if not changed:
               raise SystemExit("Could not find plugin compileSdk declaration to update")
-          PYPLUGIN
+          PY
       - name: Restore and verify persistent Flutter test signing
         env:
           TEST_OAUTH_KEYSTORE_B64: ${{ secrets.TEST_OAUTH_KEYSTORE_B64 }}
@@ -100,7 +161,7 @@ jobs:
         run: |
           set -euo pipefail
           if [[ -z "${TEST_OAUTH_KEYSTORE_B64:-}" || -z "${TEST_OAUTH_KEYSTORE_PASSWORD:-}" ]]; then
-            echo 'Persistent test signing secrets are required; refusing to build with an ephemeral debug key.' >&2
+            echo 'Persistent test signing secrets are required; refusing to build.' >&2
             exit 1
           fi
           KEYSTORE="${RUNNER_TEMP}/omnistudio-test-signing.p12"
@@ -109,11 +170,11 @@ jobs:
           SHA1="$(keytool -list -v -keystore "$KEYSTORE" -storetype PKCS12 -storepass "$TEST_OAUTH_KEYSTORE_PASSWORD" -alias androiddebugkey | awk -F': ' '/SHA1:/{print $2; exit}' | tr -d ': ' | tr '[:lower:]' '[:upper:]')"
           EXPECTED_SHA1='9763B6272094D4BE951B681A5358D38869B34C84'
           if [[ "$SHA1" != "$EXPECTED_SHA1" ]]; then
-            echo 'Persistent test certificate does not match the SHA-1 registered in Firebase; refusing to build.' >&2
+            echo 'Persistent test certificate does not match Firebase registration.' >&2
             exit 1
           fi
-          echo "Verified persistent test certificate SHA-1: $SHA1"
-          python3 - <<'PYGRADLE'
+          echo "Verified test signing certificate SHA-1: $SHA1"
+          python3 - <<'PY'
           from pathlib import Path
           import re
           p = Path("android/app/build.gradle.kts")
@@ -131,24 +192,12 @@ jobs:
           if count != 1 or 'create("testPersistent")' not in text:
               raise SystemExit("Could not inject persistent test signing into generated Android build")
           p.write_text(text)
-          print("Configured generated Android debug build to use persistent test signing.")
-          PYGRADLE
+          PY
       - name: Analyze Flutter sources
         run: flutter analyze --no-pub
       - name: Run offline-capable widget tests
         run: flutter test --no-pub
-      - name: Build unsigned iOS app
-        env:
-          SUPABASE_PROJECT_URL: ${{ secrets.SUPABASE_PROJECT_URL }}
-          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
-          OPENROUTESERVICE_API_KEY: ${{ secrets.OPENROUTESERVICE_API_KEY }}
-        run: >-
-          flutter build ios --debug --no-codesign --no-pub
-          --dart-define=SUPABASE_PROJECT_URL=$SUPABASE_PROJECT_URL
-          --dart-define=SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY
-          --dart-define=OPENROUTESERVICE_API_KEY=$OPENROUTESERVICE_API_KEY
-
-      - name: Build generated Android host
+      - name: Build Android debug APK
         env:
           OMNISTUDIO_TEST_KEYSTORE_PATH: ${{ runner.temp }}/omnistudio-test-signing.p12
           OMNISTUDIO_TEST_KEYSTORE_PASSWORD: ${{ secrets.TEST_OAUTH_KEYSTORE_PASSWORD }}
@@ -160,7 +209,6 @@ jobs:
           --dart-define=SUPABASE_PROJECT_URL=$SUPABASE_PROJECT_URL
           --dart-define=SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY
           --dart-define=OPENROUTESERVICE_API_KEY=$OPENROUTESERVICE_API_KEY
-
       - name: Upload installable Android debug APK
         uses: actions/upload-artifact@v4
         with:
