@@ -119,7 +119,8 @@ def main() -> None:
                 "        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {\n"
                 "            val channel = NotificationChannel(\"general\", \"OmniStudio\", NotificationManager.IMPORTANCE_HIGH)\n"
                 "            channel.description = \"Notificaciones de Chat y Social\"\n"
-                "            getSystemService(Context.NOTIFICATION_SERVICE, NotificationManager::class.java).createNotificationChannel(channel)\n"
+                "            val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager\n"
+                "            manager.createNotificationChannel(channel)\n"
                 "        }\n"
                 "    }\n"
                 "}",
