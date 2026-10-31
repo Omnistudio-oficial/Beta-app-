@@ -372,48 +372,6 @@ class _PublicPostCardState extends State<_PublicPostCard> {
   final TextEditingController _comment = TextEditingController();
   bool _sending = false;
   @override
-  void initState() {
-    super.initState();
-    _loadVisibility();
-  }
-
-  Future<void> _loadVisibility() async {
-    try {
-      final visibility = await _service.currentVisibility();
-      if (mounted) setState(() { _isPublic = visibility == 'public'; _visibilityLoading = false; });
-    } catch (_) {
-      if (mounted) setState(() => _visibilityLoading = false);
-    }
-  }
-
-  Future<void> _setVisibility(bool value) async {
-    final previous = _isPublic;
-    setState(() { _visibilitySaving = true; _isPublic = value; });
-    try {
-      await _service.updateCurrentVisibility(value ? 'public' : 'private');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(value ? 'Tu cuenta ahora es pública.' : 'Tu cuenta ahora es privada.'),
-        ));
-      }
-    } catch (_) {
-      if (mounted) {
-        try {
-          final stored = await _service.currentVisibility();
-          setState(() => _isPublic = stored == 'public');
-        } catch (_) {
-          setState(() => _isPublic = previous);
-        }
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('No se pudo guardar la privacidad. No se cambió la configuración.'),
-        ));
-      }
-    } finally {
-      if (mounted) setState(() => _visibilitySaving = false);
-    }
-  }
-
-  @override
   void dispose() { _comment.dispose(); super.dispose(); }
 
   Future<void> _sendComment() async {
@@ -533,48 +491,6 @@ class _VideoMediaState extends State<_VideoMedia> {
     super.initState();
     _controller.initialize().then((_) { if (mounted) setState(() {}); }).catchError((_) { if (mounted) setState(() => _failed = true); });
   }
-  @override
-  void initState() {
-    super.initState();
-    _loadVisibility();
-  }
-
-  Future<void> _loadVisibility() async {
-    try {
-      final visibility = await _service.currentVisibility();
-      if (mounted) setState(() { _isPublic = visibility == 'public'; _visibilityLoading = false; });
-    } catch (_) {
-      if (mounted) setState(() => _visibilityLoading = false);
-    }
-  }
-
-  Future<void> _setVisibility(bool value) async {
-    final previous = _isPublic;
-    setState(() { _visibilitySaving = true; _isPublic = value; });
-    try {
-      await _service.updateCurrentVisibility(value ? 'public' : 'private');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(value ? 'Tu cuenta ahora es pública.' : 'Tu cuenta ahora es privada.'),
-        ));
-      }
-    } catch (_) {
-      if (mounted) {
-        try {
-          final stored = await _service.currentVisibility();
-          setState(() => _isPublic = stored == 'public');
-        } catch (_) {
-          setState(() => _isPublic = previous);
-        }
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('No se pudo guardar la privacidad. No se cambió la configuración.'),
-        ));
-      }
-    } finally {
-      if (mounted) setState(() => _visibilitySaving = false);
-    }
-  }
-
   @override
   void dispose() { _controller.dispose(); super.dispose(); }
   @override
