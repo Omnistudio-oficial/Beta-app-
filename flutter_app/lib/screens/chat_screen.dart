@@ -1,92 +1,732 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
+import 'dart:io';
 
-class ChatScreen extends StatelessWidget {
-  const ChatScreen({super.key});
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:beta_app/screens/chat_media_actions.dart';
+import 'package:beta_app/screens/chat_video_player.dart';
+import 'package:beta_app/screens/youtube_chat_player.dart';
+import 'package:beta_app/screens/chat_voice_note.dart';
+import 'package:beta_app/screens/chat_translation.dart';
+import 'package:beta_app/screens/chat_group_dialogs.dart';
+import 'package:beta_app/screens/chat_calls.dart';
+import 'package:beta_app/screens/call_dialog.dart';
+
+import 'chat_attachment.dart';
+import 'chat_drafts.dart';
+import 'chat_repository.dart';
+import 'chat_search.dart';
+
+class ChatIdentity {
+  const ChatIdentity({required this.uid, required this.email, this.displayName = ''});
+  final String uid;
+  final String email;
+  final String displayName;
+}
+
+class ChatScreen extends StatefulWidget {
+  const ChatScreen({super.key, this.repository, this.identity, this.attachmentPicker, this.mediaActions, this.draftStorage});
+  final ChatRepository? repository;
+  final ChatIdentity? identity;
+  final ChatAttachmentPicker? attachmentPicker;
+  final ChatMediaActions? mediaActions;
+  final ChatDraftStorage? draftStorage;
+
+  @override
+  State<ChatScreen> createState() => _ChatScreenState();
+}
+
+class _ChatScreenState extends State<ChatScreen> {
+  late final ChatRepository _repository = widget.repository ?? FirebaseChatRepository();
+  late final ChatIdentity? _user = widget.identity ?? _identityFromAuth();
+
+  ChatCallController? _createCallController() {
+    try {
+      final identity = _user;
+      if (identity != null && FirebaseAuth.instance.currentUser?.uid == identity.uid) return ChatCallController(auth: FirebaseAuth.instance);
+    } catch (_) { /* Firebase is intentionally absent from offline widget tests. */ }
+    return null;
+  }
+
+  ChatIdentity? _identityFromAuth() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return null;
+    return ChatIdentity(uid: user.uid, email: user.email ?? '', displayName: user.displayName ?? '');
+  }
+  final TextEditingController _controller = TextEditingController();
+  final ScrollController _messageScrollController = ScrollController();
+  bool _showScrollToLatest = false;
+  int _lastVisibleMessageCount = -1;
+  late final ChatCallController? _callController = _createCallController();
+  late final Stream<List<ChatCallSignal>> _calls = _callController == null ? const Stream.empty() : FirebaseChatCallSignaling().watchCalls(_user!.uid);
+  StreamSubscription<List<ChatCallSignal>>? _callSubscription;
+  String? _activeCallId;
+  ChatChannel? _channel;
+  Stream<List<ChatMessage>>? _messages;
+  bool _searching = false;
+  final TextEditingController _searchController = TextEditingController();
+  bool _sending = false;
+  String? _sendError;
+  ChatAttachment? _pendingAttachment;
+  VoiceNoteFile? _pendingVoiceNote;
+  final ChatTranslationService _translation = MlKitChatTranslationService();
+  final Map<String, String> _translatedMessages = {};
+  final Map<String, String> _translationSources = {};
+  final Set<String> _translatingMessageIds = {};
+  String _targetLanguage = 'es';
+  bool _autoTranslate = false;
+  late final ChatAttachmentPicker _attachmentPicker;
+  late final ChatMediaActions _mediaActions;
+  late final ChatDraftStorage _draftStorage = widget.draftStorage ?? SharedPreferencesChatDraftStorage();
+  late Stream<List<ChatChannel>> _channels;
+  Future<void> _draftWrites = Future<void>.value();
+  bool _draftReady = false;
+  String? _draftError;
+
+  @override
+  void initState() {
+    super.initState();
+    _messageScrollController.addListener(_handleMessageScroll);
+    _attachmentPicker = widget.attachmentPicker ?? DeviceChatAttachmentPicker();
+    _mediaActions = widget.mediaActions ?? ChatMediaActions();
+    final user = _user;
+    if (_callController != null) {
+      _callSubscription = _calls.listen(_handleCallUpdates, onError: (Object error) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('No se pudieron recibir llamadas: $error'))); });
+    }
+    _channels = user == null || user.email.trim().isEmpty
+        ? const Stream<List<ChatChannel>>.empty()
+        : _repository.watchChannels(uid: user.uid, email: user.email);
+  }
+
+  Future<void> _createGroup(ChatIdentity user) async {
+    await showDialog<bool>(context: context, builder: (_) => CreateChatGroupDialog(onCreate: (name, description, members) => _repository.createGroup(uid: user.uid, email: user.email, name: name, description: description, memberEmails: members)));
+    if (mounted) _retryChannels();
+  }
+
+  Future<void> _manageGroup(ChatIdentity user, ChatChannel channel) async {
+    final leftGroup = await showDialog<bool>(context: context, builder: (_) => ManageChatGroupDialog(channel: channel, uid: user.uid, email: user.email, repository: _repository, onLeave: () => _repository.leaveGroup(uid: user.uid, channelId: channel.id)));
+    if (!mounted || leftGroup != true) return;
+    setState(() {
+      _channel = null;
+      _messages = null;
+      _draftReady = false;
+      _controller.clear();
+      _channels = _repository.watchChannels(uid: user.uid, email: user.email);
+    });
+  }
+
+  void _handleCallUpdates(List<ChatCallSignal> calls) {
+    final user = _user;
+    final controller = _callController;
+    if (user == null || controller == null || !mounted) return;
+    final active = _activeCallId;
+    if (active != null) {
+      if (calls.any((call) => call.callId == active && call.status == 'ENDED')) {
+        unawaited(controller.endCall());
+        _activeCallId = null;
+        final navigator = Navigator.of(context, rootNavigator: true);
+        if (navigator.canPop()) navigator.pop();
+      }
+      return;
+    }
+    final incoming = calls.where((call) => call.peerUid == user.uid && call.status == 'RINGING' && call.channelId.startsWith('direct')).toList();
+    if (incoming.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) { if (mounted && _activeCallId == null) unawaited(_showIncomingCall(incoming.first)); });
+    }
+  }
+
+  ChatMember? _peerForCall(ChatChannel channel, ChatIdentity user) {
+    if (channel.isGroup || !channel.id.startsWith('direct') || channel.members.length != 2) return null;
+    final matching = channel.members.where((member) => member.matches(uid: user.uid, email: user.email)).toList();
+    if (matching.length != 1) return null;
+    final peer = channel.members.where((member) => !member.matches(uid: user.uid, email: user.email)).toList();
+    if (peer.length != 1 || peer.single.uid.isEmpty || peer.single.email.trim().isEmpty) return null;
+    return peer.single;
+  }
+
+  Future<void> _startCall(ChatIdentity user, ChatChannel channel, {required bool video}) async {
+    final controller = _callController;
+    final peer = _peerForCall(channel, user);
+    if (controller == null || peer == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No pude verificar un chat directo de solo dos cuentas.')));
+      return;
+    }
+    _activeCallId = 'starting';
+    try {
+      await controller.startOutgoing(channel: channel, uid: user.uid, email: user.email, displayName: user.displayName, peer: peer, video: video);
+      if (!mounted) return;
+      _activeCallId = controller.call?.callId;
+      await showDialog<void>(context: context, barrierDismissible: false, builder: (_) => ChatCallDialog(controller: controller, video: video, peerName: peer.name.isNotEmpty ? peer.name : peer.email, currentUid: user.uid));
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('No se pudo iniciar la llamada: $error')));
+    } finally {
+      if (mounted) setState(() => _activeCallId = null);
+    }
+  }
+
+  Future<void> _showIncomingCall(ChatCallSignal incoming) async {
+    final user = _user;
+    final controller = _callController;
+    if (user == null || controller == null || _activeCallId != null || incoming.peerUid != user.uid) return;
+    _activeCallId = incoming.callId;
+    try {
+      await controller.verifyIncoming(incoming, uid: user.uid);
+      if (!mounted) return;
+      await showDialog<void>(context: context, barrierDismissible: false, builder: (_) => ChatCallDialog(controller: controller, video: incoming.isVideo, peerName: incoming.callerName, currentUid: user.uid, incoming: incoming));
+    } catch (_) {
+      // Invalid, stale, or non-member call signals are ignored in the UI.
+    } finally {
+      if (mounted) setState(() => _activeCallId = null);
+    }
+  }
+
+  void _retryChannels() {
+    final user = _user;
+    if (user == null) return;
+    setState(() => _channels = _repository.watchChannels(uid: user.uid, email: user.email));
+  }
+
+  void _handleMessageScroll() {
+    if (!_messageScrollController.hasClients || !mounted) return;
+    final position = _messageScrollController.position;
+    final shouldShow = position.maxScrollExtent - position.pixels > 96;
+    if (shouldShow != _showScrollToLatest) setState(() => _showScrollToLatest = shouldShow);
+  }
+
+  void _followLatestMessages(int messageCount) {
+    final firstLoad = _lastVisibleMessageCount < 0;
+    final wasNearLatest = !_messageScrollController.hasClients ||
+        _messageScrollController.position.maxScrollExtent - _messageScrollController.position.pixels <= 96;
+    if (messageCount == _lastVisibleMessageCount) return;
+    _lastVisibleMessageCount = messageCount;
+    if (!firstLoad && !wasNearLatest) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_messageScrollController.hasClients) return;
+      _messageScrollController.jumpTo(_messageScrollController.position.maxScrollExtent);
+      _handleMessageScroll();
+    });
+  }
+
+  void _scrollToLatest() {
+    if (!_messageScrollController.hasClients) return;
+    _messageScrollController.animateTo(
+      _messageScrollController.position.maxScrollExtent,
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOut,
+    );
+  }
+
+  @override
+  void dispose() {
+    _messageScrollController.removeListener(_handleMessageScroll);
+    _messageScrollController.dispose();
+    _controller.dispose();
+    _searchController.dispose();
+    _translation.close();
+    _callSubscription?.cancel();
+    _callController?.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final user = _user;
+    if (user == null || user.email.trim().isEmpty) {
+      return Scaffold(appBar: AppBar(title: const Text('Chat')), body: const Center(child: Text('Inicia sesión con una cuenta de correo para ver tus chats.')));
+    }
+    if (_channel != null) return _buildConversation(user);
+    return Scaffold(
+      appBar: AppBar(title: const Text('Chat'), actions: [IconButton(key: const ValueKey('chat-create-group'), tooltip: 'Crear grupo', onPressed: () => _createGroup(user), icon: const Icon(Icons.group_add))]),
+      body: Column(children: [
+        Expanded(
+          child: StreamBuilder<List<ChatChannel>>(
+            stream: _channels,
+            builder: (context, snapshot) {
+              if (snapshot.hasError) return _ErrorPanel(message: 'No se pudieron cargar los chats: ${snapshot.error}', onRetry: _retryChannels);
+              if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) return const Center(child: CircularProgressIndicator());
+              final channels = snapshot.data ?? const <ChatChannel>[];
+              if (channels.isEmpty) return const Center(child: Text('No tienes chats disponibles.'));
+              return ListView.builder(
+                itemCount: channels.length,
+                itemBuilder: (context, index) {
+                  final channel = channels[index];
+                  return ListTile(
+                    leading: const CircleAvatar(child: Icon(Icons.chat_bubble_outline)),
+                    title: Text(channel.name),
+                    subtitle: Text(channel.lastMessage.isEmpty ? 'Sin mensajes todavía' : channel.lastMessage, maxLines: 1, overflow: TextOverflow.ellipsis),
+                    onTap: () => _openChannel(user, channel),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ]),
+    );
+  }
+
+  Widget _buildConversation(ChatIdentity user) {
+    final channel = _channel!;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Chat'),
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            children: [
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  children: const [
-                    _ChatBubble(
-                      text: 'Hola, bienvenido a OmniStudio.',
-                      isMe: false,
-                    ),
-                    _ChatBubble(
-                      text: '¿En qué puedo ayudarte?',
-                      isMe: true,
-                    ),
-                    _ChatBubble(
-                      text: 'La migración del módulo Chat a Flutter ya está iniciada.',
-                      isMe: false,
-                    ),
-                  ],
+        title: _searching
+            ? TextField(
+                key: const ValueKey('chat-search-field'),
+                controller: _searchController,
+                autofocus: true,
+                onChanged: (_) => setState(() {}),
+                decoration: const InputDecoration(
+                  hintText: 'Buscar mensajes…',
+                  border: InputBorder.none,
                 ),
-              ),
-              const SizedBox(height: 12),
-              Row(
+              )
+            : Text(channel.name),
+        leading: IconButton(
+          tooltip: _searching ? 'Cerrar búsqueda' : 'Volver',
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => setState(() {
+            if (_searching) {
+              _searching = false;
+              _searchController.clear();
+            } else {
+              _channel = null;
+              _messages = null;
+              _sendError = null;
+              _draftReady = false;
+              _draftError = null;
+              _controller.clear();
+            }
+          }),
+        ),
+        actions: [
+          if (!_searching && channel.isGroup) IconButton(key: const ValueKey('chat-manage-group'), tooltip: 'Administrar grupo', onPressed: () => _manageGroup(user, channel), icon: const Icon(Icons.group)),
+          if (_searching && _searchController.text.isNotEmpty)
+            IconButton(
+              key: const ValueKey('chat-search-clear'),
+              tooltip: 'Borrar búsqueda',
+              onPressed: () {
+                _searchController.clear();
+                setState(() {});
+              },
+              icon: const Icon(Icons.clear),
+            ),
+          if (!_searching && !channel.isGroup && channel.id.startsWith('direct') && _peerForCall(channel, user) != null) IconButton(key: const ValueKey('chat-start-voice-call'), tooltip: 'Llamada de voz', onPressed: () => _startCall(user, channel, video: false), icon: const Icon(Icons.call)),
+          if (!_searching && !channel.isGroup && channel.id.startsWith('direct') && _peerForCall(channel, user) != null) IconButton(key: const ValueKey('chat-start-video-call'), tooltip: 'Videollamada', onPressed: () => _startCall(user, channel, video: true), icon: const Icon(Icons.videocam)),
+          if (!_searching)
+            IconButton(
+              key: const ValueKey('chat-search-open'),
+              tooltip: 'Buscar en la conversación',
+              onPressed: () => setState(() => _searching = true),
+              icon: const Icon(Icons.search),
+            ),
+        ],
+      ),
+      body: Column(children: [
+        Padding(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2), child: Row(children: [
+          const Icon(Icons.translate, size: 18), const SizedBox(width: 6), const Text('Traducir a'), const SizedBox(width: 8),
+          DropdownButton<String>(key: const ValueKey('chat-translation-target'), value: _targetLanguage, items: ChatTranslationLanguages.items.map((language) => DropdownMenuItem(value: language.code, child: Text(language.name))).toList(), onChanged: (value) { if (value != null) setState(() => _targetLanguage = value); }),
+          const Spacer(), const Text('Auto'), Switch(key: const ValueKey('chat-auto-translate'), value: _autoTranslate, onChanged: (value) => setState(() => _autoTranslate = value)),
+        ])),
+        Expanded(
+          child: StreamBuilder<List<ChatMessage>>(
+            stream: _messages,
+            builder: (context, snapshot) {
+              if (snapshot.hasError) return _ErrorPanel(message: 'No se pudieron cargar los mensajes: ${snapshot.error}', onRetry: () => setState(() => _messages = _repository.watchMessages(uid: user.uid, channelId: channel.id)));
+              if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) return const Center(child: CircularProgressIndicator());
+              final messages = snapshot.data ?? const <ChatMessage>[];
+              if (messages.isEmpty) return const Center(child: Text('Aún no hay mensajes.'));
+              final query = _searchController.text.trim();
+              final visibleMessages = filterChatMessages(messages, query);
+              if (visibleMessages.isEmpty) {
+                return const Center(
+                  key: ValueKey('chat-search-no-matches'),
+                  child: Text('No se encontraron mensajes.'),
+                );
+              }
+              _followLatestMessages(visibleMessages.length);
+              return Stack(
                 children: [
-                  Expanded(
-                    child: TextField(
-                      decoration: const InputDecoration(
-                        hintText: 'Escribe un mensaje...',
-                        border: OutlineInputBorder(),
+                  ListView.builder(
+                    key: const ValueKey('chat-message-list'),
+                    controller: _messageScrollController,
+                    reverse: false,
+                    padding: const EdgeInsets.all(12),
+                    itemCount: visibleMessages.length,
+                    itemBuilder: (context, index) {
+                  final message = visibleMessages[index];
+                  final mine = message.senderEmail.trim().toLowerCase() == user.email.trim().toLowerCase();
+                  if (_autoTranslate && !mine && !_hasYouTubeLink(message) && !_translatedMessages.containsKey(message.id) && !_translatingMessageIds.contains(message.id) && message.text.trim().isNotEmpty) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) { if (mounted) _translateMessage(message); });
+                  }
+                  return Align(
+                    alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
+                    child: Card(
+                      color: mine ? Theme.of(context).colorScheme.primaryContainer : null,
+                      child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        if (!mine) HighlightedChatText(message.senderName, query: query, style: Theme.of(context).textTheme.labelSmall),
+                        if (_hasYouTubeLink(message)) _buildYouTubeMessage(message) else _buildTranslatedMessage(message, query),
+                        _MessageTimestamp(timestamp: message.timestamp, messageId: message.id),
+                        _ChatReactions(message: message, onToggle: (emoji) => _toggleReaction(user, channel, message, emoji)),
+                        if (message.text.trim().isNotEmpty) Align(alignment: Alignment.centerRight, child: TextButton.icon(key: ValueKey('chat-translate-${message.id}'), onPressed: _translatingMessageIds.contains(message.id) ? null : () => _toggleOrTranslate(message), icon: Icon(_translatedMessages.containsKey(message.id) ? Icons.language : Icons.translate, size: 16), label: Text(_translatingMessageIds.contains(message.id) ? 'Traduciendo…' : _translatedMessages.containsKey(message.id) ? 'Ver original' : 'Traducir'))),
+                        if (message.mediaUrl != null && message.mediaUrl!.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          if (message.mediaType == 'audio')
+                            VoiceNotePlayer(url: message.mediaUrl!, caption: message.text)
+                          else if (message.mediaType == 'image' || message.mediaType == 'gif')
+                            ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.network(message.mediaUrl!, width: 260, height: 190, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Text('No se pudo cargar la imagen.')))
+                          else if (message.mediaType == 'youtube')
+                            _buildYouTubeMessage(message)
+                          else if (message.mediaType == 'video')
+                            ChatVideoPlayer(source: Uri.parse(message.mediaUrl!), thumbnailUrl: message.mediaThumbnail)
+                          else if (message.mediaType == 'youtube')
+                            const SizedBox.shrink()
+                          else
+                            _DocumentAttachment(
+                              message: message,
+                              onOpen: () => _openDocument(message),
+                            ),
+                        ],
+                        if (message.text.trim().isNotEmpty)
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: IconButton(
+                              key: ValueKey('chat-message-copy-${message.id}'),
+                              tooltip: 'Copiar mensaje',
+                              onPressed: () => _copyMessage(message.text),
+                              icon: const Icon(Icons.copy, size: 18),
+                            ),
+                          ),
+                      ])),
+                    ),
+                  );
+                },
+              ),
+                  if (_showScrollToLatest)
+                    Positioned(
+                      right: 16,
+                      bottom: 16,
+                      child: FloatingActionButton.small(
+                        key: const ValueKey('chat-scroll-latest'),
+                        tooltip: 'Ir a los mensajes más recientes',
+                        onPressed: _scrollToLatest,
+                        child: const Icon(Icons.arrow_downward),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  FilledButton.icon(
-                    onPressed: () {},
-                    icon: const Icon(Icons.send),
-                    label: const Text('Enviar'),
-                  ),
                 ],
-              ),
-            ],
+              );
+            },
           ),
+        ),
+        if (_sendError != null) Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Text(_sendError!, style: TextStyle(color: Theme.of(context).colorScheme.error))),
+        if (_draftError != null) Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Text(_draftError!, style: TextStyle(color: Theme.of(context).colorScheme.error))),
+        if (_pendingVoiceNote case final voice?) Padding(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), child: Row(children: [const Icon(Icons.mic), const SizedBox(width: 8), Expanded(child: Text('${voice.fileName} · ${voice.mimeType}', maxLines: 1, overflow: TextOverflow.ellipsis)), IconButton(tooltip: 'Quitar nota de voz', onPressed: _sending ? null : () => setState(() => _pendingVoiceNote = null), icon: const Icon(Icons.close))])),
+        if (_pendingAttachment case final attachment?) Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          child: Row(children: [
+            if (attachment.isImage)
+              ClipRRect(borderRadius: BorderRadius.circular(6), child: Image.file(File(attachment.path), width: 44, height: 44, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_outlined)))
+            else
+              Icon(attachment.mediaType == 'video' ? Icons.video_file_outlined : Icons.insert_drive_file_outlined),
+            const SizedBox(width: 8), Expanded(child: Text('${attachment.name} · ${(File(attachment.path).lengthSync() / (1024 * 1024)).toStringAsFixed(1)} MiB', maxLines: 1, overflow: TextOverflow.ellipsis)),
+            IconButton(tooltip: 'Quitar adjunto', onPressed: _sending ? null : () => setState(() => _pendingAttachment = null), icon: const Icon(Icons.close)),
+          ]),
+        ),
+        SafeArea(top: false, child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+          child: Row(children: [
+            IconButton(key: const ValueKey('chat-record-voice-note'), tooltip: 'Grabar nota de voz', onPressed: _sending ? null : _recordVoiceNote, icon: const Icon(Icons.mic)),
+            IconButton(key: const ValueKey('chat-attach-media'), tooltip: 'Adjuntar foto, video o documento', onPressed: _sending ? null : _chooseAttachment, icon: const Icon(Icons.attach_file)),
+            Expanded(child: TextField(controller: _controller, enabled: _draftReady && !_sending, minLines: 1, maxLines: 4, textInputAction: TextInputAction.send, onChanged: (text) {
+              setState(() {});
+              if (_draftReady) _saveDraft(user, channel, text);
+            }, onSubmitted: (_) => _send(user, channel), decoration: const InputDecoration(hintText: 'Escribe un mensaje…', border: OutlineInputBorder()))),
+            const SizedBox(width: 8),
+            IconButton.filled(key: const ValueKey('chat-send-text'), onPressed: _sending || (_controller.text.trim().isEmpty && _pendingAttachment == null && _pendingVoiceNote == null) ? null : () => _send(user, channel), tooltip: _pendingVoiceNote != null ? 'Subir y enviar nota de voz' : _pendingAttachment == null ? 'Enviar' : 'Subir y enviar adjunto', icon: _sending ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.send)),
+          ]),
+        )),
+      ]),
+    );
+  }
+
+  Future<void> _openChannel(ChatIdentity user, ChatChannel channel) async {
+    setState(() {
+      _channel = channel;
+      _messages = _repository.watchMessages(uid: user.uid, channelId: channel.id);
+      _controller.clear();
+      _draftReady = false;
+      _draftError = null;
+      _sendError = null;
+    });
+    try {
+      await _draftWrites.catchError((_) {});
+      final draft = await _draftStorage.read(uid: user.uid, channelId: channel.id);
+      if (!mounted || _channel?.id != channel.id) return;
+      _controller.value = TextEditingValue(text: draft ?? '', selection: TextSelection.collapsed(offset: (draft ?? '').length));
+      setState(() => _draftReady = true);
+    } catch (error) {
+      if (mounted && _channel?.id == channel.id) setState(() {
+        _draftReady = true;
+        _draftError = 'No se pudo recuperar el borrador local: $error';
+      });
+    }
+  }
+
+  void _saveDraft(ChatIdentity user, ChatChannel channel, String text) {
+    final previous = _draftWrites;
+    _draftWrites = previous.catchError((_) {}).then((_) async {
+      try {
+        await _draftStorage.write(uid: user.uid, channelId: channel.id, text: text);
+        if (mounted && _channel?.id == channel.id) setState(() => _draftError = null);
+      } catch (error) {
+        if (mounted && _channel?.id == channel.id) setState(() => _draftError = 'No se pudo guardar el borrador local: $error');
+      }
+    });
+  }
+
+  Future<void> _clearDraft(ChatIdentity user, ChatChannel channel) async {
+    await _draftWrites.catchError((_) {});
+    await _draftStorage.clear(uid: user.uid, channelId: channel.id);
+  }
+
+  Future<void> _copyMessage(String text) async {
+    await Clipboard.setData(ClipboardData(text: text));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Mensaje copiado')),
+      );
+    }
+  }
+
+  Future<void> _openDocument(ChatMessage message) async {
+    final url = message.mediaUrl;
+    if (url == null || url.isEmpty) return;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(const SnackBar(content: Text('Descargando para abrir las opciones de compartir…')));
+    try {
+      await _mediaActions.downloadAndShare(
+        url: url,
+        fileName: message.mediaFileName.isNotEmpty ? message.mediaFileName : 'chat-attachment',
+        mimeType: message.mediaMimeType,
+      );
+    } catch (error) {
+      if (mounted) messenger.showSnackBar(SnackBar(content: Text('No se pudo abrir el archivo: $error')));
+    }
+  }
+
+  bool _hasYouTubeLink(ChatMessage message) => message.mediaType != 'audio' && message.mediaType != 'image' && message.mediaType != 'video' && extractChatYouTubeId(message.mediaUrl ?? message.text) != null;
+
+  Widget _buildYouTubeMessage(ChatMessage message) {
+    final videoId = extractChatYouTubeId(message.mediaUrl ?? message.text);
+    if (videoId == null) return const Text('Este enlace de YouTube no parece válido.');
+    final title = message.text.trim().isNotEmpty && !message.text.startsWith('▶️ Video de YouTube') ? message.text : 'Video de YouTube';
+    return ChatYouTubePlayer(videoId: videoId, title: title);
+  }
+
+  Widget _buildTranslatedMessage(ChatMessage message, String query) {
+    final translation = _translatedMessages[message.id];
+    final shown = translation ?? message.text;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      HighlightedChatText(shown, query: query),
+      if (translation != null) Padding(padding: const EdgeInsets.only(top: 2), child: Text('Traducido ${_translationSources[message.id] ?? ''} → ${_targetLanguage.toUpperCase()} · en el dispositivo', style: Theme.of(context).textTheme.labelSmall)),
+    ]);
+  }
+
+  Future<void> _toggleOrTranslate(ChatMessage message) async {
+    if (_translatedMessages.containsKey(message.id)) {
+      setState(() { _translatedMessages.remove(message.id); _translationSources.remove(message.id); });
+      return;
+    }
+    await _translateMessage(message);
+  }
+
+  Future<void> _translateMessage(ChatMessage message) async {
+    if (_translatingMessageIds.contains(message.id) || _translatedMessages.containsKey(message.id)) return;
+    setState(() => _translatingMessageIds.add(message.id));
+    try {
+      final result = await _translation.translate(message.text, _targetLanguage);
+      if (!mounted) return;
+      setState(() {
+        if (!result.sameLanguage) _translatedMessages[message.id] = result.translatedText;
+        _translationSources[message.id] = result.sourceLanguage;
+      });
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('No se pudo traducir: $error')));
+    } finally {
+      if (mounted) setState(() => _translatingMessageIds.remove(message.id));
+    }
+  }
+
+  Future<void> _toggleReaction(ChatIdentity user, ChatChannel channel, ChatMessage message, String emoji) async {
+    try {
+      await _repository.toggleReaction(uid: user.uid, channelId: channel.id, messageId: message.id, emoji: emoji);
+    } catch (error) {
+      if (mounted) setState(() => _sendError = 'No se pudo guardar la reacción: $error');
+    }
+  }
+
+  Future<void> _recordVoiceNote() async {
+    final note = await showDialog<VoiceNoteFile>(context: context, builder: (_) => const VoiceNoteDialog());
+    if (note == null || !mounted) return;
+    setState(() { _pendingVoiceNote = note; _pendingAttachment = null; _sendError = null; });
+  }
+
+  Future<void> _chooseAttachment() async {
+    final kind = await showModalBottomSheet<String>(context: context, builder: (context) => SafeArea(child: Column(mainAxisSize: MainAxisSize.min, children: [
+      ListTile(key: const ValueKey('chat-pick-image'), leading: const Icon(Icons.image_outlined), title: const Text('Foto o GIF'), onTap: () => Navigator.pop(context, 'image')),
+      ListTile(key: const ValueKey('chat-pick-video'), leading: const Icon(Icons.video_library_outlined), title: const Text('Video'), onTap: () => Navigator.pop(context, 'video')),
+      ListTile(key: const ValueKey('chat-pick-document'), leading: const Icon(Icons.attach_file), title: const Text('Archivo o documento'), onTap: () => Navigator.pop(context, 'file')),
+    ])));
+    if (kind == null || !mounted) return;
+    try {
+      final picked = switch (kind) { 'image' => await _attachmentPicker.pickImage(), 'video' => await _attachmentPicker.pickVideo(), _ => await _attachmentPicker.pickFile() };
+      if (picked != null && mounted) setState(() { _pendingAttachment = picked; _sendError = null; });
+    } catch (error) { if (mounted) setState(() => _sendError = error.toString()); }
+  }
+
+  Future<void> _send(ChatIdentity user, ChatChannel channel) async {
+    if (_sending) return;
+    final voiceNote = _pendingVoiceNote;
+    if (voiceNote != null) {
+      final audioAttachment = ChatAttachment(path: voiceNote.path, name: voiceNote.fileName, mimeType: voiceNote.mimeType, mediaType: 'audio');
+      setState(() { _sending = true; _sendError = null; });
+      try {
+        await _repository.sendAttachment(uid: user.uid, email: user.email, channelId: channel.id, attachment: audioAttachment, caption: _controller.text);
+        try { await File(voiceNote.path).delete(); } catch (_) {}
+        if (mounted) setState(() { _controller.clear(); _pendingVoiceNote = null; });
+        try { await _clearDraft(user, channel); if (mounted) setState(() => _draftError = null); } catch (error) { if (mounted) setState(() => _draftError = 'La nota se envió, pero no se pudo limpiar el borrador local: $error'); }
+      } catch (error) { if (mounted) setState(() => _sendError = 'No se pudo enviar la nota de voz: $error'); }
+      finally { if (mounted) setState(() => _sending = false); }
+      return;
+    }
+    final attachment = _pendingAttachment;
+    if (attachment != null) {
+      setState(() { _sending = true; _sendError = null; });
+      try {
+        await _repository.sendAttachment(uid: user.uid, email: user.email, channelId: channel.id, attachment: attachment, caption: _controller.text);
+        if (mounted) setState(() { _controller.clear(); _pendingAttachment = null; });
+        try {
+          await _clearDraft(user, channel);
+          if (mounted) setState(() => _draftError = null);
+        } catch (error) {
+          if (mounted) setState(() => _draftError = 'El mensaje se envió, pero no se pudo limpiar el borrador local: $error');
+        }
+      } catch (error) { if (mounted) setState(() => _sendError = 'No se pudo enviar: $error'); }
+      finally { if (mounted) setState(() => _sending = false); }
+      return;
+    }
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
+    setState(() { _sending = true; _sendError = null; });
+    try {
+      await _repository.sendText(uid: user.uid, email: user.email, channelId: channel.id, text: text);
+      if (mounted) setState(() => _controller.clear());
+      try {
+        await _clearDraft(user, channel);
+        if (mounted) setState(() => _draftError = null);
+      } catch (error) {
+        if (mounted) setState(() => _draftError = 'El mensaje se envió, pero no se pudo limpiar el borrador local: $error');
+      }
+    } catch (error) {
+      if (mounted) setState(() => _sendError = 'No se pudo enviar: $error');
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+}
+
+/// Returns an empty label for unset or out-of-range message timestamps.
+String? formatChatMessageTimestamp(
+  int timestamp, {
+  required MaterialLocalizations localizations,
+  required bool alwaysUse24HourFormat,
+}) {
+  if (timestamp <= 0) return null;
+  try {
+    final localDateTime = DateTime.fromMillisecondsSinceEpoch(timestamp).toLocal();
+    final date = localizations.formatFullDate(localDateTime);
+    final time = localizations.formatTimeOfDay(
+      TimeOfDay.fromDateTime(localDateTime),
+      alwaysUse24HourFormat: alwaysUse24HourFormat,
+    );
+    return '$date · $time';
+  } on ArgumentError {
+    return null;
+  }
+}
+
+class _MessageTimestamp extends StatelessWidget {
+  const _MessageTimestamp({required this.timestamp, required this.messageId});
+
+  final int timestamp;
+  final String messageId;
+
+  @override
+  Widget build(BuildContext context) {
+    final formatted = formatChatMessageTimestamp(
+      timestamp,
+      localizations: MaterialLocalizations.of(context),
+      alwaysUse24HourFormat: MediaQuery.of(context).alwaysUse24HourFormat,
+    );
+    if (formatted == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Semantics(
+        label: 'Hora del mensaje: $formatted',
+        child: Text(
+          formatted,
+          key: ValueKey('chat-message-time-$messageId'),
+          style: Theme.of(context).textTheme.labelSmall,
+          textAlign: TextAlign.end,
         ),
       ),
     );
   }
 }
 
-class _ChatBubble extends StatelessWidget {
-  final String text;
-  final bool isMe;
+class _ErrorPanel extends StatelessWidget {
+  const _ErrorPanel({required this.message, required this.onRetry});
+  final String message;
+  final VoidCallback onRetry;
+  @override
+  Widget build(BuildContext context) => Center(child: Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisSize: MainAxisSize.min, children: [Text(message, textAlign: TextAlign.center), const SizedBox(height: 12), OutlinedButton.icon(onPressed: onRetry, icon: const Icon(Icons.refresh), label: const Text('Reintentar'))])));
+}
 
-  const _ChatBubble({
-    required this.text,
-    required this.isMe,
-  });
+
+
+class _DocumentAttachment extends StatelessWidget {
+  const _DocumentAttachment({required this.message, required this.onOpen});
+  final ChatMessage message;
+  final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 6),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: isMe ? Colors.deepPurple : Colors.grey.shade200,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Text(
-          text,
-          style: TextStyle(
-            color: isMe ? Colors.white : Colors.black87,
-          ),
-        ),
-      ),
+    final name = message.mediaFileName.isNotEmpty ? message.mediaFileName : 'Archivo adjunto';
+    return OutlinedButton.icon(
+      key: ValueKey('chat-open-media-${message.id}'),
+      onPressed: onOpen,
+      icon: const Icon(Icons.open_in_new),
+      label: Text('$name · abrir o compartir'),
     );
+  }
+}
+
+
+class _ChatReactions extends StatelessWidget {
+  const _ChatReactions({required this.message, required this.onToggle});
+  final ChatMessage message;
+  final ValueChanged<String> onToggle;
+  static const quick = ['👍', '❤️', '😂'];
+
+  @override
+  Widget build(BuildContext context) {
+    final counts = countChatReactions(message.reactions);
+    return Wrap(spacing: 4, runSpacing: 2, children: [
+      for (final entry in counts.entries)
+        ActionChip(key: ValueKey('chat-reaction-${message.id}-${entry.key}'), label: Text('${entry.key} ${entry.value}'), onPressed: () => onToggle(entry.key), visualDensity: VisualDensity.compact),
+      for (final emoji in quick.where((emoji) => !counts.containsKey(emoji)))
+        InkWell(key: ValueKey('chat-add-reaction-${message.id}-$emoji'), onTap: () => onToggle(emoji), borderRadius: BorderRadius.circular(16), child: Padding(padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2), child: Text(emoji, style: const TextStyle(fontSize: 16)))),
+      PopupMenuButton<String>(key: ValueKey('chat-more-reactions-${message.id}'), tooltip: 'Más reacciones', onSelected: onToggle, itemBuilder: (_) => const ['🎉', '🔥', '😮', '😢', '🙏', '👏', '🚀', '✨'].map((emoji) => PopupMenuItem(value: emoji, child: Text(emoji))).toList(), child: const Padding(padding: EdgeInsets.all(4), child: Icon(Icons.add_reaction_outlined, size: 18))),
+    ]);
   }
 }

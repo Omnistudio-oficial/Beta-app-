@@ -8,6 +8,7 @@ import sys
 
 BUNDLE_ID = "com.omnistudio.omnistudioFlutterPrototype"
 FIREBASE_PLIST = Path("ios/Runner/GoogleService-Info.plist")
+ANDROID_FIREBASE_JSON = Path("android/app/google-services.json")
 BUILD_FILE_ID = "F1A5E0000000000000000001"
 FILE_REF_ID = "F1A5E0000000000000000002"
 
@@ -29,6 +30,112 @@ def main() -> None:
         raise SystemExit("Registered iOS Firebase config does not match the app bundle identifier")
 
     shutil.copy2(plist_source, runner / "GoogleService-Info.plist")
+
+    android_root = scaffold / "android"
+    if android_root.exists():
+        if not android_root.is_dir():
+            raise SystemExit("Generated Android scaffold path exists but is not a directory")
+        required_android_paths = (
+            android_root / "app",
+            android_root / "app/src/main/AndroidManifest.xml",
+        )
+        missing_android_paths = [str(path.relative_to(scaffold)) for path in required_android_paths if not path.exists()]
+        if missing_android_paths:
+            raise SystemExit("Generated Android scaffold is partial; missing: " + ", ".join(missing_android_paths))
+        # The Android host is also generated from a fresh Flutter scaffold in CI.
+        # Copy the registered Firebase client config into that transient scaffold,
+        # or Firebase.initializeApp() fails at app launch on Android.
+        android_firebase_config = scaffold / "android/app/google-services.json"
+        if not ANDROID_FIREBASE_JSON.is_file() or not android_firebase_config.parent.is_dir():
+            raise SystemExit("Registered Android Firebase config or generated Android app directory is missing")
+        shutil.copy2(ANDROID_FIREBASE_JSON, android_firebase_config)
+
+        # Use the exact package registered in Firebase, not Flutter create's
+        # project-name-derived package (which includes underscores).
+        import json
+        with android_firebase_config.open(encoding="utf-8") as stream:
+            android_firebase = json.load(stream)
+        registered_packages = {
+            client.get("client_info", {}).get("android_client_info", {}).get("package_name")
+            for client in android_firebase.get("client", [])
+        }
+        if BUNDLE_ID not in registered_packages:
+            raise SystemExit("Registered Android Firebase config has no client for the app package")
+
+        # `flutter create` makes a fresh Gradle host, so it does not inherit the
+        # Google Services plugin declared in the checked-in Android project. The
+        # JSON file alone is not processed unless the plugin is registered and
+        # applied to the generated app.
+        settings_gradle = scaffold / "android/settings.gradle"
+        if not settings_gradle.is_file():
+            settings_gradle = scaffold / "android/settings.gradle.kts"
+        app_gradle = scaffold / "android/app/build.gradle"
+        if not app_gradle.is_file():
+            app_gradle = scaffold / "android/app/build.gradle.kts"
+        if not settings_gradle.is_file() or not app_gradle.is_file():
+            raise SystemExit("Generated Android Gradle settings or app build file is missing")
+
+        app_text = app_gradle.read_text(encoding="utf-8")
+        app_text, namespace_count = re.subn(
+            r'(?m)^(\s*namespace\s*=\s*)["\'][^"\']+["\']',
+            lambda match: match.group(1) + '"' + BUNDLE_ID + '"',
+            app_text, count=1,
+        )
+        app_text, application_id_count = re.subn(
+            r'(?m)^(\s*applicationId\s*=\s*)["\'][^"\']+["\']',
+            lambda match: match.group(1) + '"' + BUNDLE_ID + '"',
+            app_text, count=1,
+        )
+        if namespace_count != 1 or application_id_count != 1:
+            raise SystemExit("Could not align generated Android namespace/applicationId with Firebase")
+        app_gradle.write_text(app_text, encoding="utf-8")
+
+        main_activities = list((scaffold / "android/app/src/main").rglob("MainActivity.kt"))
+        if len(main_activities) != 1:
+            raise SystemExit("Could not find exactly one generated Android MainActivity")
+        activity_text = main_activities[0].read_text(encoding="utf-8")
+        activity_text, package_count = re.subn(
+            r"(?m)^package\s+[A-Za-z0-9_.]+\s*$",
+            "package " + BUNDLE_ID,
+            activity_text, count=1,
+        )
+        if package_count != 1:
+            raise SystemExit("Could not align generated Android MainActivity package with Firebase")
+        main_activities[0].write_text(activity_text, encoding="utf-8")
+
+        settings_text = settings_gradle.read_text(encoding="utf-8")
+        if "com.google.gms.google-services" not in settings_text:
+            plugin_block = re.search(r"(?ms)^plugins\s*\{.*?^\}", settings_text)
+            if plugin_block is None:
+                raise SystemExit("Could not find the generated Android settings plugins block")
+            plugin_declaration = (
+                '    id("com.google.gms.google-services") version "4.4.2" apply false\n'
+                if settings_gradle.suffix == ".kts"
+                else '    id "com.google.gms.google-services" version "4.4.2" apply false\n'
+            )
+            settings_text = (
+                settings_text[:plugin_block.end() - 1]
+                + plugin_declaration
+                + settings_text[plugin_block.end() - 1:]
+            )
+            settings_gradle.write_text(settings_text, encoding="utf-8")
+
+        if "com.google.gms.google-services" not in app_text:
+            app_plugins = re.search(r"(?ms)^plugins\s*\{.*?^\}", app_text)
+            if app_plugins is None:
+                raise SystemExit("Could not find the generated Android app plugins block")
+            plugin_declaration = (
+                '    id("com.google.gms.google-services")\n'
+                if app_gradle.suffix == ".kts"
+                else '    id "com.google.gms.google-services"\n'
+            )
+            app_text = (
+                app_text[:app_plugins.end() - 1]
+                + plugin_declaration
+                + app_text[app_plugins.end() - 1:]
+            )
+            app_gradle.write_text(app_text, encoding="utf-8")
+
     project = project_file.read_text(encoding="utf-8")
     if "GoogleService-Info.plist" not in project:
         project = project.replace(
@@ -92,17 +199,137 @@ def main() -> None:
     )
     if matches < 1:
         raise SystemExit("Could not set the generated iOS bundle identifier")
+    # ML Kit translation and language identification require iOS 15.5+.
+    project, target_count = re.subn(
+        r"(IPHONEOS_DEPLOYMENT_TARGET\s*=\s*)[0-9.]+;",
+        r"\g<1>15.5;",
+        project,
+    )
+    if target_count < 1:
+        raise SystemExit("Could not set the generated iOS deployment target to 15.5")
     project_file.write_text(project, encoding="utf-8")
+
+    podfile = scaffold / "ios/Podfile"
+    if not podfile.is_file():
+        podfile_text = """platform :ios, '15.5'
+ENV['COCOAPODS_DISABLE_STATS'] = 'true'
+
+project 'Runner', {
+  'Debug' => :debug,
+  'Profile' => :release,
+  'Release' => :release,
+}
+
+def flutter_root
+  generated_xcode_build_settings_path = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
+  unless File.exist?(generated_xcode_build_settings_path)
+    raise "#{generated_xcode_build_settings_path} must exist. Run flutter pub get first"
+  end
+  File.foreach(generated_xcode_build_settings_path) do |line|
+    matches = line.match(/FLUTTER_ROOT=(.*)/)
+    return matches[1].strip if matches
+  end
+  raise "FLUTTER_ROOT not found in #{generated_xcode_build_settings_path}"
+end
+
+require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
+flutter_ios_podfile_setup
+
+target 'Runner' do
+  use_frameworks!
+  use_modular_headers!
+  flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+  target 'RunnerTests' do
+    inherit! :search_paths
+  end
+end
+
+post_install do |installer|
+  installer.pods_project.targets.each do |target|
+    flutter_additional_ios_build_settings(target)
+    target.build_configurations.each do |config|
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
+      config.build_settings['ONLY_ACTIVE_ARCH'] = 'YES'
+    end
+  end
+end
+"""
+    else:
+        podfile_text = podfile.read_text(encoding="utf-8")
+        platform_pattern = r"(?m)^\s*#?\s*platform\s*:ios\s*,\s*['\"][^'\"]+['\"]\s*$"
+        podfile_text, platform_count = re.subn(platform_pattern, "platform :ios, '15.5'", podfile_text, count=1)
+        if platform_count == 0:
+            podfile_text = "platform :ios, '15.5'\n" + podfile_text
+        if "post_install do |installer|" in podfile_text and "flutter_additional_ios_build_settings(target)" in podfile_text:
+            build_settings = "flutter_additional_ios_build_settings(target)\n      target.build_configurations.each do |config|\n        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'\n        config.build_settings['ONLY_ACTIVE_ARCH'] = 'YES'\n      end"
+            podfile_text = podfile_text.replace("flutter_additional_ios_build_settings(target)", build_settings, 1)
+        elif "ONLY_ACTIVE_ARCH" not in podfile_text:
+            raise SystemExit("Could not configure iOS Pods for the 15.5 deployment target and active architecture")
+    podfile.write_text(podfile_text, encoding="utf-8")
 
     with info_plist.open("rb") as stream:
         app_info = plistlib.load(stream)
-    # The standard Flutter template uses $(PRODUCT_BUNDLE_IDENTIFIER); keep it dynamic.
-    if app_info.get("CFBundleIdentifier") != "$(PRODUCT_BUNDLE_IDENTIFIER)":
-        app_info["CFBundleIdentifier"] = "$(PRODUCT_BUNDLE_IDENTIFIER)"
-        with info_plist.open("wb") as stream:
-            plistlib.dump(app_info, stream)
+    photo_usage_key = "NSPhotoLibraryUsageDescription"
+    photo_usage = "Select photos and videos to attach to your private Social posts."
+    if app_info.get(photo_usage_key) != photo_usage:
+        app_info[photo_usage_key] = photo_usage
 
-    print("Prepared iOS scaffold with the registered Firebase client plist and bundle ID.")
+    # The standard Flutter template uses $(PRODUCT_BUNDLE_IDENTIFIER); keep it dynamic.
+    app_info["CFBundleIdentifier"] = "$(PRODUCT_BUNDLE_IDENTIFIER)"
+    app_info["NSPhotoLibraryUsageDescription"] = (
+        "Permite seleccionar fotos y videos para publicarlos de forma privada en tu cuenta de Social."
+    )
+    app_info["NSMicrophoneUsageDescription"] = "OmniStudio usa el micrófono para grabar notas de voz y realizar llamadas que tú inicias o respondes."
+    app_info["NSCameraUsageDescription"] = "La cámara se activa solo cuando abres la vista previa de Social o usas una videollamada."
+    app_info["NSLocationWhenInUseUsageDescription"] = (
+        "La ubicación se usa para mostrar tu posición en el mapa y guiarte por una ruta mientras usas la aplicación."
+    )
+    with info_plist.open("wb") as stream:
+        plistlib.dump(app_info, stream)
+
+    if android_root.exists():
+        # The Android host is generated transiently in CI, so declare camera
+        # permission here rather than editing a non-persistent native scaffold.
+        android_manifest = scaffold / "android/app/src/main/AndroidManifest.xml"
+        if android_manifest.is_file():
+            android_text = android_manifest.read_text(encoding="utf-8")
+            camera_permission = '<uses-permission android:name="android.permission.CAMERA" />'
+            if camera_permission not in android_text:
+                application_start = android_text.find("<application")
+                if application_start < 0:
+                    raise SystemExit("Could not find the generated Android application element")
+                android_text = android_text[:application_start] + "    " + camera_permission + "\n    " + android_text[application_start:]
+                android_manifest.write_text(android_text, encoding="utf-8")
+
+        # Flutter's generated host defaults to an older compile SDK. Some plugin
+        # manifests (for example flutter_plugin_android_lifecycle) require API 36.
+        # Set compileSdk only; targetSdk/minSdk remain at Flutter defaults.
+        android_gradle = scaffold / "android/app/build.gradle.kts"
+        if not android_gradle.is_file():
+            android_gradle = scaffold / "android/app/build.gradle"
+        if not android_gradle.is_file():
+            raise SystemExit("Could not find the generated Android app Gradle build file")
+        gradle_text = android_gradle.read_text(encoding="utf-8")
+        gradle_text, sdk_count = re.subn(
+            r"(?m)^(\s*compileSdk\s*=\s*)(?:flutter\.compileSdkVersion|[0-9]+)(\s*(?://.*)?$)",
+            r"\g<1>36\g<2>",
+            gradle_text,
+            count=1,
+        )
+        if sdk_count == 0:
+            gradle_text, sdk_count = re.subn(
+                r"(?m)^(\s*compileSdkVersion\s+)(?:flutter\.compileSdkVersion|[0-9]+)(\s*(?://.*)?$)",
+                r"\g<1>36\g<2>",
+                gradle_text,
+                count=1,
+            )
+        if sdk_count != 1:
+            raise SystemExit("Could not set generated Android compileSdk to 36")
+        android_gradle.write_text(gradle_text, encoding="utf-8")
+
+    print("Prepared generated iOS scaffold with registered Firebase config and preserved iOS settings.")
+    if android_root.exists():
+        print("Prepared Android scaffold with registered Firebase config, matching package, Google Services plugin, camera permission, and compileSdk 36.")
 
 
 if __name__ == "__main__":

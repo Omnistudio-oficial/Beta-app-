@@ -213,23 +213,95 @@ jobs:
               plistlib.dump(options, f)
           PY
       - name: Compile Flutter iOS app without development signing
-        run: flutter build ios --release --no-codesign --no-pub
+        env:
+          IOS_BUILD_NUMBER: ${{ github.run_number }}
+        run: flutter build ios --release --no-codesign --no-pub --build-number "$IOS_BUILD_NUMBER"
       - name: Archive app with verified App Store distribution signing
         env:
           TEAM_ID: ${{ steps.signing.outputs.team_id }}
-          PROFILE_NAME: ${{ steps.signing.outputs.profile_name }}
+          PROFILE_UUID: ${{ steps.signing.outputs.profile_uuid }}
         run: |
           set -euo pipefail
+          # Scope distribution signing to the Runner app target only. Passing
+          # PROVISIONING_PROFILE_SPECIFIER on the xcodebuild command line
+          # overrides every target in the workspace, including Pods and
+          # Swift packages that must remain automatically signed.
+          python3 - <<'PYTHON'
+          import os, re
+          from pathlib import Path
+
+          project = Path("ios/Runner.xcodeproj/project.pbxproj")
+          text = project.read_text()
+
+          def block_for(text, start):
+              opening = text.index("{", start)
+              depth = 0
+              for pos in range(opening, len(text)):
+                  if text[pos] == "{":
+                      depth += 1
+                  elif text[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return opening, pos + 1
+              raise RuntimeError("Unbalanced Xcode project block")
+
+          target_match = re.search(
+              r"(?m)^\s*([A-F0-9]+) /\* Runner \*/ = \{\s*isa = PBXNativeTarget;",
+              text,
+          )
+          if not target_match:
+              raise SystemExit("Could not locate the Runner app target")
+          _, target_end = block_for(text, target_match.start())
+          target = text[target_match.start():target_end]
+          list_match = re.search(r"buildConfigurationList = ([A-F0-9]+) /\*", target)
+          if not list_match:
+              raise SystemExit("Could not locate Runner build configurations")
+          list_id = list_match.group(1)
+          config_list_match = re.search(
+              rf"(?m)^\s*{list_id} /\*[^*]+\*/ = \{{\s*isa = XCConfigurationList;",
+              text,
+          )
+          if not config_list_match:
+              raise SystemExit("Could not resolve Runner configuration list")
+          _, list_end = block_for(text, config_list_match.start())
+          config_list = text[config_list_match.start():list_end]
+          configs_match = re.search(r"buildConfigurations = \((.*?)\);", config_list, re.S)
+          if not configs_match:
+              raise SystemExit("Runner configuration list is empty")
+          config_ids = re.findall(r"([A-F0-9]+) /\*", configs_match.group(1))
+          if not config_ids:
+              raise SystemExit("No Runner build configurations found")
+          settings = (
+              f"\n\t\t\t\tCODE_SIGN_STYLE = Manual;"
+              f"\n\t\t\t\tDEVELOPMENT_TEAM = {os.environ['TEAM_ID']};"
+              f"\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = {os.environ['PROFILE_UUID']};"
+              f"\n\t\t\t\tCODE_SIGN_IDENTITY = \"Apple Distribution\";"
+              f"\n\t\t\t\tCODE_SIGNING_ALLOWED = YES;"
+              f"\n\t\t\t\tCODE_SIGNING_REQUIRED = YES;"
+          )
+          for config_id in config_ids:
+              match = re.search(
+                  rf"(?m)^\s*{config_id} /\*[^*]+\*/ = \{{\s*isa = XCBuildConfiguration;",
+                  text,
+              )
+              if not match:
+                  raise SystemExit(f"Could not resolve Runner config {config_id}")
+              start, end = block_for(text, match.start())
+              chunk = text[start:end]
+              build_settings = re.search(r"buildSettings = \{", chunk)
+              if not build_settings:
+                  raise SystemExit(f"Runner config {config_id} lacks build settings")
+              insert_at = start + build_settings.end()
+              text = text[:insert_at] + settings + text[insert_at:]
+          project.write_text(text)
+          print(f"Applied manual distribution signing to Runner only ({len(config_ids)} configs).")
+          PYTHON
           xcodebuild \
             -workspace ios/Runner.xcworkspace \
             -scheme Runner \
             -configuration Release \
             -sdk iphoneos \
             -archivePath "$RUNNER_TEMP/OmniStudio.xcarchive" \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_STYLE=Manual \
-            PRODUCT_BUNDLE_IDENTIFIER="com.omnistudio.omnistudioFlutterPrototype" \
             archive
           xcodebuild -exportArchive \
             -archivePath "$RUNNER_TEMP/OmniStudio.xcarchive" \

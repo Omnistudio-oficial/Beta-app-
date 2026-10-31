@@ -14,7 +14,7 @@ permissions:
 jobs:
   flutter:
     runs-on: macos-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     defaults:
       run:
         working-directory: flutter_app
@@ -26,18 +26,148 @@ jobs:
         with:
           channel: stable
           cache: true
+      - name: Install Android API 36 platform
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-36"
       - name: Generate iOS scaffold with Firebase configuration
         run: |
-          flutter create --platforms=ios --project-name=omnistudio_flutter_prototype --org=com.omnistudio --no-pub .ci_scaffold
+          flutter create --platforms=android,ios --project-name=omnistudio_flutter_prototype --org=com.omnistudio --no-pub .ci_scaffold
           python3 tool/prepare_platforms.py .ci_scaffold
           rm -rf ios
           cp -R .ci_scaffold/ios ./ios
+          rm -rf android
+          cp -R .ci_scaffold/android ./android
           rm -rf .ci_scaffold
+          python3 - <<'PYGRADLE'
+          from pathlib import Path
+          import re
+          candidates = [Path("android/app/build.gradle.kts"), Path("android/app/build.gradle")]
+          gradle = next((p for p in candidates if p.is_file()), None)
+          if gradle is None:
+              raise SystemExit("Generated Android app Gradle file is missing")
+          text = gradle.read_text()
+          updated, count = re.subn(r"(?m)^(\s*compileSdk\s*=\s*)(?:flutter\.compileSdkVersion|[0-9]+)(\s*(?://.*)?$)", r"\g<1>36\g<2>", text, count=1)
+          if count != 1:
+              updated, count = re.subn(r"(?m)^(\s*compileSdkVersion\s+)(?:flutter\.compileSdkVersion|[0-9]+)(\s*(?://.*)?$)", r"\g<1>36\g<2>", text, count=1)
+          if count != 1:
+              raise SystemExit("Could not force generated Android compile SDK to 36")
+          gradle.write_text(updated)
+          print("Verified generated Android Gradle compileSdk line:")
+          print(next(line.strip() for line in updated.splitlines() if "compileSdk" in line))
+          PYGRADLE
       - name: Resolve Flutter packages
         run: flutter pub get
+      - name: Set Android plugin compile SDK to API 36
+        run: |
+          python3 - <<'PYPLUGIN'
+          import json, re
+          from pathlib import Path
+          metadata = Path(".flutter-plugins-dependencies")
+          if not metadata.is_file():
+              raise SystemExit("Flutter plugin dependency metadata is missing")
+          data = json.loads(metadata.read_text())
+          plugins = data.get("plugins", {}).get("android", [])
+          if not plugins:
+              raise SystemExit("Flutter reports no Android plugins")
+          pattern = re.compile(r"(?m)^(\s*compileSdk(?:Version)?\s*(?:=\s*|\s+))(?:flutter\.compileSdkVersion|[0-9]+)(\s*(?://.*)?$)")
+          changed = []
+          untouched = []
+          for plugin in plugins:
+              base = Path(plugin["path"])
+              for gradle in (base / "android/build.gradle", base / "android/build.gradle.kts"):
+                  if not gradle.is_file():
+                      continue
+                  text = gradle.read_text(errors="ignore")
+                  updated, count = pattern.subn(r"\g<1>36\g<2>", text, count=1)
+                  if count:
+                      gradle.write_text(updated)
+                      changed.append((plugin.get("name", base.name), str(gradle)))
+                  else:
+                      untouched.append((plugin.get("name", base.name), str(gradle)))
+          print(f"Flutter Android plugins: {len(plugins)}; patched Gradle files: {len(changed)}")
+          for name, path in changed:
+              print(f"API 36: {name}: {path}")
+          for name, path in untouched:
+              print(f"No compileSdk declaration: {name}: {path}")
+          if not changed:
+              raise SystemExit("Could not find plugin compileSdk declaration to update")
+          PYPLUGIN
+      - name: Restore and verify persistent Flutter test signing
+        env:
+          TEST_OAUTH_KEYSTORE_B64: ${{ secrets.TEST_OAUTH_KEYSTORE_B64 }}
+          TEST_OAUTH_KEYSTORE_PASSWORD: ${{ secrets.TEST_OAUTH_KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${TEST_OAUTH_KEYSTORE_B64:-}" || -z "${TEST_OAUTH_KEYSTORE_PASSWORD:-}" ]]; then
+            echo 'Persistent test signing secrets are required; refusing to build with an ephemeral debug key.' >&2
+            exit 1
+          fi
+          KEYSTORE="${RUNNER_TEMP}/omnistudio-test-signing.p12"
+          printf '%s' "$TEST_OAUTH_KEYSTORE_B64" | base64 --decode > "$KEYSTORE"
+          chmod 600 "$KEYSTORE"
+          SHA1="$(keytool -list -v -keystore "$KEYSTORE" -storetype PKCS12 -storepass "$TEST_OAUTH_KEYSTORE_PASSWORD" -alias androiddebugkey | awk -F': ' '/SHA1:/{print $2; exit}' | tr -d ': ' | tr '[:lower:]' '[:upper:]')"
+          EXPECTED_SHA1='9763B6272094D4BE951B681A5358D38869B34C84'
+          if [[ "$SHA1" != "$EXPECTED_SHA1" ]]; then
+            echo 'Persistent test certificate does not match the SHA-1 registered in Firebase; refusing to build.' >&2
+            exit 1
+          fi
+          echo "Verified persistent test certificate SHA-1: $SHA1"
+          python3 - <<'PYGRADLE'
+          from pathlib import Path
+          import re
+          p = Path("android/app/build.gradle.kts")
+          if not p.is_file():
+              raise SystemExit("Generated Android Gradle Kotlin build file is missing")
+          text = p.read_text()
+          if 'create("testPersistent")' in text:
+              raise SystemExit("Refusing duplicate persistent signing configuration")
+          if not re.search(r"(?m)^\s*buildTypes\s*\{", text):
+              raise SystemExit("Generated Android buildTypes block is missing")
+          signing = "\n    signingConfigs {\n        create(\"testPersistent\") {\n            storeFile = file(System.getenv(\"OMNISTUDIO_TEST_KEYSTORE_PATH\") ?: error(\"Test keystore path missing\"))\n            storePassword = System.getenv(\"OMNISTUDIO_TEST_KEYSTORE_PASSWORD\") ?: error(\"Test keystore password missing\")\n            keyAlias = \"androiddebugkey\"\n            keyPassword = System.getenv(\"OMNISTUDIO_TEST_KEYSTORE_PASSWORD\") ?: error(\"Test key password missing\")\n            storeType = \"PKCS12\"\n        }\n    }\n"
+          text = re.sub(r"(?m)^(android\s*\{)", lambda m: m.group(1) + signing, text, count=1)
+          debug = "\n        debug {\n            signingConfig = signingConfigs.getByName(\"testPersistent\")\n        }\n"
+          text, count = re.subn(r"(?m)^(\s*buildTypes\s*\{)", lambda m: m.group(1) + debug, text, count=1)
+          if count != 1 or 'create("testPersistent")' not in text:
+              raise SystemExit("Could not inject persistent test signing into generated Android build")
+          p.write_text(text)
+          print("Configured generated Android debug build to use persistent test signing.")
+          PYGRADLE
       - name: Analyze Flutter sources
         run: flutter analyze --no-pub
       - name: Run offline-capable widget tests
         run: flutter test --no-pub
       - name: Build unsigned iOS app
-        run: flutter build ios --debug --no-codesign --no-pub
+        env:
+          SUPABASE_PROJECT_URL: ${{ secrets.SUPABASE_PROJECT_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          OPENROUTESERVICE_API_KEY: ${{ secrets.OPENROUTESERVICE_API_KEY }}
+        run: >-
+          flutter build ios --debug --no-codesign --no-pub
+          --dart-define=SUPABASE_PROJECT_URL=$SUPABASE_PROJECT_URL
+          --dart-define=SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY
+          --dart-define=OPENROUTESERVICE_API_KEY=$OPENROUTESERVICE_API_KEY
+
+      - name: Build generated Android host
+        env:
+          OMNISTUDIO_TEST_KEYSTORE_PATH: ${{ runner.temp }}/omnistudio-test-signing.p12
+          OMNISTUDIO_TEST_KEYSTORE_PASSWORD: ${{ secrets.TEST_OAUTH_KEYSTORE_PASSWORD }}
+          SUPABASE_PROJECT_URL: ${{ secrets.SUPABASE_PROJECT_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          OPENROUTESERVICE_API_KEY: ${{ secrets.OPENROUTESERVICE_API_KEY }}
+        run: >-
+          flutter build apk --debug --no-pub
+          --dart-define=SUPABASE_PROJECT_URL=$SUPABASE_PROJECT_URL
+          --dart-define=SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY
+          --dart-define=OPENROUTESERVICE_API_KEY=$OPENROUTESERVICE_API_KEY
+
+      - name: Upload installable Android debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: omnistudio-flutter-debug-apk
+          path: flutter_app/build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+      - name: Remove temporary test signing material
+        if: always()
+        run: rm -f "${RUNNER_TEMP}/omnistudio-test-signing.p12"
