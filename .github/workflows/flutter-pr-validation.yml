@@ -8,18 +8,22 @@ on:
       - ".github/workflows/flutter-pr-validation.yml"
   workflow_dispatch:
     inputs:
-      android_only:
-        description: "Run Android validation and APK build only (skip the iOS job)"
+      platform:
+        description: "Which Flutter platform job to run"
         required: true
-        type: boolean
-        default: false
+        type: choice
+        options:
+          - both
+          - android
+          - ios
+        default: both
 
 permissions:
   contents: read
 
 jobs:
   ios:
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.android_only != true }}
+    if: ${{ github.event_name == 'pull_request' || inputs.platform == 'both' || inputs.platform == 'ios' }}
     runs-on: macos-latest
     timeout-minutes: 35
     defaults:
@@ -77,7 +81,7 @@ jobs:
           --dart-define=OPENROUTESERVICE_API_KEY=$OPENROUTESERVICE_API_KEY
 
   android:
-    if: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.android_only == true) }}
+    if: ${{ github.event_name == 'pull_request' || inputs.platform == 'both' || inputs.platform == 'android' }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     defaults:
