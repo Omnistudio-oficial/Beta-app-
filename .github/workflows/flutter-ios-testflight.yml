@@ -213,7 +213,9 @@ jobs:
               plistlib.dump(options, f)
           PY
       - name: Compile Flutter iOS app without development signing
-        run: flutter build ios --release --no-codesign --no-pub
+        env:
+          IOS_BUILD_NUMBER: ${{ github.run_number }}
+        run: flutter build ios --release --no-codesign --no-pub --build-number "$IOS_BUILD_NUMBER"
       - name: Archive app with verified App Store distribution signing
         env:
           TEAM_ID: ${{ steps.signing.outputs.team_id }}
