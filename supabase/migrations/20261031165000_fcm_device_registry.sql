@@ -9,7 +9,7 @@ create table if not exists public.fcm_device_tokens (
   fcm_token text not null check (length(fcm_token) between 1 and 4096),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  unique (uid, app_id, token_hash)
+  unique (uid, app_id, platform, token_hash)
 );
 
 alter table public.fcm_device_tokens enable row level security;
