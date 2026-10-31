@@ -194,7 +194,7 @@ jobs:
           TEST_OAUTH_KEYSTORE_PASSWORD: ${{ secrets.TEST_OAUTH_KEYSTORE_PASSWORD }}
         run: |
           set -euo pipefail
-          if [[ -z "\( {TEST_OAUTH_KEYSTORE_B64:-}" || -z " \){TEST_OAUTH_KEYSTORE_PASSWORD:-}" ]]; then
+          if [[ -z "${TEST_OAUTH_KEYSTORE_B64:-}" || -z "${TEST_OAUTH_KEYSTORE_PASSWORD:-}" ]]; then
             echo 'Persistent test signing secrets are required; refusing to build.' >&2
             exit 1
           fi
