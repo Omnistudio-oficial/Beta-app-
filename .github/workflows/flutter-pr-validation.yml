@@ -33,10 +33,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
+
       - name: Generate iOS scaffold with Firebase configuration
         run: |
           flutter create --platforms=android,ios --project-name=omnistudio_flutter_prototype --org=com.omnistudio --no-pub .ci_scaffold
@@ -63,12 +65,16 @@ jobs:
           print("Verified generated Android Gradle compileSdk line:")
           print(next(line.strip() for line in updated.splitlines() if "compileSdk" in line))
           PYGRADLE
+
       - name: Resolve Flutter packages
         run: flutter pub get
+
       - name: Analyze Flutter sources
         run: flutter analyze --no-pub
+
       - name: Run offline-capable widget tests
         run: flutter test --no-pub
+
       - name: Build unsigned iOS app
         env:
           SUPABASE_PROJECT_URL: ${{ secrets.SUPABASE_PROJECT_URL }}
@@ -83,7 +89,7 @@ jobs:
   android:
     if: ${{ github.event_name == 'pull_request' || inputs.platform == 'both' || inputs.platform == 'android' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: flutter_app
@@ -91,20 +97,45 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
           cache: gradle
           cache-dependency-path: flutter_app/android/**/*.gradle*
+
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
-      - name: Install Android API 36 platform
+
+      # ---------- CACHÉ DEL ANDROID SDK ----------
+      - name: Cache Android SDK
+        id: android-sdk-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.ANDROID_HOME }}/platforms
+            ${{ env.ANDROID_HOME }}/build-tools
+            ${{ env.ANDROID_HOME }}/cmake
+            ${{ env.ANDROID_HOME }}/ndk
+            \~/.android
+          key: ${{ runner.os }}-android-sdk-36-cmake3.22.1
+          restore-keys: |
+            ${{ runner.os }}-android-sdk-36-
+            ${{ runner.os }}-android-sdk-
+
+      - name: Install Android SDK packages (only if cache miss)
+        if: steps.android-sdk-cache.outputs.cache-hit != 'true'
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-36"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install \
+            "platforms;android-36" \
+            "build-tools;36.0.0" \
+            "cmake;3.22.1"
+      # -------------------------------------------
+
       - name: Generate Android scaffold with Firebase configuration
         run: |
           flutter create --platforms=android,ios --project-name=omnistudio_flutter_prototype --org=com.omnistudio --no-pub .ci_scaffold
@@ -127,8 +158,10 @@ jobs:
               raise SystemExit("Could not force generated Android compile SDK to 36")
           gradle.write_text(updated)
           PY
+
       - name: Resolve Flutter packages
         run: flutter pub get
+
       - name: Set Android plugin compile SDK to API 36
         run: |
           python3 - <<'PY'
@@ -154,13 +187,14 @@ jobs:
           if not changed:
               raise SystemExit("Could not find plugin compileSdk declaration to update")
           PY
+
       - name: Restore and verify persistent Flutter test signing
         env:
           TEST_OAUTH_KEYSTORE_B64: ${{ secrets.TEST_OAUTH_KEYSTORE_B64 }}
           TEST_OAUTH_KEYSTORE_PASSWORD: ${{ secrets.TEST_OAUTH_KEYSTORE_PASSWORD }}
         run: |
           set -euo pipefail
-          if [[ -z "${TEST_OAUTH_KEYSTORE_B64:-}" || -z "${TEST_OAUTH_KEYSTORE_PASSWORD:-}" ]]; then
+          if [[ -z "\( {TEST_OAUTH_KEYSTORE_B64:-}" || -z " \){TEST_OAUTH_KEYSTORE_PASSWORD:-}" ]]; then
             echo 'Persistent test signing secrets are required; refusing to build.' >&2
             exit 1
           fi
@@ -193,10 +227,13 @@ jobs:
               raise SystemExit("Could not inject persistent test signing into generated Android build")
           p.write_text(text)
           PY
+
       - name: Analyze Flutter sources
         run: flutter analyze --no-pub
+
       - name: Run offline-capable widget tests
         run: flutter test --no-pub
+
       - name: Build Android debug APK
         env:
           OMNISTUDIO_TEST_KEYSTORE_PATH: ${{ runner.temp }}/omnistudio-test-signing.p12
@@ -209,6 +246,7 @@ jobs:
           --dart-define=SUPABASE_PROJECT_URL=$SUPABASE_PROJECT_URL
           --dart-define=SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY
           --dart-define=OPENROUTESERVICE_API_KEY=$OPENROUTESERVICE_API_KEY
+
       - name: Upload installable Android debug APK
         uses: actions/upload-artifact@v4
         with:
@@ -216,6 +254,7 @@ jobs:
           path: flutter_app/build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
           retention-days: 14
+
       - name: Remove temporary test signing material
         if: always()
         run: rm -f "${RUNNER_TEMP}/omnistudio-test-signing.p12"
