@@ -18,3 +18,10 @@ verify_jwt = false
 # This endpoint validates Firebase ID tokens itself.
 [functions.chat-media-access]
 verify_jwt = false
+
+# FCM registry and sender authenticate Firebase ID tokens in handler code.
+[functions.register-fcm-device]
+verify_jwt = false
+
+[functions.send-flutter-push]
+verify_jwt = false
