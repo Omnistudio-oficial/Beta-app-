@@ -217,7 +217,7 @@ jobs:
       - name: Archive app with verified App Store distribution signing
         env:
           TEAM_ID: ${{ steps.signing.outputs.team_id }}
-          PROFILE_NAME: ${{ steps.signing.outputs.profile_name }}
+          PROFILE_UUID: ${{ steps.signing.outputs.profile_uuid }}
         run: |
           set -euo pipefail
           # Scope distribution signing to the Runner app target only. Passing
@@ -272,7 +272,7 @@ jobs:
           settings = (
               f"\n\t\t\t\tCODE_SIGN_STYLE = Manual;"
               f"\n\t\t\t\tDEVELOPMENT_TEAM = {os.environ['TEAM_ID']};"
-              f"\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = {os.environ['PROFILE_NAME']};"
+              f"\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = {os.environ['PROFILE_UUID']};"
               f"\n\t\t\t\tCODE_SIGN_IDENTITY = \"Apple Distribution\";"
               f"\n\t\t\t\tCODE_SIGNING_ALLOWED = YES;"
               f"\n\t\t\t\tCODE_SIGNING_REQUIRED = YES;"
