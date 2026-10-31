@@ -136,12 +136,13 @@ class SupabaseTusUploader {
       for (var attempt = 0; attempt <= _tusRetryDelays.length; attempt++) {
         if (attempt > 0) await Future<void>.delayed(_tusRetryDelays[attempt - 1]);
         try {
-          final request = http.StreamedRequest('PATCH', url)..headers.addAll({
-            'Tus-Resumable': _tusVersion, 'Upload-Offset': '$offset',
-            'Content-Type': 'application/offset+octet-stream', 'x-signature': token,
-          })..contentLength = end - offset;
-          await request.sink.addStream(source.openRead(offset, end));
-          await request.sink.close();
+          final chunk = await source.openRead(offset, end).fold<List<int>>(<int>[], (all, part) => all..addAll(part));
+          final request = http.Request('PATCH', url)
+            ..headers.addAll({
+              'Tus-Resumable': _tusVersion, 'Upload-Offset': '$offset',
+              'Content-Type': 'application/offset+octet-stream', 'x-signature': token,
+            })
+            ..bodyBytes = chunk;
           final response = await _send(request);
           if (response.statusCode == 401 || response.statusCode == 403 || response.statusCode == 404 || response.statusCode == 410) throw const TusSessionExpiredException('La sesión de carga venció o dejó de ser válida.');
           if (response.statusCode == 204) {
