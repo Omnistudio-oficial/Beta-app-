@@ -154,6 +154,8 @@ void main() {
     addTearDown(service.publicFeed.close);
     await tester.pumpWidget(MaterialApp(home: SocialScreen(service: service)));
     await tester.pump();
+    expect(service.visibility, 'private');
+    expect(tester.widget<SwitchListTile>(find.byKey(const ValueKey('social-own-visibility-switch'))).value, isFalse);
     expect(find.textContaining('privada por defecto'), findsOneWidget);
     expect(find.text('Cuenta privada'), findsOneWidget);
     service.publicFeed.add(const [SocialPost(id: 'pub', ownerUid: 'other', caption: 'Public post', createdAt: 10, username: 'publicuser', displayName: 'Public Author')]);
@@ -166,11 +168,11 @@ void main() {
     expect(service.likeChanges, [true]);
     final commentField = find.byKey(const ValueKey('social-comment'));
     await tester.ensureVisible(commentField);
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 250));
     await tester.enterText(commentField, 'A comment');
     final sendComment = find.byIcon(Icons.send).first;
     await tester.ensureVisible(sendComment);
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 250));
     expect(tester.getRect(sendComment).overlaps(tester.getRect(find.byType(ListView).first)), isTrue);
     await tester.tap(sendComment);
     await tester.pump();
