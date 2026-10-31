@@ -101,6 +101,29 @@ def main() -> None:
         )
         if package_count != 1:
             raise SystemExit("Could not align generated Android MainActivity package with Firebase")
+        # Create the Android 8+ FCM notification channel before Flutter starts.
+        if "NotificationChannel" not in activity_text:
+            activity_text = activity_text.replace(
+                "import io.flutter.embedding.android.FlutterActivity",
+                "import android.app.NotificationChannel\n"
+                "import android.app.NotificationManager\n"
+                "import android.os.Build\n"
+                "import android.content.Context\n"
+                "import io.flutter.embedding.android.FlutterActivity",
+            )
+            activity_text = activity_text.replace(
+                "class MainActivity : FlutterActivity()",
+                "class MainActivity : FlutterActivity() {\n"
+                "    override fun onCreate(savedInstanceState: android.os.Bundle?) {\n"
+                "        super.onCreate(savedInstanceState)\n"
+                "        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {\n"
+                "            val channel = NotificationChannel(\"general\", \"OmniStudio\", NotificationManager.IMPORTANCE_HIGH)\n"
+                "            channel.description = \"Notificaciones de Chat y Social\"\n"
+                "            getSystemService(Context.NOTIFICATION_SERVICE, NotificationManager::class.java).createNotificationChannel(channel)\n"
+                "        }\n"
+                "    }\n"
+                "}",
+            )
         main_activities[0].write_text(activity_text, encoding="utf-8")
 
         settings_text = settings_gradle.read_text(encoding="utf-8")

@@ -1,4 +1,5 @@
-import { callSignalPath, selectRecipientDevices, uidForRecipientEmail } from "./push-routing.ts";
+import { sendFlutterPushToUids } from "../_shared/flutter-fcm.ts";
+import { callSignalPath, chatFlutterRecipientUids, selectRecipientDevices, uidForRecipientEmail } from "./push-routing.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -312,7 +313,12 @@ Deno.serve(async (request) => {
     }
 
     const devices = findDeviceTokens(usersValue, recipientEmails);
-    if (devices.length === 0) {
+    // UIDs are resolved from the server-read Firebase directory using the
+    // already-authorized chat member emails; never accept recipient UIDs from client input.
+    const flutterRecipientUids = chatFlutterRecipientUids(
+      usersValue, memberEmails, identity.email, recipientEmails,
+    );
+    if (devices.length === 0 && flutterRecipientUids.length === 0) {
       console.info("Push notification has no eligible devices", {
         eventType, isGroup, memberCount: members.length, recipientCount: recipientEmails.length,
       });
@@ -364,15 +370,26 @@ Deno.serve(async (request) => {
       }
     }
 
+    const flutterResult = await sendFlutterPushToUids({
+      uids: flutterRecipientUids,
+      title: eventType === "call"
+        ? `${text(event.callerName) || identity.email} te está llamando`
+        : `${text(event.senderName) || identity.email} te envió un mensaje`,
+      body: eventType === "call" ? "Toca para abrir OmniStudio" : messagePreview(event),
+      data: { ...fcmPayload, isFlutterPush: "true" },
+      account: serviceAccount,
+    });
+    const totalDevices = devices.length + flutterResult.devices;
+    sent += flutterResult.sent;
     console.info("Push notification delivery result", {
       eventType, isGroup, memberCount: members.length, recipientCount: recipientEmails.length,
-      deviceCount: devices.length, sent,
+      deviceCount: totalDevices, sent,
     });
     return jsonResponse({
       accepted: true,
       sent,
       recipientCount: recipientEmails.length,
-      deviceCount: devices.length,
+      deviceCount: totalDevices,
     }, 200);
   } catch (error) {
     console.error("Push notification request failed", {

@@ -5,6 +5,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:http/http.dart' as http;
 
+import '../services/push_event_client.dart';
+
 import 'tus_upload.dart';
 
 const socialMaxCaptionLength = 2200;
@@ -305,6 +307,9 @@ class FirebaseSocialService implements SocialService {
           'createdAt': now,
         },
       });
+      await notifyVerifiedEvent(auth: _auth, functionName: 'notify-social-event', payload: {
+        'eventType': 'social', 'socialType': 'follow', 'targetUid': target.uid,
+      });
       return 'pending';
     }
     final relation = {'status': 'accepted', 'createdAt': now};
@@ -312,6 +317,9 @@ class FirebaseSocialService implements SocialService {
       'following/${user.uid}/${target.uid}': relation,
       'followers/${target.uid}/${user.uid}': relation,
       'followRequests/${target.uid}/${user.uid}': null,
+    });
+    await notifyVerifiedEvent(auth: _auth, functionName: 'notify-social-event', payload: {
+      'eventType': 'social', 'socialType': 'follow', 'targetUid': target.uid,
     });
     return 'accepted';
   }
@@ -469,6 +477,9 @@ class FirebaseSocialService implements SocialService {
     if (current.child('status').value != 'pending') throw StateError('La solicitud ya no está pendiente.');
     await _social.child('followers/$uid/$requesterUid').set({'status': 'accepted', 'createdAt': ServerValue.timestamp});
     await request.child('status').set('accepted');
+    await notifyVerifiedEvent(auth: _auth, functionName: 'notify-social-event', payload: {
+      'eventType': 'social', 'socialType': 'follow_accepted', 'targetUid': requesterUid,
+    });
   }
 
   @override
@@ -519,8 +530,14 @@ class FirebaseSocialService implements SocialService {
   @override
   Future<void> toggleLike(SocialPost post, bool liked) async {
     final uid = _user().uid;
-    if (liked) { await _likes(post).child(uid).set(true); }
-    else { await _likes(post).child(uid).remove(); }
+    if (liked) {
+      await _likes(post).child(uid).set(true);
+      await notifyVerifiedEvent(auth: _auth, functionName: 'notify-social-event', payload: {
+        'eventType': 'social', 'socialType': 'like', 'targetUid': post.ownerUid, 'postId': post.id,
+      });
+    } else {
+      await _likes(post).child(uid).remove();
+    }
   }
 
   @override
@@ -620,6 +637,9 @@ class FirebaseSocialService implements SocialService {
       if (publicEntry != null) {
         await _social.child('publicFeed/${SocialVisibilityPolicy.publicFeedKey(user.uid, id)}').set(publicEntry);
       }
+      await notifyVerifiedEvent(auth: _auth, functionName: 'notify-social-event', payload: {
+        'eventType': 'social', 'socialType': 'new_post', 'postId': id,
+      });
     } catch (_) {
       if (postRef != null) {
         try {

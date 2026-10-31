@@ -1,5 +1,6 @@
 import {
   callSignalPath,
+  chatFlutterRecipientUids,
   pushEnvironmentForPackage,
   selectRecipientDevices,
   uidForRecipientEmail,
@@ -117,4 +118,18 @@ Deno.test("recipient email must resolve to one UID before creating a private cal
     "ambiguous account mapping",
   );
   assertEquals(selectRecipientDevices(ambiguousUsers, ["ana@example.com"], NOW), [], "ambiguous push target must be rejected");
+});
+
+Deno.test("Flutter chat recipients must be unique resolved chat members, excluding sender", () => {
+  const users = {
+    senderUid: { uid: "senderUid", email: "sender@example.com" },
+    peerUid: { uid: "peerUid", email: "peer@example.com" },
+    outsiderUid: { uid: "outsiderUid", email: "outsider@example.com" },
+  };
+  assertEquals(
+    chatFlutterRecipientUids(users, ["sender@example.com", "peer@example.com"], "sender@example.com", ["peer@example.com", "outsider@example.com", "sender@example.com"]),
+    ["peerUid"],
+    "only member UID is returned",
+  );
+  assertEquals(chatFlutterRecipientUids(users, ["peer@example.com"], "sender@example.com", ["peer@example.com"]), [], "non-member sender cannot route chat notification");
 });

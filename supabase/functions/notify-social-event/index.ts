@@ -1,3 +1,4 @@
+import { sendFlutterPushToUids } from "../_shared/flutter-fcm.ts";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
@@ -200,6 +201,7 @@ async function deliverToUser(
   objectId: string,
   eventKey: string,
   accessToken: string,
+  account: ServiceAccount,
 ): Promise<{ sent: number; devices: number }> {
   if (!recipientUid || recipientUid === actorUid) return { sent: 0, devices: 0 };
   const dedupeKey = await hashKey(`${eventKey}:${recipientUid}`);
@@ -232,8 +234,24 @@ async function deliverToUser(
       }
     }
   }
+  const titleByType: Record<string, string> = {
+    like: `${actorName || "Alguien"} indicó que le gusta tu publicación`,
+    follow_request: `${actorName || "Alguien"} quiere seguirte`,
+    new_follower: `${actorName || "Alguien"} empezó a seguirte`,
+    follow_accepted: `${actorName || "Alguien"} aceptó tu solicitud`,
+    new_post: `${actorName || "Alguien"} publicó en Social`,
+    new_story: `${actorName || "Alguien"} compartió una historia`,
+  };
+  const flutter = await sendFlutterPushToUids({
+    uids: [recipientUid],
+    title: titleByType[socialType] || "Nueva actividad en Social",
+    body: "Toca para abrir OmniStudio",
+    data: { eventType: "social", socialType, actorName: actorName || "Alguien", actorUsername, eventId: dedupeKey, ...(socialType === "like" || socialType === "new_post" ? { postId: objectId } : {}), ...(socialType === "new_story" ? { storyId: objectId } : {}) },
+    account,
+  });
+  sent += flutter.sent;
   if (sent > 0) await firebasePut(logPath, { sentAt: Date.now(), socialType }, accessToken);
-  return { sent, devices: devices.length };
+  return { sent, devices: devices.length + flutter.devices };
 }
 
 Deno.serve(async (request) => {
@@ -370,6 +388,7 @@ Deno.serve(async (request) => {
         objectId,
         eventKey,
         accessToken,
+        account,
       );
       sent += result.sent;
       devices += result.devices;

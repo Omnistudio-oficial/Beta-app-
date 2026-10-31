@@ -241,3 +241,11 @@ jobs:
         run: deno check supabase/functions/send-flutter-push/index.ts
       - name: Test Flutter FCM routing policy
         run: deno test supabase/functions/send-flutter-push/push-routing_test.ts
+      - name: Type-check chat and Social notification handlers
+        run: |
+          deno check supabase/functions/notify-chat-message/index.ts
+          deno check supabase/functions/notify-social-event/index.ts
+      - name: Test chat and Flutter token routing
+        run: |
+          deno test supabase/functions/notify-chat-message/push-routing_test.ts
+          deno test supabase/functions/_shared/flutter-fcm_test.ts

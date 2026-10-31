@@ -1,6 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 
+import '../services/push_event_client.dart';
+
 import 'chat_attachment.dart';
 import 'chat_media_upload.dart';
 import 'chat_message_schema.dart';
@@ -292,6 +294,9 @@ class FirebaseChatRepository implements ChatRepository {
         final sender = current.displayName?.trim().isNotEmpty == true ? current.displayName!.trim() : email.split('@').first;
         final message = betaChatAttachmentMessage(messageId: id, channelId: channelId, senderId: uid, senderName: sender, senderEmail: email, caption: cleanCaption, timestamp: now, attachment: selected, mediaUrl: uploaded.publicUrl);
         await ref.set(message);
+        await notifyVerifiedEvent(auth: _auth, functionName: 'notify-chat-message', payload: {
+          'eventType': 'message', 'channelId': channelId, 'messageId': id,
+        });
         // Preview metadata is auxiliary. Do not roll back/delete the object after
         // the durable RTDB message is successfully written.
         try {
@@ -326,6 +331,9 @@ class FirebaseChatRepository implements ChatRepository {
       'timestamp': now,
       'deliveryStatus': 'enviado',
       'reactions': '',
+    });
+    await notifyVerifiedEvent(auth: _auth, functionName: 'notify-chat-message', payload: {
+      'eventType': 'message', 'channelId': channelId, 'messageId': id,
     });
     _requireUser(uid);
     await _database.ref('chats/$channelId').update({

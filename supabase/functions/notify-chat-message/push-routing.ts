@@ -72,6 +72,23 @@ export function uidForRecipientEmail(usersValue: unknown, email: string): string
   return matches.size === 1 ? [...matches][0] : null;
 }
 
+/** Resolve Flutter recipients only from verified chat-member emails and the
+ * server-read Firebase user directory. The authenticated sender is excluded. */
+export function chatFlutterRecipientUids(
+  usersValue: unknown,
+  memberEmails: string[],
+  senderEmail: string,
+  requestedEmails: string[],
+): string[] {
+  const members = new Set(memberEmails.map(normalizeEmail).filter(Boolean));
+  const sender = normalizeEmail(senderEmail);
+  if (!sender || !members.has(sender)) return [];
+  return [...new Set(requestedEmails.map(normalizeEmail)
+    .filter((email) => email && email !== sender && members.has(email))
+    .map((email) => uidForRecipientEmail(usersValue, email))
+    .filter((uid): uid is string => Boolean(uid)))];
+}
+
 /**
  * Select active, valid FCM registrations per recipient. A recipient is routed
  * only to the app package with the newest foreground activity; all eligible
