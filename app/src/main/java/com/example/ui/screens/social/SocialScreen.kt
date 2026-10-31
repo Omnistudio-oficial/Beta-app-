@@ -96,6 +96,8 @@ import com.example.data.social.SocialVideoAutoSplitter
 import com.example.data.social.SocialProfile
 import com.example.data.social.SocialStory
 import android.net.Uri
+import android.util.Log
+import com.example.BuildConfig
 import com.example.data.social.SocialRepository
 import com.example.ui.viewmodel.OmniViewModel
 import kotlinx.coroutines.CancellationException
@@ -113,6 +115,23 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.VideoView
 
+private const val SOCIAL_DIAGNOSTIC_TAG = "SocialFeedDiag"
+
+/** Debug-only, non-identifying feed diagnostics. Never pass post/profile/media identifiers or URLs. */
+private fun socialDiagnostic(event: String, index: Int? = null, mediaType: String? = null, code: Int? = null, count: Int? = null, error: Throwable? = null, errorClass: String? = null) {
+    if (!BuildConfig.DEBUG) return
+    val details = buildList {
+        add("event=$event")
+        index?.let { add("index=$it") }
+        mediaType?.let { add("mediaType=$it") }
+        code?.let { add("code=$it") }
+        count?.let { add("count=$it") }
+        error?.let { add("exception=${it.javaClass.simpleName}") }
+        errorClass?.let { add("exception=$it") }
+    }.joinToString(" ")
+    Log.d(SOCIAL_DIAGNOSTIC_TAG, details)
+}
+
 private enum class SocialSection(val label: String) {
     FOR_YOU("Para ti"), FOLLOWING("Siguiendo"), VIDEOS("Videos"), SAVED("Ver más tarde"), SEARCH("Buscar"), PROFILE("Perfil")
 }
@@ -127,6 +146,11 @@ fun SocialScreen(
     val context = LocalContext.current
     val repository = remember(context) { SocialRepository(context) }
     val scope = rememberCoroutineScope()
+
+    DisposableEffect(Unit) {
+        socialDiagnostic("screen_enter")
+        onDispose { socialDiagnostic("screen_exit") }
+    }
 
     var myProfile by remember { mutableStateOf<SocialProfile?>(null) }
     var viewingProfile by remember { mutableStateOf<SocialProfile?>(null) }
@@ -340,8 +364,10 @@ fun SocialScreen(
     fun postKey(post: SocialPost) = "${post.ownerUid}:${post.id}"
 
     suspend fun refreshFeed() {
+        socialDiagnostic("feed_load_start")
         val items = repository.loadFeed(followingOnly = selectedSection == SocialSection.FOLLOWING)
         feed = items
+        socialDiagnostic("feed_load_success", count = items.size)
         items.forEach { post ->
             val key = postKey(post)
             likedPosts[key] = runCatching { repository.likedByCurrentUser(post) }.getOrDefault(false)
@@ -408,6 +434,7 @@ fun SocialScreen(
         isLoading = true
         errorMessage = null
         try {
+            socialDiagnostic("profile_load_start")
             myProfile = repository.ensureCurrentProfile(
                 displayNameHint = currentUser.displayName,
                 emailHint = currentUser.email,
@@ -415,8 +442,10 @@ fun SocialScreen(
             )
             followRequests = repository.pendingFollowRequests()
             stories = repository.loadStories()
+            socialDiagnostic("profile_load_success")
             isLoading = false
         } catch (error: Exception) {
+            socialDiagnostic("profile_load_error", error = error)
             errorMessage = error.message ?: "No se pudo cargar tu perfil social."
             isLoading = false
         }
@@ -438,6 +467,7 @@ fun SocialScreen(
             }
             errorMessage = null
         } catch (error: Exception) {
+            socialDiagnostic("feed_load_error", error = error)
             errorMessage = "No se pudo cargar el contenido de Social. Verifica la conexión y las reglas de Social."
         }
     }
@@ -1120,8 +1150,18 @@ private fun SocialPostCard(
         }
     }
     val signedMediaUrls by produceState(initialValue = List(mediaItems.size) { "" }, post.id, mediaItems) {
-        value = mediaItems.map { item ->
-            runCatching { repository.signedMediaUrl(item.mediaPath, "post", post.id) }.getOrDefault("")
+        value = mediaItems.mapIndexed { index, item ->
+            socialDiagnostic("media_url_start", index = index, mediaType = item.mediaType)
+            try {
+                repository.signedMediaUrl(item.mediaPath, "post", post.id).also { url ->
+                    socialDiagnostic(if (url.isBlank()) "media_url_empty" else "media_url_success", index = index, mediaType = item.mediaType)
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                socialDiagnostic("media_url_error", index = index, mediaType = item.mediaType, error = error)
+                ""
+            }
         }
     }
     var videoToPlay by remember(post.id) { mutableStateOf<Pair<String, String>?>(null) }
@@ -1159,6 +1199,9 @@ private fun SocialPostCard(
                                     title = "Video de @${post.username}",
                                     showActionButtons = false,
                                     modifier = Modifier.fillMaxWidth(),
+                                    onDiagnosticEvent = { event, code, errorClass ->
+                                        socialDiagnostic(event, index = index, mediaType = item.mediaType, code = code, errorClass = errorClass)
+                                    },
                                     onLaunchStandardVideo = { videoUrl, title ->
                                         if (onVideoClick != null) onVideoClick(post, index) else videoToPlay = videoUrl to title
                                     }
@@ -1168,7 +1211,12 @@ private fun SocialPostCard(
                                     model = url,
                                     contentDescription = "Publicación de ${post.displayName}",
                                     contentScale = ContentScale.Fit,
-                                    modifier = Modifier.fillMaxWidth().heightIn(max = 340.dp)
+                                    modifier = Modifier.fillMaxWidth().heightIn(max = 340.dp),
+                                    onLoading = { socialDiagnostic("image_render_start", index = index, mediaType = item.mediaType) },
+                                    onSuccess = { socialDiagnostic("image_render_success", index = index, mediaType = item.mediaType) },
+                                    onError = { state ->
+                                        socialDiagnostic("image_render_error", index = index, mediaType = item.mediaType, error = state.result.throwable)
+                                    }
                                 )
                             }
                         }
