@@ -14,6 +14,9 @@ class _FakeSocialService implements SocialService {
   final List<SocialProfile> lookups = [];
   final Map<String, String> statuses = {};
   final List<SocialProfile> followCalls = [];
+  String visibility = 'private';
+  final List<String> visibilityUpdates = [];
+  bool failVisibilityWrite = false;
   List<SocialFollowRequest> requests = const [];
   final List<String> acceptedRequests = [];
   final List<String> rejectedRequests = [];
@@ -48,6 +51,14 @@ class _FakeSocialService implements SocialService {
   @override
   Future<void> rejectFollowRequest(String requesterUid) async { rejectedRequests.add(requesterUid); }
   @override
+  Future<String> currentVisibility() async => visibility;
+  @override
+  Future<void> updateCurrentVisibility(String value) async {
+    visibilityUpdates.add(value);
+    if (failVisibilityWrite) throw StateError('permission denied');
+    visibility = value;
+  }
+  @override
   Stream<Set<String>> watchLikes(SocialPost post) => Stream.value(const {});
   @override
   Stream<List<SocialComment>> watchComments(SocialPost post) => Stream.value(const []);
@@ -67,6 +78,60 @@ class _FakeSocialService implements SocialService {
 }
 
 void main() {
+  testWidgets('own-account visibility switch persists public/private choice', (tester) async {
+    final service = _FakeSocialService();
+    await tester.pumpWidget(MaterialApp(home: SocialScreen(service: service)));
+    await tester.pump();
+    expect(service.visibility, 'private');
+    final privacySwitch = find.byKey(const ValueKey('social-own-visibility-switch'));
+    expect(tester.widget<SwitchListTile>(privacySwitch).value, isFalse);
+    await tester.tap(privacySwitch);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1));
+    expect(service.visibilityUpdates, ['public']);
+    expect(find.text('Cuenta pública'), findsOneWidget);
+    await tester.tap(privacySwitch);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1));
+    expect(service.visibilityUpdates, ['public', 'private']);
+    expect(find.text('Cuenta privada'), findsOneWidget);
+  });
+
+  testWidgets('failed visibility update restores stored private setting', (tester) async {
+    final service = _FakeSocialService()..failVisibilityWrite = true;
+    await tester.pumpWidget(MaterialApp(home: SocialScreen(service: service)));
+    await tester.pump();
+    final privacySwitch = find.byKey(const ValueKey('social-own-visibility-switch'));
+    await tester.tap(privacySwitch);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1));
+    expect(tester.widget<SwitchListTile>(privacySwitch).value, isFalse);
+    expect(find.text('No se pudo guardar la privacidad. No se cambió la configuración.'), findsOneWidget);
+  });
+
+  test('visibility defaults fail-closed and public indexes only public posts', () {
+    expect(SocialVisibilityPolicy.normalize(null), 'private');
+    expect(SocialVisibilityPolicy.normalize('unknown'), 'private');
+    expect(SocialVisibilityPolicy.shouldIndexPost('private'), isFalse);
+    expect(SocialVisibilityPolicy.shouldIndexPost('public'), isTrue);
+    const privatePost = <String, Object?>{'id': 'p', 'caption': 'private'};
+    expect(SocialVisibilityPolicy.publicPostEntry('private', privatePost), isNull);
+    expect(SocialVisibilityPolicy.publicPostEntry('public', privatePost), privatePost);
+    expect(SocialVisibilityPolicy.publicFeedKey('owner', 'post'), 'owner_post');
+    const posts = <String, Map<String, Object?>>{
+      'one': {'id': 'one', 'caption': 'first'},
+      'two': {'id': 'two', 'caption': 'second'},
+    };
+    expect(SocialVisibilityPolicy.publicPostIndexChanges('owner', posts, 'private'), {
+      'publicFeed/owner_one': null,
+      'publicFeed/owner_two': null,
+    });
+    expect(SocialVisibilityPolicy.publicPostIndexChanges('owner', posts, 'public'), {
+      'publicFeed/owner_one': posts['one'],
+      'publicFeed/owner_two': posts['two'],
+    });
+  });
+
   testWidgets('camera preview is opened only by an explicit Social tap', (tester) async {
     final service = _FakeSocialService();
     await tester.pumpWidget(MaterialApp(home: SocialScreen(service: service)));
@@ -89,7 +154,8 @@ void main() {
     addTearDown(service.publicFeed.close);
     await tester.pumpWidget(MaterialApp(home: SocialScreen(service: service)));
     await tester.pump();
-    expect(find.textContaining('permanecen privadas por defecto'), findsOneWidget);
+    expect(find.textContaining('privada por defecto'), findsOneWidget);
+    expect(find.text('Cuenta privada'), findsOneWidget);
     service.publicFeed.add(const [SocialPost(id: 'pub', ownerUid: 'other', caption: 'Public post', createdAt: 10, username: 'publicuser', displayName: 'Public Author')]);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 1)); // Allow canInteract to resolve; other streams keep loading.
@@ -117,7 +183,8 @@ void main() {
     expect(service.captions, ['Hola mundo']);
     expect(tester.widget<TextField>(find.byKey(const ValueKey('social-caption'))).controller!.text, isEmpty);
     expect(find.text('Publicación sincronizada con tu cuenta'), findsOneWidget);
-    expect(find.textContaining('permanecen privadas por defecto'), findsOneWidget);
+    expect(find.textContaining('privada por defecto'), findsOneWidget);
+    expect(find.text('Cuenta privada'), findsOneWidget);
   });
 
   testWidgets('exact opt-in directory lookup does not enumerate or reveal unlisted handles', (tester) async {
