@@ -97,7 +97,7 @@ export async function sendFlutterPushToUids(args: {
       else console.warn("FCM rejected Flutter device", { platform: device.platform, status: response.status });
       return 0;
     }));
-    sent += results.reduce((sum, value) => sum + value, 0);
+    sent += results.reduce<number>((sum, value) => sum + value, 0);
   }
   return { sent, devices: devices.length };
 }
