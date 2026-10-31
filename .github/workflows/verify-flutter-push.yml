@@ -1,0 +1,31 @@
+name: Verify Flutter FCM functions
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "supabase/functions/register-fcm-device/**"
+      - "supabase/functions/send-flutter-push/**"
+      - "supabase/migrations/**"
+      - ".github/workflows/verify-flutter-push.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type-check private FCM registration function
+        run: deno check supabase/functions/register-fcm-device/index.ts
+      - name: Test FCM registration validation
+        run: deno test supabase/functions/register-fcm-device/authorization_test.ts
+      - name: Type-check Flutter notification sender
+        run: deno check supabase/functions/send-flutter-push/index.ts
+      - name: Test Flutter FCM routing policy
+        run: deno test supabase/functions/send-flutter-push/push-routing_test.ts
