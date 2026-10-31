@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
@@ -56,7 +57,7 @@ class SecureTusUploadSessionStore implements TusUploadSessionStore {
   Future<void> remove(File source) async => _storage.delete(key: '$_prefix${await _identity(source)}');
   Future<String> _identity(File source) async {
     final stat = await source.stat();
-    return base64Url.encode(utf8.encode('${source.absolute.path}\n${stat.size}\n${stat.modified.millisecondsSinceEpoch}'));
+    return sha256.convert(utf8.encode('${source.absolute.path}\n${stat.size}\n${stat.modified.millisecondsSinceEpoch}')).toString();
   }
 }
 
@@ -84,14 +85,9 @@ class SupabaseTusUploader {
   }) async {
     final length = await source.length();
     if (!isValidTusFileSize(length)) throw ArgumentError('El archivo debe pesar entre 1 byte y 50 MiB.');
-    var session = await _sessions.load(source);
-    if (session == null) {
-      session = await createSignedSession();
-      onStoragePath(session.storagePath);
-      await _sessions.save(source, session);
-    } else {
-      onStoragePath(session.storagePath);
-    }
+    var session = await _sessions.load(source) ?? await createSignedSession();
+    onStoragePath(session.storagePath);
+    await _sessions.save(source, session);
     for (var generation = 0; generation < 2; generation++) {
       try {
         final url = session.uploadUrl ?? await _create(endpoint, bucket, session, length, mimeType);
@@ -147,7 +143,7 @@ class SupabaseTusUploader {
           await request.sink.addStream(source.openRead(offset, end));
           await request.sink.close();
           final response = await _send(request);
-          if (response.statusCode == 404 || response.statusCode == 410) throw const TusSessionExpiredException('La sesión de carga venció.');
+          if (response.statusCode == 401 || response.statusCode == 403 || response.statusCode == 404 || response.statusCode == 410) throw const TusSessionExpiredException('La sesión de carga venció o dejó de ser válida.');
           if (response.statusCode == 204) {
             final next = int.tryParse(response.headers['upload-offset'] ?? '');
             if (next == null || next <= offset || next > length) throw StateError('El servidor devolvió un desplazamiento TUS no válido.');
@@ -159,7 +155,7 @@ class SupabaseTusUploader {
             lastError = StateError('Conflicto al continuar la carga TUS.');
           } else {
             lastError = StateError('La carga TUS fue rechazada (${response.statusCode}).');
-            if (response.statusCode >= 400 && response.statusCode < 500) throw lastError!;
+            if (response.statusCode >= 400 && response.statusCode < 500) throw lastError;
           }
         } on TusSessionExpiredException { rethrow; }
         catch (error) { lastError = error; }
@@ -176,7 +172,7 @@ class SupabaseTusUploader {
 
   Future<int> _head(Uri url, String token, int expectedLength) async {
     final response = await _send(http.Request('HEAD', url)..headers.addAll({'Tus-Resumable': _tusVersion, 'x-signature': token}));
-    if (response.statusCode == 404 || response.statusCode == 410) throw const TusSessionExpiredException('La sesión de carga venció.');
+    if (response.statusCode == 401 || response.statusCode == 403 || response.statusCode == 404 || response.statusCode == 410) throw const TusSessionExpiredException('La sesión de carga venció o dejó de ser válida.');
     if (response.statusCode != 200 && response.statusCode != 204) throw StateError('No se pudo consultar el avance TUS (${response.statusCode}).');
     final offset = int.tryParse(response.headers['upload-offset'] ?? '');
     final length = int.tryParse(response.headers['upload-length'] ?? '$expectedLength');
