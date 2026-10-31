@@ -579,13 +579,23 @@ class FirebaseSocialService implements SocialService {
       if (id == null) throw StateError('No se pudo crear la publicación.');
       final videos = mediaItems.where((item) => item.isVideo).toList();
       final primary = videos.isNotEmpty ? videos.first : (mediaItems.isEmpty ? null : mediaItems.first);
-      final username = user.displayName ?? user.email?.split('@').first ?? 'usuario';
+      final profileSnapshot = await _social.child('profiles/${user.uid}').get();
+      final visibility = SocialVisibilityPolicy.normalize(profileSnapshot.child('visibility').value);
+      final username = profileSnapshot.child('username').value is String
+          ? profileSnapshot.child('username').value as String
+          : user.email?.split('@').first ?? 'usuario';
+      final displayName = profileSnapshot.child('displayName').value is String
+          ? profileSnapshot.child('displayName').value as String
+          : user.displayName ?? username;
+      final avatarUrl = profileSnapshot.child('avatarUrl').value is String
+          ? profileSnapshot.child('avatarUrl').value as String
+          : '';
       final postData = <String, Object?>{
         'id': id,
         'ownerUid': user.uid,
         'username': username,
-        'displayName': username,
-        'avatarUrl': '',
+        'displayName': displayName,
+        'avatarUrl': avatarUrl,
         'caption': caption.trim(),
         'createdAt': DateTime.now().millisecondsSinceEpoch,
         'topics': <String, bool>{},
@@ -594,9 +604,7 @@ class FirebaseSocialService implements SocialService {
         if (mediaItems.isNotEmpty) 'mediaItems': mediaItems.map((item) => item.toMap()).toList(),
       };
       await postRef.set(postData);
-      final visibility = await _social.child('profiles/${user.uid}/visibility').get();
-      final publicEntry = SocialVisibilityPolicy.publicPostEntry(
-          SocialVisibilityPolicy.normalize(visibility.value), postData);
+      final publicEntry = SocialVisibilityPolicy.publicPostEntry(visibility, postData);
       if (publicEntry != null) {
         await _social.child('publicFeed/${SocialVisibilityPolicy.publicFeedKey(user.uid, id)}').set(publicEntry);
       }
