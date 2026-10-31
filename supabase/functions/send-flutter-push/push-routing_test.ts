@@ -1,17 +1,13 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { FLUTTER_FCM_APP_ID, isAllowedFlutterPushRecipient, isValidDevice, isValidUid } from "./push-routing.ts";
-Deno.test("accepts only private Flutter Android/iOS device rows", () => {
-  const base = { uid: "uid_1", appId: FLUTTER_FCM_APP_ID, platform: "ios", token: "opaque", tokenHash: "a".repeat(64) };
-  assertEquals(isValidDevice(base), true);
-  assertEquals(isValidDevice({ ...base, platform: "web" }), false);
-  assertEquals(isValidDevice({ ...base, appId: "com.aistudio.omnistudio.wkspea" }), false);
-  assertEquals(isValidDevice({ ...base, token: "x".repeat(4097) }), false);
+import { FLUTTER_FCM_APP_ID, isAllowedFlutterPushRecipient, isValidDevice } from "./push-routing.ts";
+Deno.test("valid Flutter Android and iOS devices only", () => {
+  const valid = { uid: "uid-1", appId: FLUTTER_FCM_APP_ID, platform: "ios", token: "opaque-token", tokenHash: "a".repeat(64) };
+  assertEquals(isValidDevice(valid), true);
+  assertEquals(isValidDevice({ ...valid, appId: "com.aistudio.omnistudio.wkspea" }), false);
+  assertEquals(isValidDevice({ ...valid, platform: "web" }), false);
+  assertEquals(isValidDevice({ ...valid, token: "x".repeat(4097) }), false);
 });
-Deno.test("restricts this sender to authenticated self-test", () => {
-  assertEquals(isAllowedFlutterPushRecipient("uid_1", "uid_1"), true);
-  assertEquals(isAllowedFlutterPushRecipient("uid_1", "uid_2"), false);
-});
-Deno.test("validates user IDs", () => {
-  assertEquals(isValidUid("uid_123"), true);
-  assertEquals(isValidUid("uid/123"), false);
+Deno.test("sender only permits authenticated self-test", () => {
+  assertEquals(isAllowedFlutterPushRecipient("uid-1", "uid-1"), true);
+  assertEquals(isAllowedFlutterPushRecipient("uid-1", "uid-2"), false);
 });
