@@ -8,8 +8,8 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:http/http.dart' as http;
 
 const _registryAppId = 'com.omnistudio.omnistudioFlutterPrototype';
-const _supabaseUrl = String.fromEnvironment('SUPABASE_PROJECT_URL');
-const _supabasePublishableKey = String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
+const _defaultSupabaseUrl = String.fromEnvironment('SUPABASE_PROJECT_URL');
+const _defaultSupabasePublishableKey = String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
 
 /// Background entry point required by FlutterFire on Android and Apple devices.
 @pragma('vm:entry-point')
@@ -30,8 +30,8 @@ class FirebaseMessagingService {
   })  : _messaging = messaging ?? FirebaseMessaging.instance,
         _auth = auth ?? FirebaseAuth.instance,
         _client = client ?? http.Client(),
-        _supabaseUrl = supabaseUrl ?? _supabaseUrl,
-        _publishableKey = publishableKey ?? _supabasePublishableKey;
+        _supabaseUrl = supabaseUrl ?? _defaultSupabaseUrl,
+        _publishableKey = publishableKey ?? _defaultSupabasePublishableKey;
 
   final FirebaseMessaging _messaging;
   final FirebaseAuth _auth;
@@ -44,6 +44,7 @@ class FirebaseMessagingService {
   bool _listenersInstalled = false;
 
   String? get currentToken => _token;
+  String? get currentUid => _registeredUid;
   static bool permissionAllowsNotifications(AuthorizationStatus status) =>
       status == AuthorizationStatus.authorized || status == AuthorizationStatus.provisional;
 
