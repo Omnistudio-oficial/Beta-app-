@@ -113,6 +113,7 @@ class OtpHandoffService {
         uri.scheme != 'https' ||
         uri.origin != origin ||
         uri.userInfo.isNotEmpty ||
+        uri.port != 443 ||
         !{'email', 'sms', 'authenticator'}.contains(method)) {
       throw ArgumentError('Se requiere un origen HTTPS y un método OTP válido.');
     }
