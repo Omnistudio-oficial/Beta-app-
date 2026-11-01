@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:beta_app/services/google_workspace_read_only.dart';
 import 'package:beta_app/services/ai_agent_ultimate_service.dart';
 import 'package:beta_app/widgets/otp_method_selector.dart';
+import 'package:beta_app/screens/otp_browser_screen.dart';
+import 'package:beta_app/services/otp_handoff_service.dart';
 
 class AIScreen extends StatefulWidget {
   const AIScreen({super.key});
@@ -152,6 +154,89 @@ class _AIScreenState extends State<AIScreen> {
     }
   }
 
+  Future<void> _openOtpBrowser() async {
+    final selectedMethod = _selectedOtpMethod;
+    if (selectedMethod == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Selecciona primero un método de verificación.')),
+      );
+      return;
+    }
+
+    final urlController = TextEditingController();
+    final enteredUrl = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Abrir sitio en navegador privado'),
+        content: TextField(
+          key: const Key('otp-browser-url'),
+          controller: urlController,
+          keyboardType: TextInputType.url,
+          autocorrect: false,
+          decoration: const InputDecoration(
+            labelText: 'Dirección HTTPS del sitio',
+            hintText: 'https://ejemplo.com/iniciar-sesion',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            key: const Key('otp-browser-confirm-url'),
+            onPressed: () => Navigator.of(dialogContext).pop(urlController.text.trim()),
+            child: const Text('Continuar'),
+          ),
+        ],
+      ),
+    );
+    urlController.dispose();
+    if (enteredUrl == null || !mounted) return;
+
+    final uri = Uri.tryParse(enteredUrl);
+    if (uri == null ||
+        uri.scheme != 'https' ||
+        uri.host.isEmpty ||
+        uri.userInfo.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Solo se permiten direcciones HTTPS válidas.')),
+      );
+      return;
+    }
+
+    final service = OtpHandoffService();
+    try {
+      final session = await service.createSession(
+        origin: uri.origin,
+        method: selectedMethod.name,
+      );
+      if (!mounted) {
+        service.close();
+        return;
+      }
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => OtpBrowserScreen(
+            initialUri: uri,
+            session: session,
+            handoffService: service,
+          ),
+        ),
+      );
+    } catch (error) {
+      service.close();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            error.toString().replaceFirst('Bad state: ', ''),
+          ),
+        ),
+      );
+    }
+  }
+
   Future<void> _copyPrompt() async {
     final prompt = _readyPrompt;
     if (prompt == null) return;
@@ -212,6 +297,17 @@ class _AIScreenState extends State<AIScreen> {
                 ),
               ),
             ),
+            const SizedBox(height: 8),
+            if (_selectedOtpMethod != null)
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  key: const Key('otp-open-private-browser'),
+                  onPressed: _connecting ? null : _openOtpBrowser,
+                  icon: const Icon(Icons.shield_outlined),
+                  label: const Text('Abrir navegador privado'),
+                ),
+              ),
             const SizedBox(height: 18),
             Card(
               key: const Key('sara-chat'),
