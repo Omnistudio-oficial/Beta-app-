@@ -21,8 +21,9 @@ class _AIScreenState extends State<AIScreen> {
   List<Map<String, dynamic>> _workspaceResults = const [];
   final TextEditingController _workspaceQuery = TextEditingController();
   final TextEditingController _saraChatInput = TextEditingController();
-  final List<Map<String, String>> _saraGeneralChat = [];
+  final List<Map<String, dynamic>> _saraGeneralChat = [];
   bool _useWorkspaceContext = false;
+  bool _useWebSearch = false;
 
   static const _templates = <_PromptTemplate>[
     _PromptTemplate(
@@ -112,19 +113,37 @@ class _AIScreenState extends State<AIScreen> {
       _connecting = true;
     });
     try {
-      // Normal chat messages go to the AI Agent Ultimate preview Worker.
+      // Normal chat messages go to the AI Agent Ultimate production Worker.
       // Google Workspace mode remains a separate, read-only integration.
-      final answer = _useWorkspaceContext
-          ? await _workspace.askSara(text)
-          : await _aiAgent.sendMessage(text);
-      if (!mounted) return;
-      setState(() => _saraGeneralChat.add({'role': 'assistant', 'text': answer}));
+      if (_useWorkspaceContext) {
+        final answer = await _workspace.askSara(text);
+        if (!mounted) return;
+        setState(() => _saraGeneralChat.add({'role': 'assistant', 'text': answer}));
+      } else {
+        final response = await _aiAgent.sendMessage(
+          text,
+          webSearch: _useWebSearch,
+        );
+        if (!mounted) return;
+        setState(() => _saraGeneralChat.add({
+          'role': 'assistant',
+          'text': response.answer,
+          'sources': response.webSources
+              .map((source) => {'title': source.title, 'url': source.url})
+              .toList(),
+          'webSearchUsed': response.usedWebSearch,
+        }));
+      }
     } catch (error) {
       if (!mounted) return;
       final message = error.toString();
       final friendly = message.contains('Inicia sesión')
           ? 'Inicia sesión en OmniStudio y vuelve a preguntar.'
-          : 'No pude conectar con Sara. Revisa tu conexión e inténtalo de nuevo.';
+          : message.contains('requiere autorización')
+              ? 'Esta solicitud requiere autorización. No se ejecutó ninguna acción.'
+              : message.contains('búsqueda web no está configurada')
+                  ? 'La búsqueda web no está disponible en este momento.'
+                  : 'No pude conectar con Sara. Revisa tu conexión e inténtalo de nuevo.';
       setState(() => _saraGeneralChat.add({'role': 'assistant', 'text': friendly}));
     } finally {
       if (mounted) setState(() => _connecting = false);
@@ -188,17 +207,89 @@ class _AIScreenState extends State<AIScreen> {
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   const Text('AI Agent Ultimate', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 8),
-                  const Text('Los mensajes normales se envían automáticamente al Worker de prueba. Si activas Google Workspace, se usa su integración independiente de solo lectura.'),
+                  const Text('Los mensajes normales se envían automáticamente al AI Agent Ultimate. Si activas Google Workspace, se usa su integración independiente de solo lectura.'),
                   const SizedBox(height: 8),
                   SizedBox(height: 230, child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                     if (_saraGeneralChat.isEmpty)
                       const Text('Conversa con Sara sobre cualquier tema. Si activas el contexto de Google, podrá interpretar preguntas y consultar tus datos autorizados en modo de solo lectura.'),
                     for (final entry in _saraGeneralChat.take(4))
-                      Align(alignment: entry['role'] == 'user' ? Alignment.centerRight : Alignment.centerLeft,
-                        child: Container(margin: const EdgeInsets.symmetric(vertical: 4), padding: const EdgeInsets.all(10), constraints: const BoxConstraints(maxWidth: 440), decoration: BoxDecoration(color: entry['role'] == 'user' ? Theme.of(context).colorScheme.primaryContainer : Theme.of(context).colorScheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(12)), child: SelectableText(entry['text'] ?? ''))),
+                      Align(
+                        alignment: entry['role'] == 'user'
+                            ? Alignment.centerRight
+                            : Alignment.centerLeft,
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(vertical: 4),
+                          padding: const EdgeInsets.all(10),
+                          constraints: const BoxConstraints(maxWidth: 440),
+                          decoration: BoxDecoration(
+                            color: entry['role'] == 'user'
+                                ? Theme.of(context).colorScheme.primaryContainer
+                                : Theme.of(context).colorScheme.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SelectableText(entry['text'] ?? ''),
+                              if ((entry['sources'] as List? ?? []).isNotEmpty) ...[
+                                const Divider(),
+                                const Text('Fuentes web', style: TextStyle(fontWeight: FontWeight.w600)),
+                                for (final source in (entry['sources'] as List).take(5))
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: SelectableText(
+                                      '${source['title']}\n${source['url']}',
+                                      style: TextStyle(
+                                        color: Theme.of(context).colorScheme.primary,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
                   ])),
                   const SizedBox(height: 4),
-                  SwitchListTile(key: const Key('sara-workspace-context'), contentPadding: EdgeInsets.zero, title: const Text('Usar contexto de Google Workspace'), subtitle: const Text('Solo lectura · requiere conectar Google'), value: _useWorkspaceContext, onChanged: _connecting ? null : (value) => setState(() => _useWorkspaceContext = value)),
+                  SwitchListTile(
+                    key: const Key('sara-web-search'),
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Buscar en Internet'),
+                    subtitle: const Text('Brave Search · hasta 5 fuentes · búsqueda opcional'),
+                    value: _useWebSearch,
+                    onChanged: _connecting || _useWorkspaceContext
+                        ? null
+                        : (value) => setState(() => _useWebSearch = value),
+                  ),
+                  SwitchListTile(
+                    key: const Key('sara-workspace-context'),
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Usar contexto de Google Workspace'),
+                    subtitle: const Text('Solo lectura · requiere conectar Google'),
+                    value: _useWorkspaceContext,
+                    onChanged: _connecting
+                        ? null
+                        : (value) => setState(() {
+                              _useWorkspaceContext = value;
+                              if (value) _useWebSearch = false;
+                            }),
+                  ),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      key: const Key('sara-new-conversation'),
+                      onPressed: _connecting
+                          ? null
+                          : () async {
+                              await _aiAgent.startNewConversation();
+                              if (!mounted) return;
+                              setState(() => _saraGeneralChat.clear());
+                            },
+                      icon: const Icon(Icons.add_comment_outlined),
+                      label: const Text('Nueva conversación'),
+                    ),
+                  ),
                   const SizedBox(height: 8),
                   Row(children: [Expanded(child: TextField(key: const Key('sara-workspace-chat-input'), controller: _saraChatInput, minLines: 1, maxLines: 3, onSubmitted: (_) => _sendSaraMessage(), decoration: const InputDecoration(hintText: 'Escribe un mensaje para AI Agent Ultimate', border: OutlineInputBorder()))), const SizedBox(width: 8), IconButton.filled(key: const Key('sara-workspace-chat-send'), onPressed: _connecting ? null : _sendSaraMessage, tooltip: 'Enviar a AI Agent Ultimate', icon: _connecting ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.send))]),
                 ]),
