@@ -30,7 +30,7 @@
   const workerSource = `
     let pyodide = null;
     const PYODIDE_BASE = "${PYODIDE_BASE}";
-    const setup = String.raw`
+    const setup = String.raw\`
 import ast
 import builtins
 import contextlib
@@ -132,7 +132,7 @@ def _run_user_code(source):
             "error": type(error).__name__ + ": " + str(error)[:1500],
             "truncated": stdout.truncated or stderr.truncated
         })
-`;
+\`;
 
     async function initialize() {
       try {
