@@ -79,7 +79,7 @@ def _safe_import(name, globals=None, locals=None, fromlist=(), level=0):
 _SAFE_BUILTIN_NAMES = (
     "abs", "all", "any", "ascii", "bin", "bool", "bytearray", "bytes",
     "callable", "chr", "classmethod", "complex", "dict", "divmod",
-    "enumerate", "filter", "float", "format", "frozenset", "hash", "hex",
+    "enumerate", "filter", "float", "frozenset", "hash", "hex",
     "int", "isinstance", "issubclass", "iter", "len", "list", "map",
     "max", "min", "next", "oct", "ord", "pow", "print", "property",
     "range", "repr", "reversed", "round", "set", "slice", "sorted",
@@ -109,7 +109,7 @@ def _run_user_code(source):
                 root = (node.module or "").split(".", 1)[0]
                 if node.level != 0 or root not in _ALLOWED_IMPORTS:
                     raise PermissionError("Importación bloqueada: " + str(node.module))
-            elif isinstance(node, ast.Attribute) and node.attr.startswith("_"):
+            elif isinstance(node, ast.Attribute) and (node.attr.startswith("_") or node.attr in {"format", "format_map"}):
                 raise PermissionError("No se permite acceder a atributos internos.")
             elif isinstance(node, ast.Name) and node.id.startswith("_"):
                 raise PermissionError("No se permiten nombres internos.")
