@@ -32,8 +32,8 @@ extension OtpVerificationMethodLabel on OtpVerificationMethod {
 /// Lets the user choose a verification channel offered by the website.
 ///
 /// This widget deliberately does not read inboxes, SMS, authenticator apps,
-/// persist OTP values, or send codes to AI. A verified browser-session handoff
-/// must be connected before any code can be transferred to a website.
+/// persist OTP values, or send codes to AI. Codes are manually entered and
+/// relayed only to the user's short-lived, exact-origin private browser session.
 class OtpMethodSelector extends StatelessWidget {
   const OtpMethodSelector({
     super.key,
@@ -108,10 +108,11 @@ class OtpMethodSelector extends StatelessWidget {
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Protección: esta pantalla solo permite elegir el método. '
-                    'No lee SMS ni correos, no accede a otras apps autenticadoras '
-                    'y no guarda ni envía códigos OTP. La transferencia segura '
-                    'al navegador requiere conectar el flujo de sesión verificada.',
+                    'Protección: elige un método ofrecido por el sitio. '
+                    'No leemos SMS, correos ni otras apps autenticadoras. '
+                    'El código lo escribes tú y solo se transfiere una vez a '
+                    'la sesión privada del sitio HTTPS seleccionado; no se envía a Sara '
+                    'ni se guarda en el historial o en la bóveda.',
                   ),
                 ),
               ],
