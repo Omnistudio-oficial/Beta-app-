@@ -205,7 +205,7 @@ class _OtpBrowserScreenState extends State<OtpBrowserScreen> {
                   SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Sesión privada · solo HTTPS y este sitio · no se guardan cookies',
+                      'Sesión privada · solo HTTPS y este sitio · cookies temporales que se descartan al cerrar',
                       style: TextStyle(fontSize: 12),
                     ),
                   ),
