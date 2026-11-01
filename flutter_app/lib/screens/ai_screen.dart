@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:beta_app/services/google_workspace_read_only.dart';
 import 'package:beta_app/services/ai_agent_ultimate_service.dart';
+import 'package:beta_app/widgets/otp_method_selector.dart';
 
 class AIScreen extends StatefulWidget {
   const AIScreen({super.key});
@@ -24,6 +25,7 @@ class _AIScreenState extends State<AIScreen> {
   final List<Map<String, dynamic>> _saraGeneralChat = [];
   bool _useWorkspaceContext = false;
   bool _useWebSearch = false;
+  OtpVerificationMethod? _selectedOtpMethod;
 
   static const _templates = <_PromptTemplate>[
     _PromptTemplate(
@@ -197,6 +199,17 @@ class _AIScreenState extends State<AIScreen> {
                   for (final row in _workspaceResults.take(5))
                     ListTile(dense: true, contentPadding: EdgeInsets.zero, title: Text((row['subject'] ?? row['name'] ?? row['summary'] ?? row['snippet'] ?? row['id'] ?? 'Resultado').toString(), maxLines: 2, overflow: TextOverflow.ellipsis), subtitle: Text((row['from'] ?? row['mimeType'] ?? row['start']?['dateTime'] ?? row['date'] ?? '').toString(), maxLines: 1, overflow: TextOverflow.ellipsis)),
                 ]),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Card(
+              key: const Key('otp-verification-methods'),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: OtpMethodSelector(
+                  selectedMethod: _selectedOtpMethod,
+                  onChanged: (method) => setState(() => _selectedOtpMethod = method),
+                ),
               ),
             ),
             const SizedBox(height: 18),
