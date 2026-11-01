@@ -11,12 +11,14 @@ class OtpBrowserScreen extends StatefulWidget {
   const OtpBrowserScreen({
     super.key,
     required this.initialUri,
-    required this.session,
+    required this.origin,
+    required this.method,
     required this.handoffService,
   });
 
   final Uri initialUri;
-  final OtpHandoffSession session;
+  final String origin;
+  final String method;
   final OtpHandoffService handoffService;
 
   @override
@@ -30,10 +32,8 @@ class _OtpBrowserScreenState extends State<OtpBrowserScreen> {
   bool _loading = true;
   bool _transferring = false;
   bool _finished = false;
+  OtpHandoffSession? _activeSession;
   String? _status;
-
-  bool get _sessionExpired =>
-      DateTime.now().isAfter(widget.session.expiresAt);
 
   @override
   void dispose() {
@@ -43,9 +43,10 @@ class _OtpBrowserScreenState extends State<OtpBrowserScreen> {
   }
 
   Future<void> _cancelAndClose() async {
-    if (!_finished) {
+    final session = _activeSession;
+    if (!_finished && session != null) {
       try {
-        await widget.handoffService.cancelSession(widget.session);
+        await widget.handoffService.cancelSession(session);
       } catch (_) {
         // Expired or already-consumed sessions are already unusable.
       }
@@ -111,7 +112,7 @@ class _OtpBrowserScreenState extends State<OtpBrowserScreen> {
   }
 
   Future<void> _transferCode() async {
-    if (_transferring || _sessionExpired || _finished) return;
+    if (_transferring || _finished) return;
     final code = _codeController.text.trim();
     if (!RegExp(r'^\d{4,10}$').hasMatch(code)) {
       setState(() => _status = 'Escribe un código de 4 a 10 dígitos.');
@@ -131,8 +132,15 @@ class _OtpBrowserScreenState extends State<OtpBrowserScreen> {
     });
 
     try {
+      // Create the 90-second backend session only after the user has the code
+      // ready, so browsing/login time cannot consume the OTP lifetime.
+      final session = await widget.handoffService.createSession(
+        origin: widget.origin,
+        method: widget.method,
+      );
+      _activeSession = session;
       final codeFromRelay = await widget.handoffService.submitAndConsume(
-        session: widget.session,
+        session: session,
         code: code,
       );
       final filled = await _fillFocusedField(codeFromRelay);
@@ -248,11 +256,11 @@ class _OtpBrowserScreenState extends State<OtpBrowserScreen> {
                   onUpdateVisitedHistory: (controller, url, isReload) async {
                     if (url == null ||
                         url.scheme != 'https' ||
-                        url.origin != widget.session.origin) {
+                        url.origin != widget.origin) {
                       await controller.stopLoading();
                       if (mounted) {
                         setState(() => _status =
-                            'Navegación bloqueada: solo se permite ' + widget.session.origin + '.');
+                            'Navegación bloqueada: solo se permite ' + widget.origin + '.');
                       }
                     }
                   },
@@ -265,10 +273,10 @@ class _OtpBrowserScreenState extends State<OtpBrowserScreen> {
                     final uri = action.request.url;
                     if (uri == null ||
                         uri.scheme != 'https' ||
-                        uri.origin != widget.session.origin) {
+                        uri.origin != widget.origin) {
                       if (mounted) {
                         setState(() => _status =
-                            'Navegación bloqueada: solo se permite ' + widget.session.origin + '.');
+                            'Navegación bloqueada: solo se permite ' + widget.origin + '.');
                       }
                       return NavigationActionPolicy.CANCEL;
                     }
@@ -310,7 +318,7 @@ class _OtpBrowserScreenState extends State<OtpBrowserScreen> {
                   const SizedBox(height: 8),
                   FilledButton.icon(
                     key: const Key('otp-private-transfer'),
-                    onPressed: _transferring || _finished || _sessionExpired
+                    onPressed: _transferring || _finished
                         ? null
                         : _transferCode,
                     icon: _transferring
@@ -332,8 +340,10 @@ class _OtpBrowserScreenState extends State<OtpBrowserScreen> {
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
-                  if (_sessionExpired)
-                    const Text('La sesión de verificación venció. Cierra y vuelve a empezar.'),
+                  const Text(
+                    'La sesión temporal se crea al transferir el código y vence en 90 segundos.',
+                    style: TextStyle(fontSize: 11),
+                  ),
                 ],
               ),
             ),
