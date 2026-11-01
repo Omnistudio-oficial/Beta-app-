@@ -100,7 +100,7 @@ class OtpHandoffService {
       case 'forbidden':
         throw StateError('La sesión no coincide con el usuario o sitio autorizado.');
       default:
-        throw StateError('No se pudo completar la transferencia OTP (\${response.statusCode}).');
+        throw StateError('No se pudo completar la transferencia OTP (' + response.statusCode.toString() + ').');
     }
   }
 
@@ -164,7 +164,7 @@ class OtpHandoffService {
         .get(
           _sessionUri(session.id, 'consume'),
           headers: {
-            'Authorization': 'Bearer \${session.browserToken}',
+            'Authorization': 'Bearer ' + session.browserToken + '',
             'Origin': session.origin,
             'Accept': 'application/json',
             'Cache-Control': 'no-store',
