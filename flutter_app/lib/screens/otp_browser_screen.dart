@@ -220,10 +220,15 @@ class _OtpBrowserScreenState extends State<OtpBrowserScreen> {
                     javaScriptEnabled: true,
                     javaScriptCanOpenWindowsAutomatically: false,
                     useShouldOverrideUrlLoading: true,
-                    supportMultipleWindows: false,
+                    // Incognito storage is discarded when this WebView closes.
+                    supportMultipleWindows: true,
                     allowFileAccess: false,
                     allowContentAccess: false,
+                    allowFileAccessFromFileURLs: false,
+                    allowUniversalAccessFromFileURLs: false,
                     thirdPartyCookiesEnabled: false,
+                    geolocationEnabled: false,
+                    safeBrowsingEnabled: true,
                     mediaPlaybackRequiresUserGesture: true,
                     disableContextMenu: true,
                   ),
@@ -239,6 +244,17 @@ class _OtpBrowserScreenState extends State<OtpBrowserScreen> {
                       _loading = false;
                       _pageTitle = url?.host;
                     });
+                  },
+                  onUpdateVisitedHistory: (controller, url, isReload) async {
+                    if (url == null ||
+                        url.scheme != 'https' ||
+                        url.origin != widget.session.origin) {
+                      await controller.stopLoading();
+                      if (mounted) {
+                        setState(() => _status =
+                            'Navegación bloqueada: solo se permite ' + widget.session.origin + '.');
+                      }
+                    }
                   },
                   onTitleChanged: (controller, title) {
                     if (mounted && title != null) {
