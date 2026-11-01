@@ -168,7 +168,7 @@ class _OtpBrowserScreenState extends State<OtpBrowserScreen> {
     }
   }
 
-  Future<void> _closeBrowser() async {
+  void _closeBrowser() {
     if (mounted) Navigator.of(context).pop();
   }
 
