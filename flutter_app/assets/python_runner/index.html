@@ -238,7 +238,7 @@ def _run_user_code(source):
     runTimer = setTimeout(() => {
       stopWorker();
       notify({ type: "timeout", error: "Se agotó el límite de 5 segundos. El proceso se detuvo." });
-      startWorker();
+      setTimeout(startWorker, 400);
     }, EXECUTION_TIMEOUT_MS);
   };
 
