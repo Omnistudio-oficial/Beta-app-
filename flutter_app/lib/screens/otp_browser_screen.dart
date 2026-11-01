@@ -120,6 +120,7 @@ class _OtpBrowserScreenState extends State<OtpBrowserScreen> {
     }
 
     final canFill = await _focusedFieldCanReceiveCode();
+    if (!mounted) return;
     if (!canFill) {
       setState(() => _status =
           'Primero toca el campo del código en la página. Solo se rellenan campos OTP compatibles.');
@@ -138,11 +139,13 @@ class _OtpBrowserScreenState extends State<OtpBrowserScreen> {
         origin: widget.origin,
         method: widget.method,
       );
+      if (!mounted) return;
       _activeSession = session;
       final codeFromRelay = await widget.handoffService.submitAndConsume(
         session: session,
         code: code,
       );
+      if (!mounted) return;
       final filled = await _fillFocusedField(codeFromRelay);
       if (!mounted) return;
       if (!filled) {
@@ -188,7 +191,7 @@ class _OtpBrowserScreenState extends State<OtpBrowserScreen> {
         actions: [
           IconButton(
             tooltip: 'Cerrar navegador',
-            onPressed: _closeBrowser,
+            onPressed: _transferring ? null : _closeBrowser,
             icon: const Icon(Icons.close),
           ),
         ],
