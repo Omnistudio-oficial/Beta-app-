@@ -39,7 +39,7 @@ class OtpMethodSelector extends StatelessWidget {
     super.key,
     required this.selectedMethod,
     required this.onChanged,
-    this.availableMethods = const OtpVerificationMethod.values,
+    this.availableMethods = const {\n      OtpVerificationMethod.email,\n      OtpVerificationMethod.sms,\n      OtpVerificationMethod.authenticator,\n    },
   });
 
   final OtpVerificationMethod? selectedMethod;
