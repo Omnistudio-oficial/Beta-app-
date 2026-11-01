@@ -65,34 +65,42 @@ class OtpMethodSelector extends StatelessWidget {
           'Elige uno de los métodos que la página indique como disponibles.',
         ),
         const SizedBox(height: 10),
-        for (final method in OtpVerificationMethod.values)
-          Card(
-            key: Key('otp-method-${method.name}'),
-            margin: const EdgeInsets.only(bottom: 8),
-            child: RadioListTile<OtpVerificationMethod>(
-              value: method,
-              groupValue: selectedMethod,
-              onChanged: availableMethods.contains(method)
-                  ? (value) {
-                      if (value != null) onChanged(value);
-                    }
-                  : null,
-              secondary: Icon(
-                method.icon,
-                color: availableMethods.contains(method)
-                    ? theme.colorScheme.primary
-                    : theme.disabledColor,
-              ),
-              title: Text(method.title),
-              subtitle: Text(
-                availableMethods.contains(method)
-                    ? method.description
-                    : 'No ofrecido por esta página.',
-              ),
-              controlAffinity: ListTileControlAffinity.trailing,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-            ),
+        RadioGroup<OtpVerificationMethod>(
+          groupValue: selectedMethod,
+          onChanged: (method) {
+            if (method != null && availableMethods.contains(method)) {
+              onChanged(method);
+            }
+          },
+          child: Column(
+            children: [
+              for (final method in OtpVerificationMethod.values)
+                Card(
+                  key: Key('otp-method-${method.name}'),
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: RadioListTile<OtpVerificationMethod>(
+                    value: method,
+                    enabled: availableMethods.contains(method),
+                    selected: selectedMethod == method,
+                    secondary: Icon(
+                      method.icon,
+                      color: availableMethods.contains(method)
+                          ? theme.colorScheme.primary
+                          : theme.disabledColor,
+                    ),
+                    title: Text(method.title),
+                    subtitle: Text(
+                      availableMethods.contains(method)
+                          ? method.description
+                          : 'No ofrecido por esta página.',
+                    ),
+                    controlAffinity: ListTileControlAffinity.trailing,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                  ),
+                ),
+            ],
           ),
+        ),
         const SizedBox(height: 4),
         DecoratedBox(
           decoration: BoxDecoration(
