@@ -116,11 +116,30 @@ class AiAgentUltimateService {
       throw StateError('La búsqueda web no está configurada en el servidor.');
     }
     if (response.statusCode != 200) {
-      throw StateError(
-        'AI Agent Ultimate no pudo responder (' +
-            response.statusCode.toString() +
-            ').',
-      );
+      final backendError = data['error'] is String ? data['error'] as String : '';
+      final stage = data['stage'] is String ? data['stage'] as String : '';
+      final requestId =
+          data['request_id'] is String ? data['request_id'] as String : '';
+      String message;
+      if (backendError == 'web_search_invalid_credentials') {
+        message = 'Brave Search rechazó las credenciales configuradas.';
+      } else if (backendError == 'web_search_rate_limited') {
+        message = 'Brave Search alcanzó su límite de solicitudes. Inténtalo más tarde.';
+      } else if (backendError == 'web_search_provider_error' ||
+          backendError == 'web_search_request_failed' ||
+          backendError == 'web_search_invalid_response') {
+        message = 'Brave Search no pudo completar la búsqueda.';
+      } else if (backendError.startsWith('workers_ai_')) {
+        message = 'El servicio de inteligencia artificial no pudo generar la respuesta.';
+      } else if (backendError.startsWith('supabase_')) {
+        message = 'El servicio de conversación y almacenamiento tuvo un problema.';
+      } else {
+        message = 'AI Agent Ultimate encontró un error interno';
+        if (stage.isNotEmpty) message += ' durante: $stage';
+        message += '.';
+      }
+      if (requestId.isNotEmpty) message += ' Referencia: $requestId';
+      throw StateError(message);
     }
 
     final answer = data['answer'];
