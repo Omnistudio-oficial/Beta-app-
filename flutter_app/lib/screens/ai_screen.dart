@@ -110,7 +110,7 @@ class _AIScreenState extends State<AIScreen> {
         .replaceAll('ó', 'o')
         .replaceAll('ú', 'u');
     return RegExp(
-      r'\b(ejecuta|ejecutar|ejecutalo|corre|correr)\b.*\b(ese|el|este|lo|codigo|script|programa|python)\b|\b(run)\b.*\b(code|script|python)\b',
+      r'\b(ejecuta|ejecutar|ejecutalo|corre|correr)\b.*\b(ese|el|este|lo)\s+(codigo|script|programa|python)\b|\b(ejecuta|ejecutar|corre|correr)\b.*\b(codigo|script|programa|python)\b|\b(run)\b.*\b(code|script|python)\b',
     ).hasMatch(normalized);
   }
 
