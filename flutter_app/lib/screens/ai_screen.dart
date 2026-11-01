@@ -21,7 +21,7 @@ class _AIScreenState extends State<AIScreen> {
   List<Map<String, dynamic>> _workspaceResults = const [];
   final TextEditingController _workspaceQuery = TextEditingController();
   final TextEditingController _saraChatInput = TextEditingController();
-  final List<Map<String, String>> _saraGeneralChat = [];
+  final List<Map<String, dynamic>> _saraGeneralChat = [];
   bool _useWorkspaceContext = false;
   bool _useWebSearch = false;
 
@@ -113,7 +113,7 @@ class _AIScreenState extends State<AIScreen> {
       _connecting = true;
     });
     try {
-      // Normal chat messages go to the AI Agent Ultimate preview Worker.
+      // Normal chat messages go to the AI Agent Ultimate production Worker.
       // Google Workspace mode remains a separate, read-only integration.
       if (_useWorkspaceContext) {
         final answer = await _workspace.askSara(text);
@@ -207,7 +207,7 @@ class _AIScreenState extends State<AIScreen> {
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   const Text('AI Agent Ultimate', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 8),
-                  const Text('Los mensajes normales se envían automáticamente al Worker de prueba. Si activas Google Workspace, se usa su integración independiente de solo lectura.'),
+                  const Text('Los mensajes normales se envían automáticamente al AI Agent Ultimate. Si activas Google Workspace, se usa su integración independiente de solo lectura.'),
                   const SizedBox(height: 8),
                   SizedBox(height: 230, child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                     if (_saraGeneralChat.isEmpty)
