@@ -49,6 +49,7 @@ _FORBIDDEN_CALLS = {
 _ORIGINAL_IMPORT = builtins.__import__
 _MAX_OUTPUT = 12000
 _MAX_SOURCE = 12000
+_output_budget = [_MAX_OUTPUT]
 
 class _BoundedOutput:
     def __init__(self):
@@ -57,11 +58,12 @@ class _BoundedOutput:
         self.truncated = False
     def write(self, value):
         value = str(value)
-        remaining = _MAX_OUTPUT - self.size
+        remaining = _output_budget[0]
         if remaining > 0:
             piece = value[:remaining]
             self.parts.append(piece)
             self.size += len(piece)
+            _output_budget[0] -= len(piece)
         if len(value) > remaining:
             self.truncated = True
         return len(value)
@@ -96,6 +98,7 @@ _SAFE_BUILTINS["__import__"] = _safe_import
 def _run_user_code(source):
     if not isinstance(source, str) or len(source) > _MAX_SOURCE:
         return json.dumps({"error": "El código supera el límite de 12.000 caracteres."})
+    _output_budget[0] = _MAX_OUTPUT
     stdout = _BoundedOutput()
     stderr = _BoundedOutput()
     try:
