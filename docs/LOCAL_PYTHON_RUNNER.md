@@ -25,12 +25,12 @@ El runtime de Pyodide se obtiene de jsDelivr. El código del usuario se mantiene
 
 ## Integración con Sara AI
 
-- Cuando una respuesta del chat de Sara contiene un bloque Markdown de código etiquetado como `python` o `py`, la aplicación ofrece el botón "Abrir en ejecutor Python".
-- La extracción solo acepta bloques de hasta 12.000 caracteres.
-- Al abrir el ejecutor, el código queda precargado para que la persona lo revise.
-- El código nunca se ejecuta automáticamente. La persona debe pulsar "Ejecutar Python" después de revisarlo.
-- La respuesta de Sara se genera en AI Agent Ultimate; después, el código extraído se pasa directamente entre pantallas Flutter al runtime local. No se envía una segunda vez al Worker ni a Supabase.
-- El botón no aparece para respuestas sin un bloque Python reconocido.
+- Si la respuesta más reciente de Sara contiene un bloque Markdown etiquetado como `python` o `py`, la persona puede escribir una orden explícita como "Sara, ejecuta ese código" o "corre ese script".
+- La aplicación reconoce la orden solo si el mensaje contiene una intención explícita de ejecutar y la respuesta inmediatamente anterior de Sara incluye un bloque Python de hasta 12.000 caracteres.
+- La orden abre el ejecutor local y, cuando Pyodide termina de inicializarse, ejecuta ese bloque una sola vez sin requerir un botón adicional.
+- No se ejecuta código por el simple hecho de que Sara lo genere o responda. Sin orden explícita y código en la respuesta inmediatamente anterior, el chat sigue su flujo normal.
+- La extracción y el traspaso del bloque se realizan dentro de Flutter. El código no se envía una segunda vez a AI Agent Ultimate, Firebase ni Supabase.
+- El ejecutor mantiene sus límites: 5 segundos por ejecución, 12.000 caracteres de entrada/salida y sin límite duro de memoria. No es un sandbox reforzado para código hostil.
 
 ## Verificación manual pendiente
 
