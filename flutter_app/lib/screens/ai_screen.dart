@@ -206,35 +206,20 @@ class _AIScreenState extends State<AIScreen> {
     }
 
     final service = OtpHandoffService();
-    try {
-      final session = await service.createSession(
-        origin: uri.origin,
-        method: selectedMethod.name,
-      );
-      if (!mounted) {
-        service.close();
-        return;
-      }
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => OtpBrowserScreen(
-            initialUri: uri,
-            session: session,
-            handoffService: service,
-          ),
-        ),
-      );
-    } catch (error) {
+    if (!mounted) {
       service.close();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            error.toString().replaceFirst('Bad state: ', ''),
-          ),
-        ),
-      );
+      return;
     }
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => OtpBrowserScreen(
+          initialUri: uri,
+          origin: uri.origin,
+          method: selectedMethod.name,
+          handoffService: service,
+        ),
+      ),
+    );
   }
 
   Future<void> _copyPrompt() async {
