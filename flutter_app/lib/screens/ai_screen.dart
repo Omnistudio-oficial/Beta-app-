@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:beta_app/services/google_workspace_read_only.dart';
 import 'package:beta_app/services/ai_agent_ultimate_service.dart';
+import 'package:beta_app/screens/ai_agent_tasks_screen.dart';
 
 class AIScreen extends StatefulWidget {
   const AIScreen({super.key});
@@ -171,6 +172,19 @@ class _AIScreenState extends State<AIScreen> {
             const Text('Compositor de prompts', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             const Text('Elige una plantilla para preparar un prompt o pregunta a Sara en lenguaje natural sobre Google Workspace.'),
+            const SizedBox(height: 18),
+            Card(
+              key: const Key('ai-agent-tasks-entry'),
+              child: ListTile(
+                leading: const Icon(Icons.account_tree_outlined),
+                title: const Text('Tareas autónomas'),
+                subtitle: const Text('Crear tareas, revisar pasos y aprobar solicitudes sensibles.'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(builder: (_) => const AiAgentTasksScreen()),
+                ),
+              ),
+            ),
             const SizedBox(height: 18),
             Card(
               key: const Key('google-workspace-card'),
