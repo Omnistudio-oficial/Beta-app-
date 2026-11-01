@@ -34,6 +34,64 @@ class _OtpBrowserScreenState extends State<OtpBrowserScreen> {
   bool _finished = false;
   OtpHandoffSession? _activeSession;
   String? _status;
+  late final Set<String> _allowedOrigins = <String>{widget.origin};
+
+  String? _httpsOrigin(Uri? uri) {
+    if (uri == null ||
+        uri.scheme.toLowerCase() != 'https' ||
+        uri.host.isEmpty ||
+        uri.userInfo.isNotEmpty ||
+        uri.port != 443) {
+      return null;
+    }
+    return uri.origin;
+  }
+
+  Future<bool> _authorizeNavigation(Uri? uri) async {
+    final origin = _httpsOrigin(uri);
+    if (origin == null) {
+      if (mounted) {
+        setState(() => _status = 'Navegación bloqueada: solo se permiten sitios HTTPS seguros en el puerto estándar.');
+      }
+      return false;
+    }
+    if (_allowedOrigins.contains(origin)) return true;
+    if (!mounted) return false;
+
+    final approved = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('¿Permitir redirección?'),
+        content: Text(
+          'El sitio quiere abrir otro dominio:\\n\\n${uri!.host}\\n\\n'
+          'Solo se permitirá durante esta sesión privada. El código OTP '
+          'seguirá limitado al sitio original: ${widget.origin}.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Bloquear'),
+          ),
+          FilledButton(
+            key: const Key('otp-allow-redirect-origin'),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Permitir este dominio'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || approved != true) return false;
+    _allowedOrigins.add(origin);
+    setState(() => _status = 'Dominio autorizado para esta sesión: ${uri!.host}.');
+    return true;
+  }
+
+  Future<bool> _isOnOriginalOrigin() async {
+    final current = await _controller?.getUrl();
+    return _httpsOrigin(current == null ? null : Uri.tryParse(current.toString())) ==
+        widget.origin;
+  }
 
   @override
   void dispose() {
@@ -56,7 +114,7 @@ class _OtpBrowserScreenState extends State<OtpBrowserScreen> {
 
   Future<bool> _focusedFieldCanReceiveCode() async {
     final controller = _controller;
-    if (controller == null) return false;
+    if (controller == null || !await _isOnOriginalOrigin()) return false;
     final result = await controller.evaluateJavascript(source: '''
       (() => {
         const el = document.activeElement;
@@ -80,7 +138,8 @@ class _OtpBrowserScreenState extends State<OtpBrowserScreen> {
 
   Future<bool> _fillFocusedField(String code) async {
     final controller = _controller;
-    if (controller == null) return false;
+    // Never insert a code into an identity-provider or redirected domain.
+    if (controller == null || !await _isOnOriginalOrigin()) return false;
     final encodedCode = jsonEncode(code);
     final result = await controller.evaluateJavascript(source: '''
       (() => {
@@ -116,6 +175,14 @@ class _OtpBrowserScreenState extends State<OtpBrowserScreen> {
     final code = _codeController.text.trim();
     if (!RegExp(r'^\d{4,10}$').hasMatch(code)) {
       setState(() => _status = 'Escribe un código de 4 a 10 dígitos.');
+      return;
+    }
+
+    final onOriginalSite = await _isOnOriginalOrigin();
+    if (!mounted) return;
+    if (!onOriginalSite) {
+      setState(() => _status =
+          'La verificación debe completarse en el sitio original (${widget.origin}). Vuelve a ese sitio antes de transferir el código.');
       return;
     }
 
@@ -208,7 +275,7 @@ class _OtpBrowserScreenState extends State<OtpBrowserScreen> {
                   SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Sesión privada · solo HTTPS y este sitio · cookies temporales que se descartan al cerrar',
+                      'Sesión privada · redirecciones HTTPS con autorización · OTP solo para el sitio original',
                       style: TextStyle(fontSize: 12),
                     ),
                   ),
@@ -231,7 +298,7 @@ class _OtpBrowserScreenState extends State<OtpBrowserScreen> {
                     javaScriptCanOpenWindowsAutomatically: false,
                     useShouldOverrideUrlLoading: true,
                     // Incognito storage is discarded when this WebView closes.
-                    supportMultipleWindows: true,
+                    supportMultipleWindows: false,
                     allowFileAccess: false,
                     allowContentAccess: false,
                     allowFileAccessFromFileURLs: false,
@@ -263,13 +330,12 @@ class _OtpBrowserScreenState extends State<OtpBrowserScreen> {
                     });
                   },
                   onUpdateVisitedHistory: (controller, url, isReload) async {
-                    if (url == null ||
-                        url.scheme != 'https' ||
-                        url.origin != widget.origin) {
+                    final origin = _httpsOrigin(url);
+                    if (origin == null || !_allowedOrigins.contains(origin)) {
                       await controller.stopLoading();
                       if (mounted) {
                         setState(() => _status =
-                            'Navegación bloqueada: solo se permite ' + widget.origin + '.');
+                            'Navegación detenida: el dominio no está autorizado para esta sesión.');
                       }
                     }
                   },
@@ -279,17 +345,10 @@ class _OtpBrowserScreenState extends State<OtpBrowserScreen> {
                     }
                   },
                   shouldOverrideUrlLoading: (controller, action) async {
-                    final uri = action.request.url;
-                    if (uri == null ||
-                        uri.scheme != 'https' ||
-                        uri.origin != widget.origin) {
-                      if (mounted) {
-                        setState(() => _status =
-                            'Navegación bloqueada: solo se permite ' + widget.origin + '.');
-                      }
-                      return NavigationActionPolicy.CANCEL;
-                    }
-                    return NavigationActionPolicy.ALLOW;
+                    final allowed = await _authorizeNavigation(action.request.url);
+                    return allowed
+                        ? NavigationActionPolicy.ALLOW
+                        : NavigationActionPolicy.CANCEL;
                   },
                 ),
                 if (_loading)
