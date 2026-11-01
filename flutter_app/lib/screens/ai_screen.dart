@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:beta_app/services/google_workspace_read_only.dart';
 import 'package:beta_app/services/ai_agent_ultimate_service.dart';
+import 'package:beta_app/screens/python_runner_screen.dart';
 
 class AIScreen extends StatefulWidget {
   const AIScreen({super.key});
@@ -293,6 +294,25 @@ class _AIScreenState extends State<AIScreen> {
                   const SizedBox(height: 8),
                   Row(children: [Expanded(child: TextField(key: const Key('sara-workspace-chat-input'), controller: _saraChatInput, minLines: 1, maxLines: 3, onSubmitted: (_) => _sendSaraMessage(), decoration: const InputDecoration(hintText: 'Escribe un mensaje para AI Agent Ultimate', border: OutlineInputBorder()))), const SizedBox(width: 8), IconButton.filled(key: const Key('sara-workspace-chat-send'), onPressed: _connecting ? null : _sendSaraMessage, tooltip: 'Enviar a AI Agent Ultimate', icon: _connecting ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.send))]),
                 ]),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Card(
+              key: const Key('local-python-runner-card'),
+              child: ListTile(
+                leading: const Icon(Icons.terminal),
+                title: const Text('Ejecutor Python local'),
+                subtitle: const Text(
+                  'Ejecuta scripts pequeños en el dispositivo con Pyodide, sin enviarlos al backend.',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const PythonRunnerScreen(),
+                    ),
+                  );
+                },
               ),
             ),
             const SizedBox(height: 18),
