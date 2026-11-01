@@ -8,7 +8,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 class PythonRunnerScreen extends StatefulWidget {
   const PythonRunnerScreen({super.key, this.initialCode, this.autoRun = false});
 
-  /// Optional Python snippet suggested by Sara. It is never executed automatically.
+  /// Optional Python snippet suggested by Sara; autoRun requires an explicit chat command.
   final String? initialCode;
 
   /// True only when the user explicitly ordered Sara to run the preceding code.
