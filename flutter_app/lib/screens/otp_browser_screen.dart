@@ -58,7 +58,7 @@ class _OtpBrowserScreenState extends State<OtpBrowserScreen> {
         content: Text(
           'El sitio quiere abrir otro dominio:\\n\\n${uri!.host}\\n\\n'
           'Solo se permitirá durante esta sesión privada. El código OTP '
-          'seguirá limitado al sitio original: ${widget.origin}.',
+          'solo se transferirá al dominio HTTPS aprobado que esté mostrando el campo OTP.',
         ),
         actions: [
           TextButton(
