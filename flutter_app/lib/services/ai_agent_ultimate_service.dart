@@ -3,14 +3,14 @@ import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 
-/// Sends authenticated chat messages to the AI Agent Ultimate preview Worker.
+/// Sends authenticated chat messages to the production AI Agent Ultimate Worker.
 /// The Firebase ID token is kept in memory and is never logged or persisted.
 class AiAgentUltimateService {
   AiAgentUltimateService({http.Client? client})
       : _client = client ?? http.Client();
 
   static const String endpoint =
-      'https://ai-agent-ultimate-preview.gonzalez24029.workers.dev/v1/chat';
+      'https://ai-agent-ultimate.gonzalez24029.workers.dev/v1/chat';
 
   final http.Client _client;
 
