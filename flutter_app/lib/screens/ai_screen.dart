@@ -198,7 +198,8 @@ class _AIScreenState extends State<AIScreen> {
     if (uri == null ||
         uri.scheme != 'https' ||
         uri.host.isEmpty ||
-        uri.userInfo.isNotEmpty) {
+        uri.userInfo.isNotEmpty ||
+        uri.port != 443) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Solo se permiten direcciones HTTPS válidas.')),
       );
