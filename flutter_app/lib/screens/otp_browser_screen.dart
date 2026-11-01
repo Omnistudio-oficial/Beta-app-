@@ -1,0 +1,528 @@
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+
+import 'package:beta_app/services/otp_handoff_service.dart';
+import 'package:beta_app/services/otp_navigation_policy.dart';
+
+class OtpBrowserScreen extends StatefulWidget {
+  const OtpBrowserScreen({
+    super.key,
+    required this.initialUri,
+    required this.origin,
+    required this.method,
+    required this.handoffService,
+  });
+
+  final Uri initialUri;
+  final String origin;
+  final String method;
+  final OtpHandoffService handoffService;
+
+  @override
+  State<OtpBrowserScreen> createState() => _OtpBrowserScreenState();
+}
+
+class _OtpBrowserScreenState extends State<OtpBrowserScreen> {
+  final TextEditingController _codeController = TextEditingController();
+  InAppWebViewController? _controller;
+  String? _pageTitle;
+  bool _loading = true;
+  bool _transferring = false;
+  bool _finished = false;
+  OtpHandoffSession? _activeSession;
+  String? _status;
+  late final Set<String> _allowedOrigins = <String>{widget.origin};
+  final List<CreateWindowAction> _popupWindows = <CreateWindowAction>[];
+
+  String? _httpsOrigin(Uri? uri) => OtpNavigationPolicy.httpsOrigin(uri);
+
+  Future<bool> _authorizeNavigation(Uri? uri) async {
+    final origin = _httpsOrigin(uri);
+    if (origin == null) {
+      if (mounted) {
+        setState(() => _status = 'Navegación bloqueada: solo se permiten sitios HTTPS seguros en el puerto estándar.');
+      }
+      return false;
+    }
+    if (_allowedOrigins.contains(origin)) return true;
+    if (!mounted) return false;
+
+    final approved = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('¿Permitir redirección?'),
+        content: Text(
+          'El sitio quiere abrir otro dominio:\\n\\n${uri!.host}\\n\\n'
+          'Solo se permitirá durante esta sesión privada. El código OTP '
+          'solo se transferirá al dominio HTTPS aprobado que esté mostrando el campo OTP.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Bloquear'),
+          ),
+          FilledButton(
+            key: const Key('otp-allow-redirect-origin'),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Permitir este dominio'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || approved != true) return false;
+    _allowedOrigins.add(origin);
+    setState(() => _status = 'Dominio autorizado para esta sesión: ${uri!.host}.');
+    return true;
+  }
+
+  Future<bool> _createPopupWindow(
+    InAppWebViewController controller,
+    CreateWindowAction action,
+  ) async {
+    // Treat popup destinations exactly like top-level redirects: HTTPS only,
+    // standard port only, and explicit approval for each new origin.
+    final popupUri = action.request.url;
+    if (popupUri != null && !await _authorizeNavigation(Uri.tryParse(popupUri.toString()))) {
+      return false;
+    }
+    if (!mounted) return false;
+    setState(() => _popupWindows.add(action));
+    return true;
+  }
+
+  void _closePopupWindow(int windowId) {
+    if (!mounted) return;
+    setState(() => _popupWindows.removeWhere((item) => item.windowId == windowId));
+  }
+
+  Future<String?> _currentAuthorizedOrigin() async {
+    final current = await _controller?.getUrl();
+    final origin = _httpsOrigin(
+      current == null ? null : Uri.tryParse(current.toString()),
+    );
+    return origin != null && _allowedOrigins.contains(origin) ? origin : null;
+  }
+
+  @override
+  void dispose() {
+    _codeController.dispose();
+    unawaited(_cancelAndClose());
+    super.dispose();
+  }
+
+  Future<void> _cancelAndClose() async {
+    final session = _activeSession;
+    if (!_finished && session != null) {
+      try {
+        await widget.handoffService.cancelSession(session);
+      } catch (_) {
+        // Expired or already-consumed sessions are already unusable.
+      }
+    }
+    widget.handoffService.close();
+  }
+
+  Future<bool> _focusedFieldCanReceiveCode() async {
+    final controller = _controller;
+    if (controller == null || await _currentAuthorizedOrigin() == null) return false;
+    final result = await controller.evaluateJavascript(source: '''
+      (() => {
+        const el = document.activeElement;
+        if (!el || el.tagName !== 'INPUT') return false;
+        const type = (el.type || 'text').toLowerCase();
+        if (!['text', 'tel', 'number'].includes(type)) return false;
+        const hints = [
+          el.name || '',
+          el.id || '',
+          el.getAttribute('aria-label') || '',
+          el.getAttribute('autocomplete') || ''
+        ].join(' ').toLowerCase();
+        const hasOtpHint = /otp|one.?time|verification|verify|security.?code|auth.?code/.test(hints);
+        const numericInput = type === 'tel' || type === 'number';
+        const shortField = el.maxLength > 0 && el.maxLength <= 10;
+        return hasOtpHint || (numericInput && shortField);
+      })();
+    ''');
+    return result == true;
+  }
+
+  Future<bool> _fillFocusedField(String code, String expectedOrigin) async {
+    final controller = _controller;
+    // The OTP is relayed only to the exact approved origin showing the field.
+    if (controller == null || await _currentAuthorizedOrigin() != expectedOrigin) {
+      return false;
+    }
+    final encodedCode = jsonEncode(code);
+    final result = await controller.evaluateJavascript(source: '''
+      (() => {
+        const code = $encodedCode;
+        const el = document.activeElement;
+        if (!el || el.tagName !== 'INPUT') return false;
+        const type = (el.type || 'text').toLowerCase();
+        if (!['text', 'tel', 'number'].includes(type)) return false;
+        const hints = [
+          el.name || '',
+          el.id || '',
+          el.getAttribute('aria-label') || '',
+          el.getAttribute('autocomplete') || ''
+        ].join(' ').toLowerCase();
+        const hasOtpHint = /otp|one.?time|verification|verify|security.?code|auth.?code/.test(hints);
+        const numericInput = type === 'tel' || type === 'number';
+        const shortField = el.maxLength > 0 && el.maxLength <= 10;
+        if (!(hasOtpHint || (numericInput && shortField))) return false;
+        const setter = Object.getOwnPropertyDescriptor(
+          HTMLInputElement.prototype, 'value'
+        ).set;
+        setter.call(el, code);
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+        return true;
+      })();
+    ''');
+    return result == true;
+  }
+
+  Future<void> _transferCode() async {
+    if (_transferring || _finished) return;
+    final code = _codeController.text.trim();
+    if (!RegExp(r'^\d{4,10}$').hasMatch(code)) {
+      setState(() => _status = 'Escribe un código de 4 a 10 dígitos.');
+      return;
+    }
+
+    final challengeOrigin = await _currentAuthorizedOrigin();
+    if (!mounted) return;
+    if (challengeOrigin == null) {
+      setState(() => _status =
+          'El dominio actual no está autorizado. Aprueba primero la redirección HTTPS.');
+      return;
+    }
+
+    final canFill = await _focusedFieldCanReceiveCode();
+    if (!mounted) return;
+    if (!canFill) {
+      setState(() => _status =
+          'Primero toca el campo del código en la página. Solo se rellenan campos OTP compatibles.');
+      return;
+    }
+
+    setState(() {
+      _transferring = true;
+      _status = 'Transfiriendo una sola vez…';
+    });
+
+    try {
+      // Create the 90-second backend session only after the user has the code
+      // ready, so browsing/login time cannot consume the OTP lifetime.
+      final session = await widget.handoffService.createSession(
+        origin: challengeOrigin,
+        method: widget.method,
+      );
+      if (!mounted) return;
+      _activeSession = session;
+      final codeFromRelay = await widget.handoffService.submitAndConsume(
+        session: session,
+        code: code,
+      );
+      if (!mounted) return;
+      final filled = await _fillFocusedField(codeFromRelay, session.origin);
+      if (!mounted) return;
+      if (!filled) {
+        setState(() {
+          _finished = true;
+          _status =
+              'El código se consumió, pero la página cambió de dominio o el campo perdió el foco. Inicia una verificación nueva.';
+          _codeController.clear();
+        });
+        return;
+      }
+      setState(() {
+        _finished = true;
+        _status = 'Código transferido al campo seleccionado. Revisa la página y confirma allí.';
+        _codeController.clear();
+      });
+      HapticFeedback.selectionClick();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _status = error.toString().replaceFirst('Bad state: ', ''));
+    } finally {
+      if (mounted) setState(() => _transferring = false);
+    }
+  }
+
+  Future<void> _goBack() async {
+    final controller = _controller;
+    if (controller != null && await controller.canGoBack()) {
+      await controller.goBack();
+    }
+  }
+
+  void _closeBrowser() {
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final host = widget.initialUri.host;
+    return Scaffold(
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        leading: IconButton(
+          tooltip: 'Volver a la página anterior',
+          onPressed: _goBack,
+          icon: const Icon(Icons.arrow_back),
+        ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(_pageTitle ?? 'Navegador privado',
+                maxLines: 1, overflow: TextOverflow.ellipsis),
+            Text(host, style: Theme.of(context).textTheme.labelSmall),
+          ],
+        ),
+        actions: [
+          IconButton(
+            tooltip: 'Cerrar navegador',
+            onPressed: _transferring ? null : _closeBrowser,
+            icon: const Icon(Icons.close),
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          Material(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                children: [
+                  Icon(Icons.shield_outlined, size: 18),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Sesión privada · redirecciones HTTPS con autorización · OTP solo para el sitio original',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Expanded(
+            child: Stack(
+              children: [
+                InAppWebView(
+                  key: const ValueKey('otp-private-webview'),
+                  initialUrlRequest: URLRequest(
+                    url: WebUri(widget.initialUri.toString()),
+                  ),
+                  initialSettings: InAppWebViewSettings(
+                    incognito: true,
+                    cacheEnabled: false,
+                    javaScriptEnabled: true,
+                    javaScriptCanOpenWindowsAutomatically: true,
+                    useShouldOverrideUrlLoading: true,
+                    // Incognito storage is discarded when this WebView closes.
+                    supportMultipleWindows: true,
+                    allowFileAccess: false,
+                    allowContentAccess: false,
+                    allowFileAccessFromFileURLs: false,
+                    allowUniversalAccessFromFileURLs: false,
+                    thirdPartyCookiesEnabled: true,
+                    geolocationEnabled: false,
+                    safeBrowsingEnabled: true,
+                    mediaPlaybackRequiresUserGesture: true,
+                    disableContextMenu: true,
+                  ),
+                  onWebViewCreated: (controller) {
+                    _controller = controller;
+                  },
+                  onCreateWindow: _createPopupWindow,
+                  onPermissionRequest: (controller, request) async {
+                    // OTP login pages do not need camera, microphone, or location.
+                    return PermissionResponse(
+                      action: PermissionResponseAction.DENY,
+                      resources: const [],
+                    );
+                  },
+                  onLoadStart: (controller, url) {
+                    if (mounted) setState(() => _loading = true);
+                  },
+                  onLoadStop: (controller, url) async {
+                    if (!mounted) return;
+                    setState(() {
+                      _loading = false;
+                      _pageTitle = url?.host;
+                    });
+                  },
+                  onUpdateVisitedHistory: (controller, url, isReload) async {
+                    final origin = _httpsOrigin(url);
+                    if (origin == null || !_allowedOrigins.contains(origin)) {
+                      await controller.stopLoading();
+                      if (mounted) {
+                        setState(() => _status =
+                            'Navegación detenida: el dominio no está autorizado para esta sesión.');
+                      }
+                    }
+                  },
+                  onTitleChanged: (controller, title) {
+                    if (mounted && title != null) {
+                      setState(() => _pageTitle = title);
+                    }
+                  },
+                  shouldOverrideUrlLoading: (controller, action) async {
+                    final allowed = await _authorizeNavigation(action.request.url);
+                    return allowed
+                        ? NavigationActionPolicy.ALLOW
+                        : NavigationActionPolicy.CANCEL;
+                  },
+                ),
+                if (_loading)
+                  const Align(
+                    alignment: Alignment.topCenter,
+                    child: LinearProgressIndicator(),
+                  ),
+                ..._popupWindows.map(
+                  (popup) => Positioned.fill(
+                    child: Material(
+                      color: Theme.of(context).colorScheme.surface,
+                      child: Column(
+                        children: [
+                          Material(
+                            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                            child: Row(
+                              children: [
+                                const Expanded(
+                                  child: Padding(
+                                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                    child: Text('Ventana emergente autorizada'),
+                                  ),
+                                ),
+                                IconButton(
+                                  tooltip: 'Cerrar ventana emergente',
+                                  onPressed: () => _closePopupWindow(popup.windowId),
+                                  icon: const Icon(Icons.close),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Expanded(
+                            child: InAppWebView(
+                              key: ValueKey('otp-popup-${popup.windowId}'),
+                              windowId: popup.windowId,
+                              initialSettings: InAppWebViewSettings(
+                                incognito: true,
+                                cacheEnabled: false,
+                                javaScriptEnabled: true,
+                                javaScriptCanOpenWindowsAutomatically: true,
+                                supportMultipleWindows: true,
+                                useShouldOverrideUrlLoading: true,
+                                thirdPartyCookiesEnabled: true,
+                                allowFileAccess: false,
+                                allowContentAccess: false,
+                                allowFileAccessFromFileURLs: false,
+                                allowUniversalAccessFromFileURLs: false,
+                                geolocationEnabled: false,
+                                safeBrowsingEnabled: true,
+                                mediaPlaybackRequiresUserGesture: true,
+                              ),
+                              shouldOverrideUrlLoading: (popupController, action) async {
+                                final allowed = await _authorizeNavigation(action.request.url);
+                                return allowed
+                                    ? NavigationActionPolicy.ALLOW
+                                    : NavigationActionPolicy.CANCEL;
+                              },
+                              onCreateWindow: _createPopupWindow,
+                              onCloseWindow: (_) => _closePopupWindow(popup.windowId),
+                              onUpdateVisitedHistory: (popupController, url, isReload) async {
+                                final origin = _httpsOrigin(url);
+                                if (origin == null || !_allowedOrigins.contains(origin)) {
+                                  await popupController.stopLoading();
+                                  if (mounted) {
+                                    setState(() => _status =
+                                        'Ventana emergente detenida: dominio no autorizado.');
+                                  }
+                                }
+                              },
+                              onPermissionRequest: (popupController, request) async =>
+                                  PermissionResponse(
+                                action: PermissionResponseAction.DENY,
+                                resources: const [],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextField(
+                    key: const Key('otp-private-code-input'),
+                    controller: _codeController,
+                    keyboardType: TextInputType.number,
+                    obscureText: true,
+                    maxLength: 10,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                    ],
+                    decoration: const InputDecoration(
+                      labelText: 'Código de verificación',
+                      hintText: 'Escribe aquí el código recibido',
+                      counterText: '',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.password_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  FilledButton.icon(
+                    key: const Key('otp-private-transfer'),
+                    onPressed: _transferring || _finished
+                        ? null
+                        : _transferCode,
+                    icon: _transferring
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.lock_outline),
+                    label: Text(_transferring
+                        ? 'Transfiriendo…'
+                        : 'Transferir al campo seleccionado'),
+                  ),
+                  if (_status != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      _status!,
+                      key: const Key('otp-private-status'),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                  const Text(
+                    'La sesión temporal se crea al transferir el código y vence en 90 segundos.',
+                    style: TextStyle(fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
