@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:beta_app/services/google_workspace_read_only.dart';
+import 'package:beta_app/services/ai_agent_ultimate_service.dart';
 
 class AIScreen extends StatefulWidget {
   const AIScreen({super.key});
@@ -14,6 +15,7 @@ class _AIScreenState extends State<AIScreen> {
   String? _selectedPrompt;
   String? _readyPrompt;
   final GoogleWorkspaceReadOnlyService _workspace = GoogleWorkspaceReadOnlyService();
+  final AiAgentUltimateService _aiAgent = AiAgentUltimateService();
   bool _connecting = false;
   String? _workspaceStatus;
   List<Map<String, dynamic>> _workspaceResults = const [];
@@ -45,6 +47,7 @@ class _AIScreenState extends State<AIScreen> {
     _controller.dispose();
     _workspaceQuery.dispose();
     _saraChatInput.dispose();
+    _aiAgent.close();
     super.dispose();
   }
 
@@ -109,9 +112,11 @@ class _AIScreenState extends State<AIScreen> {
       _connecting = true;
     });
     try {
+      // Normal chat messages go to the AI Agent Ultimate preview Worker.
+      // Google Workspace mode remains a separate, read-only integration.
       final answer = _useWorkspaceContext
           ? await _workspace.askSara(text)
-          : await _workspace.chatWithSara(text);
+          : await _aiAgent.sendMessage(text);
       if (!mounted) return;
       setState(() => _saraGeneralChat.add({'role': 'assistant', 'text': answer}));
     } catch (error) {
@@ -181,7 +186,9 @@ class _AIScreenState extends State<AIScreen> {
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('Conversar con Sara', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                  const Text('AI Agent Ultimate', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  const Text('Los mensajes normales se envían automáticamente al Worker de prueba. Si activas Google Workspace, se usa su integración independiente de solo lectura.'),
                   const SizedBox(height: 8),
                   SizedBox(height: 230, child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                     if (_saraGeneralChat.isEmpty)
@@ -193,7 +200,7 @@ class _AIScreenState extends State<AIScreen> {
                   const SizedBox(height: 4),
                   SwitchListTile(key: const Key('sara-workspace-context'), contentPadding: EdgeInsets.zero, title: const Text('Usar contexto de Google Workspace'), subtitle: const Text('Solo lectura · requiere conectar Google'), value: _useWorkspaceContext, onChanged: _connecting ? null : (value) => setState(() => _useWorkspaceContext = value)),
                   const SizedBox(height: 8),
-                  Row(children: [Expanded(child: TextField(key: const Key('sara-workspace-chat-input'), controller: _saraChatInput, minLines: 1, maxLines: 3, onSubmitted: (_) => _sendSaraMessage(), decoration: const InputDecoration(hintText: 'Escribe un mensaje para Sara', border: OutlineInputBorder()))), const SizedBox(width: 8), IconButton.filled(key: const Key('sara-workspace-chat-send'), onPressed: _connecting ? null : _sendSaraMessage, tooltip: 'Preguntar a Sara', icon: _connecting ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.send))]),
+                  Row(children: [Expanded(child: TextField(key: const Key('sara-workspace-chat-input'), controller: _saraChatInput, minLines: 1, maxLines: 3, onSubmitted: (_) => _sendSaraMessage(), decoration: const InputDecoration(hintText: 'Escribe un mensaje para AI Agent Ultimate', border: OutlineInputBorder()))), const SizedBox(width: 8), IconButton.filled(key: const Key('sara-workspace-chat-send'), onPressed: _connecting ? null : _sendSaraMessage, tooltip: 'Enviar a AI Agent Ultimate', icon: _connecting ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.send))]),
                 ]),
               ),
             ),
