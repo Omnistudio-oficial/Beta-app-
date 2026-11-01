@@ -230,6 +230,13 @@ class _OtpBrowserScreenState extends State<OtpBrowserScreen> {
     }
   }
 
+  Future<void> _goBack() async {
+    final controller = _controller;
+    if (controller != null && await controller.canGoBack()) {
+      await controller.goBack();
+    }
+  }
+
   void _closeBrowser() {
     if (mounted) Navigator.of(context).pop();
   }
@@ -239,6 +246,12 @@ class _OtpBrowserScreenState extends State<OtpBrowserScreen> {
     final host = widget.initialUri.host;
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
+        leading: IconButton(
+          tooltip: 'Volver a la página anterior',
+          onPressed: _goBack,
+          icon: const Icon(Icons.arrow_back),
+        ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
