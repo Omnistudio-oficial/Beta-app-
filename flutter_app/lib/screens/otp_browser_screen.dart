@@ -243,6 +243,13 @@ class _OtpBrowserScreenState extends State<OtpBrowserScreen> {
                   onWebViewCreated: (controller) {
                     _controller = controller;
                   },
+                  onPermissionRequest: (controller, request) async {
+                    // OTP login pages do not need camera, microphone, or location.
+                    return PermissionResponse(
+                      action: PermissionResponseAction.DENY,
+                      resources: const [],
+                    );
+                  },
                   onLoadStart: (controller, url) {
                     if (mounted) setState(() => _loading = true);
                   },
