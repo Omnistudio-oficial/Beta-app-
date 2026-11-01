@@ -36,6 +36,7 @@ class _OtpBrowserScreenState extends State<OtpBrowserScreen> {
   OtpHandoffSession? _activeSession;
   String? _status;
   late final Set<String> _allowedOrigins = <String>{widget.origin};
+  final List<CreateWindowAction> _popupWindows = <CreateWindowAction>[];
 
   String? _httpsOrigin(Uri? uri) => OtpNavigationPolicy.httpsOrigin(uri);
 
@@ -77,6 +78,26 @@ class _OtpBrowserScreenState extends State<OtpBrowserScreen> {
     _allowedOrigins.add(origin);
     setState(() => _status = 'Dominio autorizado para esta sesión: ${uri!.host}.');
     return true;
+  }
+
+  Future<bool> _createPopupWindow(
+    InAppWebViewController controller,
+    CreateWindowAction action,
+  ) async {
+    // Treat popup destinations exactly like top-level redirects: HTTPS only,
+    // standard port only, and explicit approval for each new origin.
+    final popupUri = action.request.url;
+    if (popupUri != null && !await _authorizeNavigation(Uri.tryParse(popupUri.toString()))) {
+      return false;
+    }
+    if (!mounted) return false;
+    setState(() => _popupWindows.add(action));
+    return true;
+  }
+
+  void _closePopupWindow(int windowId) {
+    if (!mounted) return;
+    setState(() => _popupWindows.removeWhere((item) => item.windowId == windowId));
   }
 
   Future<String?> _currentAuthorizedOrigin() async {
@@ -304,15 +325,15 @@ class _OtpBrowserScreenState extends State<OtpBrowserScreen> {
                     incognito: true,
                     cacheEnabled: false,
                     javaScriptEnabled: true,
-                    javaScriptCanOpenWindowsAutomatically: false,
+                    javaScriptCanOpenWindowsAutomatically: true,
                     useShouldOverrideUrlLoading: true,
                     // Incognito storage is discarded when this WebView closes.
-                    supportMultipleWindows: false,
+                    supportMultipleWindows: true,
                     allowFileAccess: false,
                     allowContentAccess: false,
                     allowFileAccessFromFileURLs: false,
                     allowUniversalAccessFromFileURLs: false,
-                    thirdPartyCookiesEnabled: false,
+                    thirdPartyCookiesEnabled: true,
                     geolocationEnabled: false,
                     safeBrowsingEnabled: true,
                     mediaPlaybackRequiresUserGesture: true,
@@ -321,6 +342,7 @@ class _OtpBrowserScreenState extends State<OtpBrowserScreen> {
                   onWebViewCreated: (controller) {
                     _controller = controller;
                   },
+                  onCreateWindow: _createPopupWindow,
                   onPermissionRequest: (controller, request) async {
                     // OTP login pages do not need camera, microphone, or location.
                     return PermissionResponse(
@@ -365,6 +387,80 @@ class _OtpBrowserScreenState extends State<OtpBrowserScreen> {
                     alignment: Alignment.topCenter,
                     child: LinearProgressIndicator(),
                   ),
+                ..._popupWindows.map(
+                  (popup) => Positioned.fill(
+                    child: Material(
+                      color: Theme.of(context).colorScheme.surface,
+                      child: Column(
+                        children: [
+                          Material(
+                            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                            child: Row(
+                              children: [
+                                const Expanded(
+                                  child: Padding(
+                                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                    child: Text('Ventana emergente autorizada'),
+                                  ),
+                                ),
+                                IconButton(
+                                  tooltip: 'Cerrar ventana emergente',
+                                  onPressed: () => _closePopupWindow(popup.windowId),
+                                  icon: const Icon(Icons.close),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Expanded(
+                            child: InAppWebView(
+                              key: ValueKey('otp-popup-${popup.windowId}'),
+                              windowId: popup.windowId,
+                              initialSettings: InAppWebViewSettings(
+                                incognito: true,
+                                cacheEnabled: false,
+                                javaScriptEnabled: true,
+                                javaScriptCanOpenWindowsAutomatically: true,
+                                supportMultipleWindows: true,
+                                useShouldOverrideUrlLoading: true,
+                                thirdPartyCookiesEnabled: true,
+                                allowFileAccess: false,
+                                allowContentAccess: false,
+                                allowFileAccessFromFileURLs: false,
+                                allowUniversalAccessFromFileURLs: false,
+                                geolocationEnabled: false,
+                                safeBrowsingEnabled: true,
+                                mediaPlaybackRequiresUserGesture: true,
+                              ),
+                              shouldOverrideUrlLoading: (popupController, action) async {
+                                final allowed = await _authorizeNavigation(action.request.url);
+                                return allowed
+                                    ? NavigationActionPolicy.ALLOW
+                                    : NavigationActionPolicy.CANCEL;
+                              },
+                              onCreateWindow: _createPopupWindow,
+                              onCloseWindow: (_) => _closePopupWindow(popup.windowId),
+                              onUpdateVisitedHistory: (popupController, url, isReload) async {
+                                final origin = _httpsOrigin(url);
+                                if (origin == null || !_allowedOrigins.contains(origin)) {
+                                  await popupController.stopLoading();
+                                  if (mounted) {
+                                    setState(() => _status =
+                                        'Ventana emergente detenida: dominio no autorizado.');
+                                  }
+                                }
+                              },
+                              onPermissionRequest: (popupController, request) async =>
+                                  PermissionResponse(
+                                action: PermissionResponseAction.DENY,
+                                resources: const [],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
