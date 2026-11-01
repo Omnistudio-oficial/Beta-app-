@@ -224,7 +224,6 @@ class _OtpBrowserScreenState extends State<OtpBrowserScreen> {
                   initialSettings: InAppWebViewSettings(
                     incognito: true,
                     cacheEnabled: false,
-                    clearCache: true,
                     javaScriptEnabled: true,
                     javaScriptCanOpenWindowsAutomatically: false,
                     useShouldOverrideUrlLoading: true,
