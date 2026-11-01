@@ -6,7 +6,10 @@ import 'package:webview_flutter/webview_flutter.dart';
 /// Runs small Python snippets in a dedicated Web Worker using Pyodide.
 /// User code is never sent to AI Agent Ultimate, Firebase, or Supabase.
 class PythonRunnerScreen extends StatefulWidget {
-  const PythonRunnerScreen({super.key});
+  const PythonRunnerScreen({super.key, this.initialCode});
+
+  /// Optional Python snippet suggested by Sara. It is never executed automatically.
+  final String? initialCode;
 
   @override
   State<PythonRunnerScreen> createState() => _PythonRunnerScreenState();
@@ -20,8 +23,7 @@ print("Hola desde Python")
 print("Raíces:", [sqrt(number) for number in numbers])
 print("Total:", sum(numbers))''';
 
-  final TextEditingController _codeController =
-      TextEditingController(text: _sample);
+  late final TextEditingController _codeController;
   final WebViewController _webViewController = WebViewController();
 
   bool _runtimeReady = false;
@@ -32,6 +34,12 @@ print("Total:", sum(numbers))''';
   @override
   void initState() {
     super.initState();
+    final suggestedCode = widget.initialCode?.trim();
+    _codeController = TextEditingController(
+      text: suggestedCode != null && suggestedCode.isNotEmpty
+          ? suggestedCode
+          : _sample,
+    );
     _initializeWebView();
   }
 
@@ -82,7 +90,9 @@ print("Total:", sum(numbers))''';
           case 'ready':
             _runtimeReady = true;
             _running = false;
-            _status = 'Python listo · ejecución local';
+            _status = widget.initialCode?.trim().isNotEmpty == true
+                ? 'Python listo · revisa el código de Sara antes de ejecutarlo'
+                : 'Python listo · ejecución local';
             break;
           case 'running':
             _running = true;
@@ -189,6 +199,25 @@ print("Total:", sum(numbers))''';
             ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                if (widget.initialCode?.trim().isNotEmpty == true)
+                  Card(
+                    key: const Key('sara-python-suggestion'),
+                    child: const Padding(
+                      padding: EdgeInsets.all(14),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.info_outline),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Sara preparó este código. Revísalo primero; no se ejecutará hasta que pulses «Ejecutar Python».',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(14),
