@@ -125,6 +125,8 @@ class AiAgentUltimateService {
         message = 'Brave Search rechazó las credenciales configuradas.';
       } else if (backendError == 'web_search_rate_limited') {
         message = 'Brave Search alcanzó su límite de solicitudes. Inténtalo más tarde.';
+      } else if (backendError == 'web_search_invalid_request') {
+        message = 'Brave Search rechazó la consulta. Se limitó automáticamente a 75 palabras y 600 caracteres; inténtalo de nuevo con una pregunta más corta.';
       } else if (backendError == 'web_search_provider_error' ||
           backendError == 'web_search_request_failed' ||
           backendError == 'web_search_invalid_response') {
