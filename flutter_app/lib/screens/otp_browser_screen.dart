@@ -79,10 +79,12 @@ class _OtpBrowserScreenState extends State<OtpBrowserScreen> {
     return true;
   }
 
-  Future<bool> _isOnOriginalOrigin() async {
+  Future<String?> _currentAuthorizedOrigin() async {
     final current = await _controller?.getUrl();
-    return _httpsOrigin(current == null ? null : Uri.tryParse(current.toString())) ==
-        widget.origin;
+    final origin = _httpsOrigin(
+      current == null ? null : Uri.tryParse(current.toString()),
+    );
+    return origin != null && _allowedOrigins.contains(origin) ? origin : null;
   }
 
   @override
@@ -106,7 +108,7 @@ class _OtpBrowserScreenState extends State<OtpBrowserScreen> {
 
   Future<bool> _focusedFieldCanReceiveCode() async {
     final controller = _controller;
-    if (controller == null || !await _isOnOriginalOrigin()) return false;
+    if (controller == null || await _currentAuthorizedOrigin() == null) return false;
     final result = await controller.evaluateJavascript(source: '''
       (() => {
         const el = document.activeElement;
@@ -128,10 +130,12 @@ class _OtpBrowserScreenState extends State<OtpBrowserScreen> {
     return result == true;
   }
 
-  Future<bool> _fillFocusedField(String code) async {
+  Future<bool> _fillFocusedField(String code, String expectedOrigin) async {
     final controller = _controller;
-    // Never insert a code into an identity-provider or redirected domain.
-    if (controller == null || !await _isOnOriginalOrigin()) return false;
+    // The OTP is relayed only to the exact approved origin showing the field.
+    if (controller == null || await _currentAuthorizedOrigin() != expectedOrigin) {
+      return false;
+    }
     final encodedCode = jsonEncode(code);
     final result = await controller.evaluateJavascript(source: '''
       (() => {
@@ -170,11 +174,11 @@ class _OtpBrowserScreenState extends State<OtpBrowserScreen> {
       return;
     }
 
-    final onOriginalSite = await _isOnOriginalOrigin();
+    final challengeOrigin = await _currentAuthorizedOrigin();
     if (!mounted) return;
-    if (!onOriginalSite) {
+    if (challengeOrigin == null) {
       setState(() => _status =
-          'La verificación debe completarse en el sitio original (${widget.origin}). Vuelve a ese sitio antes de transferir el código.');
+          'El dominio actual no está autorizado. Aprueba primero la redirección HTTPS.');
       return;
     }
 
@@ -195,7 +199,7 @@ class _OtpBrowserScreenState extends State<OtpBrowserScreen> {
       // Create the 90-second backend session only after the user has the code
       // ready, so browsing/login time cannot consume the OTP lifetime.
       final session = await widget.handoffService.createSession(
-        origin: widget.origin,
+        origin: challengeOrigin,
         method: widget.method,
       );
       if (!mounted) return;
@@ -205,13 +209,13 @@ class _OtpBrowserScreenState extends State<OtpBrowserScreen> {
         code: code,
       );
       if (!mounted) return;
-      final filled = await _fillFocusedField(codeFromRelay);
+      final filled = await _fillFocusedField(codeFromRelay, session.origin);
       if (!mounted) return;
       if (!filled) {
         setState(() {
           _finished = true;
           _status =
-              'El código se consumió de forma segura, pero el campo perdió el foco. Inicia una verificación nueva.';
+              'El código se consumió, pero la página cambió de dominio o el campo perdió el foco. Inicia una verificación nueva.';
           _codeController.clear();
         });
         return;
