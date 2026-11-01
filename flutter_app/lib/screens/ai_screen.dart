@@ -153,7 +153,7 @@ class _AIScreenState extends State<AIScreen> {
 
   String? _extractPythonCode(String answer) {
     final match = RegExp(
-      r'```(?:python|py)\\s*\\n([\\s\\S]*?)```',
+      r'```(?:python|py)\s*\n([\s\S]*?)```',
       caseSensitive: false,
     ).firstMatch(answer);
     final code = match?.group(1)?.trim();
