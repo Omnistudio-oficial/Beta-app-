@@ -99,10 +99,10 @@ class AiAgentTasksService {
   }) async {
     final headers = await _headers();
     final uri = Uri.parse('$_baseUrl$path');
-    final response = switch (method) {
-      'POST' => await _client.post(uri, headers: headers, body: jsonEncode(body ?? {})),
-      _ => await _client.get(uri, headers: headers),
-    }.timeout(const Duration(seconds: 45));
+    final Future<http.Response> pending = method == 'POST'
+        ? _client.post(uri, headers: headers, body: jsonEncode(body ?? {}))
+        : _client.get(uri, headers: headers);
+    final response = await pending.timeout(const Duration(seconds: 45));
 
     Map<String, dynamic> data = {};
     try {
