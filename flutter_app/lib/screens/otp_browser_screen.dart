@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import 'package:beta_app/services/otp_handoff_service.dart';
+import 'package:beta_app/services/otp_navigation_policy.dart';
 
 class OtpBrowserScreen extends StatefulWidget {
   const OtpBrowserScreen({
@@ -36,16 +37,7 @@ class _OtpBrowserScreenState extends State<OtpBrowserScreen> {
   String? _status;
   late final Set<String> _allowedOrigins = <String>{widget.origin};
 
-  String? _httpsOrigin(Uri? uri) {
-    if (uri == null ||
-        uri.scheme.toLowerCase() != 'https' ||
-        uri.host.isEmpty ||
-        uri.userInfo.isNotEmpty ||
-        uri.port != 443) {
-      return null;
-    }
-    return uri.origin;
-  }
+  String? _httpsOrigin(Uri? uri) => OtpNavigationPolicy.httpsOrigin(uri);
 
   Future<bool> _authorizeNavigation(Uri? uri) async {
     final origin = _httpsOrigin(uri);
