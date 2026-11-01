@@ -101,9 +101,45 @@ class _AIScreenState extends State<AIScreen> {
     }
   }
 
+  bool _isExplicitPythonRunRequest(String message) {
+    final normalized = message
+        .toLowerCase()
+        .replaceAll('á', 'a')
+        .replaceAll('é', 'e')
+        .replaceAll('í', 'i')
+        .replaceAll('ó', 'o')
+        .replaceAll('ú', 'u');
+    return RegExp(
+      r'\\b(ejecuta|ejecutar|ejecutalo|corre|correr)\\b.*\\b(ese|el|este|lo|codigo|script|programa|python)\\b|\\b(run)\\b.*\\b(code|script|python)\\b',
+    ).hasMatch(normalized);
+  }
+
   Future<void> _sendSaraMessage() async {
     final text = _saraChatInput.text.trim();
     if (text.isEmpty || _connecting) return;
+
+    // A natural-language command runs only the Python block in Sara's immediately
+    // preceding reply. Without both an explicit command and matching code, chat is normal.
+    final previousAssistant = _saraGeneralChat.isNotEmpty &&
+            _saraGeneralChat.last['role'] == 'assistant'
+        ? _saraGeneralChat.last['text']?.toString() ?? ''
+        : '';
+    final previousPythonCode = _extractPythonCode(previousAssistant);
+    if (_isExplicitPythonRunRequest(text) && previousPythonCode != null) {
+      setState(() {
+        _saraGeneralChat.add({'role': 'user', 'text': text});
+        _saraChatInput.clear();
+      });
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => PythonRunnerScreen(
+            initialCode: previousPythonCode,
+            autoRun: true,
+          ),
+        ),
+      );
+      return;
+    }
     if (_useWorkspaceContext && !_workspace.isConnected) {
       setState(() => _saraGeneralChat.add({'role': 'assistant', 'text': 'Conecta Google Workspace primero para hacer preguntas sobre tus datos. Puedes conversar normalmente con Sara desactivando el contexto de Google.'}));
       return;
