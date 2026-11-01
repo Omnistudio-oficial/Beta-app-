@@ -42,6 +42,10 @@ void main() {
       service.createSession(origin: 'http://example.com', method: 'email'),
       throwsArgumentError,
     );
+    await expectLater(
+      service.createSession(origin: 'https://example.com:8443', method: 'email'),
+      throwsArgumentError,
+    );
     service.close();
   });
 
