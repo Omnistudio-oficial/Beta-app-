@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>OmniStudio Python Runtime</title>
+</head>
+<body>
+<script>
+(() => {
+  "use strict";
+  const PYODIDE_VERSION = "0.29.5";
+  const PYODIDE_BASE = "https://cdn.jsdelivr.net/pyodide/v" + PYODIDE_VERSION + "/full/";
+  const EXECUTION_TIMEOUT_MS = 5000;
+  const MAX_SOURCE_CHARS = 12000;
+  let worker = null;
+  let ready = false;
+  let runTimer = null;
+  let startupTimer = null;
+  let workerUrl = null;
+
+  function notify(payload) {
+    try {
+      if (window.PythonRunner && window.PythonRunner.postMessage) {
+        window.PythonRunner.postMessage(JSON.stringify(payload));
+      }
+    } catch (_) {}
+  }
+
+  const workerSource = `
+    let pyodide = null;
+    const PYODIDE_BASE = "${PYODIDE_BASE}";
+    const setup = String.raw\`
+import ast
+import builtins
+import contextlib
+import json
+
+_ALLOWED_IMPORTS = {
+    "math", "statistics", "random", "datetime", "json", "re",
+    "collections", "itertools", "functools", "decimal", "fractions",
+    "string", "textwrap", "csv"
+}
+_FORBIDDEN_CALLS = {
+    "eval", "exec", "compile", "open", "input", "breakpoint",
+    "globals", "locals", "vars", "getattr", "setattr", "delattr",
+    "memoryview", "help", "dir"
+}
+_ORIGINAL_IMPORT = builtins.__import__
+_MAX_OUTPUT = 12000
+_MAX_SOURCE = 12000
+_output_budget = [_MAX_OUTPUT]
+
+class _BoundedOutput:
+    def __init__(self):
+        self.parts = []
+        self.size = 0
+        self.truncated = False
+    def write(self, value):
+        value = str(value)
+        remaining = _output_budget[0]
+        if remaining > 0:
+            piece = value[:remaining]
+            self.parts.append(piece)
+            self.size += len(piece)
+            _output_budget[0] -= len(piece)
+        if len(value) > remaining:
+            self.truncated = True
+        return len(value)
+    def flush(self):
+        return None
+    def getvalue(self):
+        return "".join(self.parts)
+
+def _safe_import(name, globals=None, locals=None, fromlist=(), level=0):
+    root = name.split(".", 1)[0]
+    if level != 0 or root not in _ALLOWED_IMPORTS:
+        raise ImportError("Este módulo no está permitido en el ejecutor local.")
+    return _ORIGINAL_IMPORT(name, globals, locals, fromlist, level)
+
+_SAFE_BUILTIN_NAMES = (
+    "abs", "all", "any", "ascii", "bin", "bool", "bytearray", "bytes",
+    "callable", "chr", "classmethod", "complex", "dict", "divmod",
+    "enumerate", "filter", "float", "frozenset", "hash", "hex",
+    "int", "isinstance", "issubclass", "iter", "len", "list", "map",
+    "max", "min", "next", "oct", "ord", "pow", "print", "property",
+    "range", "repr", "reversed", "round", "set", "slice", "sorted",
+    "staticmethod", "str", "sum", "super", "tuple", "type", "zip",
+    "object", "Exception", "ArithmeticError", "AssertionError",
+    "AttributeError", "ImportError", "IndexError", "KeyError",
+    "NameError", "NotImplementedError", "RuntimeError", "StopIteration",
+    "SyntaxError", "TypeError", "ValueError", "ZeroDivisionError",
+    "__build_class__"
+)
+_SAFE_BUILTINS = {name: getattr(builtins, name) for name in _SAFE_BUILTIN_NAMES}
+_SAFE_BUILTINS["__import__"] = _safe_import
+
+def _run_user_code(source):
+    if not isinstance(source, str) or len(source) > _MAX_SOURCE:
+        return json.dumps({"error": "El código supera el límite de 12.000 caracteres."})
+    _output_budget[0] = _MAX_OUTPUT
+    stdout = _BoundedOutput()
+    stderr = _BoundedOutput()
+    try:
+        tree = ast.parse(source, mode="exec")
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for item in node.names:
+                    if item.name.split(".", 1)[0] not in _ALLOWED_IMPORTS:
+                        raise PermissionError("Importación bloqueada: " + item.name)
+            elif isinstance(node, ast.ImportFrom):
+                root = (node.module or "").split(".", 1)[0]
+                if node.level != 0 or root not in _ALLOWED_IMPORTS:
+                    raise PermissionError("Importación bloqueada: " + str(node.module))
+            elif isinstance(node, ast.Attribute) and (node.attr.startswith("_") or node.attr in {"format", "format_map"}):
+                raise PermissionError("No se permite acceder a atributos internos.")
+            elif isinstance(node, ast.Name) and node.id.startswith("_"):
+                raise PermissionError("No se permiten nombres internos.")
+            elif isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+                if node.func.id in _FORBIDDEN_CALLS:
+                    raise PermissionError("Función bloqueada: " + node.func.id)
+
+        safe_globals = {"__builtins__": _SAFE_BUILTINS, "__name__": "__main__"}
+        with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+            exec(compile(tree, "<codigo-local>", "exec"), safe_globals, safe_globals)
+        return json.dumps({
+            "stdout": stdout.getvalue(),
+            "stderr": stderr.getvalue(),
+            "truncated": stdout.truncated or stderr.truncated
+        })
+    except BaseException as error:
+        return json.dumps({
+            "stdout": stdout.getvalue(),
+            "stderr": stderr.getvalue(),
+            "error": type(error).__name__ + ": " + str(error)[:1500],
+            "truncated": stdout.truncated or stderr.truncated
+        })
+\`;
+
+    async function initialize() {
+      try {
+        importScripts(PYODIDE_BASE + "pyodide.js");
+        pyodide = await loadPyodide({ indexURL: PYODIDE_BASE });
+        await pyodide.runPythonAsync(setup);
+
+        // The runtime is downloaded before network APIs are disabled.
+        const denyNetwork = () => { throw new Error("La red está deshabilitada en este entorno."); };
+        for (const name of ["fetch", "XMLHttpRequest", "WebSocket", "EventSource",
+                            "WebTransport", "Worker", "SharedWorker", "importScripts"]) {
+          try {
+            Object.defineProperty(self, name, {
+              value: denyNetwork, writable: false, configurable: false
+            });
+          } catch (_) {
+            try { self[name] = denyNetwork; } catch (_) {}
+          }
+        }
+        self.postMessage({ type: "ready" });
+      } catch (error) {
+        self.postMessage({ type: "init_error", error: String(error).slice(0, 1000) });
+      }
+    }
+
+    self.onmessage = async (event) => {
+      if (!pyodide || !event.data || event.data.type !== "run") return;
+      try {
+        pyodide.globals.set("_omni_user_source", event.data.code);
+        const result = await pyodide.runPythonAsync("_run_user_code(_omni_user_source)");
+        const parsed = JSON.parse(result);
+        self.postMessage({ type: "result", ...parsed });
+      } catch (error) {
+        self.postMessage({ type: "result", error: String(error).slice(0, 1500) });
+      } finally {
+        try { pyodide.globals.delete("_omni_user_source"); } catch (_) {}
+      }
+    };
+
+    initialize();
+  `;
+
+  function startWorker() {
+    ready = false;
+    notify({ type: "loading" });
+    try {
+      const blob = new Blob([workerSource], { type: "text/javascript" });
+      workerUrl = URL.createObjectURL(blob);
+      worker = new Worker(workerUrl);
+      worker.onmessage = (event) => {
+        const data = event.data || {};
+        if (data.type === "ready") {
+          ready = true;
+          clearTimeout(startupTimer);
+          notify({ type: "ready" });
+        } else if (data.type === "init_error") {
+          clearTimeout(startupTimer);
+          notify({ type: "init_error", error: data.error || "No se pudo iniciar Python." });
+          stopWorker();
+        } else if (data.type === "result") {
+          clearTimeout(runTimer);
+          notify(data);
+        }
+      };
+      worker.onerror = (event) => {
+        clearTimeout(runTimer);
+        clearTimeout(startupTimer);
+        notify({ type: "init_error", error: event.message || "Falló el proceso Python." });
+        stopWorker();
+      };
+      startupTimer = setTimeout(() => {
+        notify({ type: "init_error", error: "La descarga o inicialización de Python tardó demasiado." });
+        stopWorker();
+      }, 90000);
+    } catch (error) {
+      notify({ type: "init_error", error: String(error) });
+    }
+  }
+
+  function stopWorker() {
+    if (worker) worker.terminate();
+    worker = null;
+    ready = false;
+    if (workerUrl) URL.revokeObjectURL(workerUrl);
+    workerUrl = null;
+  }
+
+  window.runPython = (code) => {
+    if (typeof code !== "string" || code.length === 0) {
+      notify({ type: "result", error: "Escribe código Python antes de ejecutarlo." });
+      return;
+    }
+    if (code.length > MAX_SOURCE_CHARS) {
+      notify({ type: "result", error: "El código supera el límite de 12.000 caracteres." });
+      return;
+    }
+    if (!ready || !worker) {
+      notify({ type: "result", error: "Python todavía no está listo. Espera a que termine la inicialización." });
+      return;
+    }
+    notify({ type: "running" });
+    worker.postMessage({ type: "run", code });
+    runTimer = setTimeout(() => {
+      stopWorker();
+      notify({ type: "timeout", error: "Se agotó el límite de 5 segundos. El proceso se detuvo." });
+      setTimeout(startWorker, 400);
+    }, EXECUTION_TIMEOUT_MS);
+  };
+
+  window.addEventListener("beforeunload", stopWorker);
+  startWorker();
+})();
+</script>
+</body>
+</html>
