@@ -6,10 +6,13 @@ import 'package:webview_flutter/webview_flutter.dart';
 /// Runs small Python snippets in a dedicated Web Worker using Pyodide.
 /// User code is never sent to AI Agent Ultimate, Firebase, or Supabase.
 class PythonRunnerScreen extends StatefulWidget {
-  const PythonRunnerScreen({super.key, this.initialCode});
+  const PythonRunnerScreen({super.key, this.initialCode, this.autoRun = false});
 
   /// Optional Python snippet suggested by Sara. It is never executed automatically.
   final String? initialCode;
+
+  /// True only when the user explicitly ordered Sara to run the preceding code.
+  final bool autoRun;
 
   @override
   State<PythonRunnerScreen> createState() => _PythonRunnerScreenState();
@@ -27,6 +30,7 @@ print("Total:", sum(numbers))''';
   final WebViewController _webViewController = WebViewController();
 
   bool _runtimeReady = false;
+  bool _autoRunStarted = false;
   bool _running = false;
   String _status = 'Preparando el entorno Python…';
   String _output = '';
@@ -76,10 +80,15 @@ print("Total:", sum(numbers))''';
 
   void _handleRuntimeMessage(JavaScriptMessage message) {
     if (!mounted) return;
+    var shouldAutoRun = false;
     try {
       final decoded = jsonDecode(message.message);
       if (decoded is! Map<String, dynamic>) return;
       final type = decoded['type'];
+      if (type == 'ready' && widget.autoRun && !_autoRunStarted) {
+        _autoRunStarted = true;
+        shouldAutoRun = true;
+      }
       setState(() {
         switch (type) {
           case 'loading':
@@ -90,9 +99,11 @@ print("Total:", sum(numbers))''';
           case 'ready':
             _runtimeReady = true;
             _running = false;
-            _status = widget.initialCode?.trim().isNotEmpty == true
-                ? 'Python listo · revisa el código de Sara antes de ejecutarlo'
-                : 'Python listo · ejecución local';
+            _status = widget.autoRun
+                ? 'Python listo · ejecutando por tu orden a Sara'
+                : widget.initialCode?.trim().isNotEmpty == true
+                    ? 'Python listo · revisa el código de Sara antes de ejecutarlo'
+                    : 'Python listo · ejecución local';
             break;
           case 'running':
             _running = true;
@@ -139,6 +150,11 @@ print("Total:", sum(numbers))''';
             break;
         }
       });
+      if (shouldAutoRun && mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _runCode();
+        });
+      }
     } on FormatException {
       setState(() {
         _running = false;
@@ -211,7 +227,9 @@ print("Total:", sum(numbers))''';
                           SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'Sara preparó este código. Revísalo primero; no se ejecutará hasta que pulses «Ejecutar Python».',
+                              widget.autoRun
+                                  ? 'Orden recibida: pediste a Sara ejecutar este código. Se ejecutará una vez al iniciar Python.'
+                                  : 'Sara preparó este código. Revísalo primero; no se ejecutará hasta que pulses «Ejecutar Python».',,
                             ),
                           ),
                         ],
