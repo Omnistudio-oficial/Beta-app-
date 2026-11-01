@@ -197,25 +197,6 @@ class _AIScreenState extends State<AIScreen> {
     return code;
   }
 
-  Widget _pythonCodeAction(String answer) {
-    final code = _extractPythonCode(answer);
-    if (code == null) return const SizedBox.shrink();
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: OutlinedButton.icon(
-        key: ValueKey('sara-python-launch-${code.hashCode}'),
-        onPressed: () {
-          Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => PythonRunnerScreen(initialCode: code),
-            ),
-          );
-        },
-        icon: const Icon(Icons.terminal),
-        label: const Text('Abrir en ejecutor Python'),
-      ),
-    );
-  }
 
   Future<void> _copyPrompt() async {
     final prompt = _readyPrompt;
@@ -298,8 +279,6 @@ class _AIScreenState extends State<AIScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               SelectableText(entry['text'] ?? ''),
-                              if (entry['role'] == 'assistant')
-                                _pythonCodeAction(entry['text']?.toString() ?? ''),
                               if ((entry['sources'] as List? ?? []).isNotEmpty) ...[
                                 const Divider(),
                                 const Text('Fuentes web', style: TextStyle(fontWeight: FontWeight.w600)),
