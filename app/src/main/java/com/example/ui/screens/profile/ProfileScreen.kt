@@ -134,6 +134,7 @@ fun ProfileScreen(
     var editNameInput by remember(user?.displayName) { mutableStateOf(user?.displayName ?: "Alex González") }
     var editAvatarInput by remember(user?.avatarUrl) { mutableStateOf(user?.avatarUrl ?: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&q=80") }
     var profileSavedFeedback by remember { mutableStateOf(false) }
+    var showCredentialVault by remember { mutableStateOf(false) }
 
     var notificationFilterTab by remember { mutableStateOf(0) }
     var channelSearchQuery by remember { mutableStateOf("") }
@@ -282,6 +283,25 @@ fun ProfileScreen(
             )
 
             Spacer(modifier = Modifier.height(8.dp))
+
+            Surface(
+                modifier = Modifier.fillMaxWidth().clickable { showCredentialVault = true },
+                shape = RoundedCornerShape(12.dp),
+                color = if (isDarkTheme) Color(0xFF1E293B) else Color.White
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.Security, contentDescription = null)
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Mis credenciales", fontWeight = FontWeight.Bold)
+                        Text("Guardar y administrar accesos cifrados", fontSize = 12.sp)
+                    }
+                    Text("Abrir")
+                }
+            }
 
             Surface(
                 shape = RoundedCornerShape(12.dp),
@@ -1484,5 +1504,7 @@ fun ProfileScreen(
             }
         }
     }
+    if (showCredentialVault) {
+        CredentialVaultDialog(onDismiss = { showCredentialVault = false })
+    }
 }
-
