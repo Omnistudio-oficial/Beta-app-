@@ -4,6 +4,7 @@ import 'package:beta_app/models/user_profile.dart';
 import 'package:beta_app/services/auth_service.dart';
 import 'package:beta_app/services/firestore_service.dart';
 import 'package:beta_app/screens/profile_editor.dart';
+import 'package:beta_app/screens/credential_vault_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -112,11 +113,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ? const Center(
                 child: Text('Inicia sesión para ver tu perfil'),
               )
-            : ProfileEditor(
-                nameController: _nameController,
-                emailController: _emailController,
-                isLoading: _isLoading,
-                onSave: _saveProfile,
+            : Column(
+                children: [
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: ProfileEditor(
+                        nameController: _nameController,
+                        emailController: _emailController,
+                        isLoading: _isLoading,
+                        onSave: _saveProfile,
+                      ),
+                    ),
+                  ),
+                  Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.lock_outline),
+                      title: const Text('Mis credenciales'),
+                      subtitle: const Text('Guarda y administra tus accesos cifrados'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const CredentialVaultScreen()),
+                      ),
+                    ),
+                  ),
+                ],
               ),
       ),
     );

@@ -21,6 +21,7 @@ android {
     targetSdk = 36
     versionCode = 3
     versionName = "1.0.2"
+    buildConfigField("String", "AI_AGENT_BASE_URL", "\"${project.findProperty("AI_AGENT_BASE_URL") ?: ""}\"")
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
