@@ -1,5 +1,6 @@
 package com.example.data.credentials
 
+import com.example.BuildConfig
 import com.google.android.gms.tasks.Task
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.Dispatchers
