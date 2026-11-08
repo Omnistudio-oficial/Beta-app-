@@ -1,14 +1,18 @@
 const PROJECT_ID = "omnistudio-caaf5";
+const DATABASE_URL = "https://omnistudio-caaf5-default-rtdb.firebaseio.com";
 const ANDROID_APP_ID = "com.omnistudio.omnistudioFlutterPrototype";
 const IOS_APP_ID = "com.omnistudio.omnistudioF";
 const MAX_SKEW_SECONDS = 300;
+const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
+const GOOGLE_SCOPE = "https://www.googleapis.com/auth/firebase.database https://www.googleapis.com/auth/firebase.messaging";
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "apikey, content-type, x-sara-timestamp, x-sara-request-id, x-sara-signature",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Content-Type": "application/json",
 };
-type DeviceRow = { uid: string; app_id: string; platform: "android" | "ios"; fcm_token: string; token_hash: string };
+type ServiceAccount = { client_email: string; private_key: string; project_id: string };
+type Device = { tokenId: string; token: string; appId: string; platform: "android" | "ios" };
 function json(body: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: cors });
 }
@@ -18,22 +22,20 @@ function validUid(value: string): boolean {
 }
 function b64url(bytes: Uint8Array): string {
   let binary = ""; for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  return btoa(binary).replace(/\\+/g, "-").replace(/\\//g, "_").replace(/=+$/g, "");
 }
-async function googleAccessToken(account: { client_email: string; private_key: string; project_id: string }) {
-  const tokenUrl = "https://oauth2.googleapis.com/token";
+async function googleAccessToken(account: ServiceAccount): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   const header = b64url(new TextEncoder().encode(JSON.stringify({ alg: "RS256", typ: "JWT" })));
   const claims = b64url(new TextEncoder().encode(JSON.stringify({
-    iss: account.client_email, scope: "https://www.googleapis.com/auth/firebase.messaging",
-    aud: tokenUrl, iat: now, exp: now + 3600,
+    iss: account.client_email, scope: GOOGLE_SCOPE, aud: GOOGLE_TOKEN_URL, iat: now, exp: now + 3600,
   })));
   const unsigned = header + "." + claims;
-  const pem = account.private_key.replace(/\\n/g, "\n").replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\s/g, "");
+  const pem = account.private_key.replace(/\\\\n/g, "\\n").replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\\s/g, "");
   const raw = Uint8Array.from(atob(pem), c => c.charCodeAt(0));
   const key = await crypto.subtle.importKey("pkcs8", raw, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["sign"]);
   const signature = new Uint8Array(await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, new TextEncoder().encode(unsigned)));
-  const response = await fetch(tokenUrl, {
+  const response = await fetch(GOOGLE_TOKEN_URL, {
     method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
       grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
@@ -52,7 +54,7 @@ async function verifyHmac(secret: string, timestamp: string, requestId: string, 
   return crypto.subtle.verify("HMAC", key, bytes, new TextEncoder().encode(timestamp + "." + requestId + "." + rawBody));
 }
 async function claimNonce(requestId: string, serviceKey: string, supabaseUrl: string) {
-  const base = supabaseUrl.replace(/\/$/, "");
+  const base = supabaseUrl.replace(/\\/$/, "");
   await fetch(base + "/rest/v1/sara_push_request_nonces?expires_at=lt." + encodeURIComponent(new Date().toISOString()), {
     method: "DELETE", headers: { apikey: serviceKey, authorization: "Bearer " + serviceKey },
   });
@@ -63,36 +65,54 @@ async function claimNonce(requestId: string, serviceKey: string, supabaseUrl: st
   });
   return response.status === 201 || response.status === 204;
 }
-async function readDevices(uid: string, serviceKey: string, supabaseUrl: string): Promise<DeviceRow[]> {
-  const base = supabaseUrl.replace(/\/$/, "");
-  const query = new URLSearchParams({
-    select: "uid,app_id,platform,fcm_token,token_hash",
-    uid: `eq.${uid}`,
-    app_id: `in.(${ANDROID_APP_ID},${IOS_APP_ID})`,
-  });
-  const response = await fetch(base + "/rest/v1/fcm_device_tokens?" + query.toString(), {
-    headers: { apikey: serviceKey, authorization: "Bearer " + serviceKey, accept: "application/json" },
-  });
-  if (!response.ok) throw new Error("device_registry_read_failed");
-  const rows = await response.json() as DeviceRow[];
-  return rows.filter(row =>
-    row.uid === uid &&
-    ((row.app_id === ANDROID_APP_ID && row.platform === "android") ||
-      (row.app_id === IOS_APP_ID && row.platform === "ios")) &&
-    typeof row.fcm_token === "string" && row.fcm_token.length >= 100 && row.fcm_token.length <= 4096 &&
-    typeof row.token_hash === "string" && /^[a-f0-9]{64}$/.test(row.token_hash)
-  );
+function databasePath(path: string): string {
+  return path.split("/").map(encodeURIComponent).join("/");
 }
-async function removeStaleDevice(row: DeviceRow, serviceKey: string, supabaseUrl: string) {
-  const base = supabaseUrl.replace(/\/$/, "");
-  const query = new URLSearchParams({
-    uid: `eq.${row.uid}`, app_id: `eq.${row.app_id}`,
-    platform: `eq.${row.platform}`, token_hash: `eq.${row.token_hash}`,
+async function firebaseGet(path: string, accessToken: string): Promise<unknown> {
+  const response = await fetch(`${DATABASE_URL}/${databasePath(path)}.json`, {
+    headers: { authorization: `Bearer ${accessToken}` },
   });
-  const response = await fetch(base + "/rest/v1/fcm_device_tokens?" + query.toString(), {
-    method: "DELETE", headers: { apikey: serviceKey, authorization: "Bearer " + serviceKey },
+  if (!response.ok) throw new Error("firebase_database_read_failed");
+  return response.json();
+}
+async function firebaseDelete(path: string, accessToken: string): Promise<void> {
+  const response = await fetch(`${DATABASE_URL}/${databasePath(path)}.json`, {
+    method: "DELETE", headers: { authorization: `Bearer ${accessToken}` },
   });
-  if (!response.ok) console.warn("Could not remove stale FCM token", { platform: row.platform, status: response.status });
+  if (!response.ok && response.status !== 404) throw new Error("firebase_database_delete_failed");
+}
+async function readDevices(uid: string, accessToken: string): Promise<Device[]> {
+  const value = await firebaseGet(`users/${uid}/fcmTokens`, accessToken);
+  if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+  const devices: Device[] = [];
+  for (const [tokenId, raw] of Object.entries(value as Record<string, unknown>)) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) continue;
+    const row = raw as Record<string, unknown>;
+    const appId = text(row.appId);
+    const token = text(row.fcmToken);
+    const platform = appId === ANDROID_APP_ID ? "android" : appId === IOS_APP_ID ? "ios" : "";
+    if (!platform || !token || token.length > 4096 || row.notificationsEnabled === false) continue;
+    devices.push({ tokenId, token, appId, platform });
+  }
+  return devices;
+}
+async function sendFcm(device: Device, taskId: string, status: "completed" | "failed", accessToken: string) {
+  const title = status === "completed" ? "Sara completó tu tarea" : "Sara no pudo completar tu tarea";
+  const messageBody = status === "completed"
+    ? "Tu tarea ha finalizado. Abre Sara para ver el resultado."
+    : "Hubo un problema con tu tarea. Abre Sara para consultar los detalles.";
+  return fetch("https://fcm.googleapis.com/v1/projects/" + PROJECT_ID + "/messages:send", {
+    method: "POST",
+    headers: { authorization: "Bearer " + accessToken, "content-type": "application/json" },
+    body: JSON.stringify({ message: {
+      token: device.token,
+      notification: { title, body: messageBody },
+      data: { eventType: "sara_task", taskId, taskStatus: status },
+      ...(device.platform === "android"
+        ? { android: { priority: "HIGH" } }
+        : { apns: { headers: { "apns-priority": "10" }, payload: { aps: { sound: "default" } } } }),
+    } }),
+  });
 }
 Deno.serve(async request => {
   if (request.method === "OPTIONS") return new Response("ok", { headers: cors });
@@ -108,7 +128,7 @@ Deno.serve(async request => {
   const requestId = request.headers.get("x-sara-request-id") ?? "";
   const signature = request.headers.get("x-sara-signature") ?? "";
   const seconds = Number(timestamp);
-  if (!/^\d{10}$/.test(timestamp) || !Number.isFinite(seconds) ||
+  if (!/^\\d{10}$/.test(timestamp) || !Number.isFinite(seconds) ||
       Math.abs(Date.now() / 1000 - seconds) > MAX_SKEW_SECONDS ||
       !/^[0-9a-f-]{36}$/i.test(requestId)) return json({ error: "invalid_or_expired_signature" }, 401);
   const rawBody = await request.text();
@@ -125,40 +145,25 @@ Deno.serve(async request => {
 
   try {
     if (!await claimNonce(requestId, serviceKey, supabaseUrl)) return json({ error: "request_replayed" }, 409);
-    const account = JSON.parse(accountJson) as { client_email: string; private_key: string; project_id: string };
+    const account = JSON.parse(accountJson) as ServiceAccount;
     if (account.project_id !== PROJECT_ID || !account.client_email || !account.private_key) {
       return json({ error: "firebase_service_account_invalid" }, 503);
     }
-    const [accessToken, devices] = await Promise.all([
-      googleAccessToken(account),
-      readDevices(userId, serviceKey, supabaseUrl),
-    ]);
-    const title = status === "completed" ? "Sara completó tu tarea" : "Sara no pudo completar tu tarea";
-    const messageBody = status === "completed"
-      ? "Tu tarea ha finalizado. Abre Sara para ver el resultado."
-      : "Hubo un problema con tu tarea. Abre Sara para consultar los detalles.";
+    const accessToken = await googleAccessToken(account);
+    const devices = await readDevices(userId, accessToken);
     let sent = 0;
     let disabled = 0;
     for (const device of devices) {
-      const response = await fetch("https://fcm.googleapis.com/v1/projects/" + PROJECT_ID + "/messages:send", {
-        method: "POST",
-        headers: { authorization: "Bearer " + accessToken, "content-type": "application/json" },
-        body: JSON.stringify({ message: {
-          token: device.fcm_token,
-          notification: { title, body: messageBody },
-          data: { eventType: "sara_task", taskId, taskStatus: status },
-          ...(device.platform === "android"
-            ? { android: { priority: "HIGH" } }
-            : { apns: { headers: { "apns-priority": "10" }, payload: { aps: { sound: "default" } } } }),
-        } }),
-      });
+      const response = await sendFcm(device, taskId, status, accessToken);
       if (response.ok) sent++;
       else {
         const error = await response.json().catch(() => ({})) as { error?: { details?: Array<{ errorCode?: string }> } };
         const codes = error.error?.details?.map(item => item.errorCode) ?? [];
         if (response.status === 404 || codes.includes("UNREGISTERED")) {
-          await removeStaleDevice(device, serviceKey, supabaseUrl);
+          await firebaseDelete(`users/${userId}/fcmTokens/${device.tokenId}`, accessToken);
           disabled++;
+        } else {
+          console.warn("FCM rejected a Sara task notification", { platform: device.platform, status: response.status });
         }
       }
     }
