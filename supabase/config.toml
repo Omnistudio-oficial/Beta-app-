@@ -18,3 +18,11 @@ verify_jwt = false
 # This endpoint validates Firebase ID tokens itself.
 [functions.chat-media-access]
 verify_jwt = false
+
+# Sara Worker push bridge. Requests are authenticated with timestamped HMAC.
+[functions.send-sara-task-push]
+verify_jwt = false
+
+# Device registration validates Firebase ID tokens in the function itself.
+[functions.register-sara-fcm-device]
+verify_jwt = false

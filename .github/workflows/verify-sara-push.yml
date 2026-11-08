@@ -1,0 +1,51 @@
+name: Verify Sara Supabase push functions
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "supabase/functions/register-sara-fcm-device/**"
+      - "supabase/functions/send-sara-task-push/**"
+      - "supabase/migrations/*sara_push_request_nonces.sql"
+      - "supabase/config.toml"
+      - ".github/workflows/verify-sara-push.yml"
+  push:
+    branches:
+      - feature/sara-fcm-secure-bridge
+    paths:
+      - "supabase/functions/register-sara-fcm-device/**"
+      - "supabase/functions/send-sara-task-push/**"
+      - "supabase/migrations/*sara_push_request_nonces.sql"
+      - "supabase/config.toml"
+      - ".github/workflows/verify-sara-push.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type-check Firebase device registration
+        run: deno check --no-config supabase/functions/register-sara-fcm-device/index.ts
+      - name: Type-check signed Sara push sender
+        run: deno check --no-config supabase/functions/send-sara-task-push/index.ts
+      - name: Verify registered Android and iOS Firebase app identifiers
+        shell: bash
+        run: |
+          grep -F 'const ANDROID_APP_ID = "com.omnistudio.omnistudioFlutterPrototype";' supabase/functions/register-sara-fcm-device/index.ts
+          grep -F 'const IOS_APP_ID = "com.omnistudio.omnistudioF";' supabase/functions/register-sara-fcm-device/index.ts
+          grep -F 'const ANDROID_APP_ID = "com.omnistudio.omnistudioFlutterPrototype";' supabase/functions/send-sara-task-push/index.ts
+          grep -F 'const IOS_APP_ID = "com.omnistudio.omnistudioF";' supabase/functions/send-sara-task-push/index.ts
+          grep -F 'account.private_key.replace' supabase/functions/register-sara-fcm-device/index.ts
+          grep -F 'account.private_key.replace' supabase/functions/send-sara-task-push/index.ts
+      - name: Verify nonce migration security controls
+        shell: bash
+        run: |
+          grep -qi 'enable row level security' supabase/migrations/20261108000000_sara_push_request_nonces.sql
+          grep -qi 'revoke all.*anon, authenticated' supabase/migrations/20261108000000_sara_push_request_nonces.sql
+          grep -qi 'grant select, insert, delete.*service_role' supabase/migrations/20261108000000_sara_push_request_nonces.sql
