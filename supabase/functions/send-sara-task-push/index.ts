@@ -98,7 +98,7 @@ Deno.serve(async request => {
           token: device!.fcmToken,
           notification: { title, body: messageBody },
           data: { eventType: "sara_task", taskId, taskStatus: status },
-          android: { priority: "HIGH", notification: { channel_id: "sara_tasks" } },
+          android: { priority: "HIGH" },
           apns: { payload: { aps: { sound: "default" } } },
         } }),
       });
