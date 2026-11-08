@@ -41,8 +41,8 @@ jobs:
           grep -F 'const IOS_APP_ID = "com.omnistudio.omnistudioF";' supabase/functions/register-sara-fcm-device/index.ts
           grep -F 'const ANDROID_APP_ID = "com.omnistudio.omnistudioFlutterPrototype";' supabase/functions/send-sara-task-push/index.ts
           grep -F 'const IOS_APP_ID = "com.omnistudio.omnistudioF";' supabase/functions/send-sara-task-push/index.ts
-          grep -F 'replace(/\\\\n/g, "\\n")' supabase/functions/register-sara-fcm-device/index.ts
-          grep -F 'replace(/\\\\n/g, "\\n")' supabase/functions/send-sara-task-push/index.ts
+          grep -F 'account.private_key.replace' supabase/functions/register-sara-fcm-device/index.ts
+          grep -F 'account.private_key.replace' supabase/functions/send-sara-task-push/index.ts
       - name: Verify nonce migration security controls
         shell: bash
         run: |
