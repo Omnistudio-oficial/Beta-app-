@@ -42,6 +42,7 @@ jobs:
           grep -F 'const ANDROID_APP_ID = "com.omnistudio.omnistudioFlutterPrototype";' supabase/functions/send-sara-task-push/index.ts
           grep -F 'const IOS_APP_ID = "com.omnistudio.omnistudioF";' supabase/functions/send-sara-task-push/index.ts
           grep -F 'account.private_key.replace' supabase/functions/register-sara-fcm-device/index.ts
+          grep -F 'https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/firebase.database https://www.googleapis.com/auth/firebase.messaging' supabase/functions/send-sara-task-push/index.ts
           grep -F 'account.private_key.replace' supabase/functions/send-sara-task-push/index.ts
       - name: Verify nonce migration security controls
         shell: bash
