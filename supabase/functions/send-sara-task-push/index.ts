@@ -22,7 +22,7 @@ function validUid(value: string): boolean {
 }
 function b64url(bytes: Uint8Array): string {
   let binary = ""; for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\\+/g, "-").replace(/\\//g, "_").replace(/=+$/g, "");
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 async function googleAccessToken(account: ServiceAccount): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
@@ -31,7 +31,7 @@ async function googleAccessToken(account: ServiceAccount): Promise<string> {
     iss: account.client_email, scope: GOOGLE_SCOPE, aud: GOOGLE_TOKEN_URL, iat: now, exp: now + 3600,
   })));
   const unsigned = header + "." + claims;
-  const pem = account.private_key.replace(/\\\\n/g, "\\n").replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\\s/g, "");
+  const pem = account.private_key.replace(/\\n/g, "\\n").replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\s/g, "");
   const raw = Uint8Array.from(atob(pem), c => c.charCodeAt(0));
   const key = await crypto.subtle.importKey("pkcs8", raw, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["sign"]);
   const signature = new Uint8Array(await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, new TextEncoder().encode(unsigned)));
@@ -54,7 +54,7 @@ async function verifyHmac(secret: string, timestamp: string, requestId: string, 
   return crypto.subtle.verify("HMAC", key, bytes, new TextEncoder().encode(timestamp + "." + requestId + "." + rawBody));
 }
 async function claimNonce(requestId: string, serviceKey: string, supabaseUrl: string) {
-  const base = supabaseUrl.replace(/\\/$/, "");
+  const base = supabaseUrl.replace(/\/$/, "");
   await fetch(base + "/rest/v1/sara_push_request_nonces?expires_at=lt." + encodeURIComponent(new Date().toISOString()), {
     method: "DELETE", headers: { apikey: serviceKey, authorization: "Bearer " + serviceKey },
   });
@@ -128,7 +128,7 @@ Deno.serve(async request => {
   const requestId = request.headers.get("x-sara-request-id") ?? "";
   const signature = request.headers.get("x-sara-signature") ?? "";
   const seconds = Number(timestamp);
-  if (!/^\\d{10}$/.test(timestamp) || !Number.isFinite(seconds) ||
+  if (!/^\d{10}$/.test(timestamp) || !Number.isFinite(seconds) ||
       Math.abs(Date.now() / 1000 - seconds) > MAX_SKEW_SECONDS ||
       !/^[0-9a-f-]{36}$/i.test(requestId)) return json({ error: "invalid_or_expired_signature" }, 401);
   const rawBody = await request.text();
