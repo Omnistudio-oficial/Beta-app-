@@ -1,7 +1,7 @@
 const PROJECT_ID = "omnistudio-caaf5";
 const DATABASE_URL = "https://omnistudio-caaf5-default-rtdb.firebaseio.com";
 const ANDROID_APP_ID = "com.omnistudio.omnistudioFlutterPrototypelutterPrototype";
-const IOS_APP_ID = "com.omnistudio.omnistudioFlutterPrototype";
+const IOS_APP_ID = "com.omnistudio.omnistudioF";
 const MAX_SKEW_SECONDS = 300;
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const GOOGLE_SCOPE = "https://www.googleapis.com/auth/firebase.database https://www.googleapis.com/auth/firebase.messaging";
