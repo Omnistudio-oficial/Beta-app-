@@ -21,7 +21,7 @@ function validUid(value: unknown): value is string {
   return typeof value === "string" && value.length > 0 && value.length <= 128 && /^[A-Za-z0-9_-]+$/.test(value);
 }
 function bearer(request: Request): string | null {
-  const match = /^Bearer\\s+(\\S+)$/i.exec(request.headers.get("authorization") ?? "");
+  const match = /^Bearer\s+(\S+)$/i.exec(request.headers.get("authorization") ?? "");
   return match && match[1].length <= MAX_TOKEN_LENGTH ? match[1] : null;
 }
 async function verifyIdToken(idToken: string, apiKey: string) {
@@ -37,7 +37,7 @@ async function verifyIdToken(idToken: string, apiKey: string) {
 }
 function b64url(bytes: Uint8Array): string {
   let binary = ""; for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\\+/g, "-").replace(/\\//g, "_").replace(/=+$/g, "");
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 async function googleAccessToken(account: ServiceAccount): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
@@ -46,7 +46,7 @@ async function googleAccessToken(account: ServiceAccount): Promise<string> {
     iss: account.client_email, scope: GOOGLE_SCOPE, aud: GOOGLE_TOKEN_URL, iat: now, exp: now + 3600,
   })));
   const unsigned = header + "." + claims;
-  const pem = account.private_key.replace(/\\\\n/g, "\\n").replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\\s/g, "");
+  const pem = account.private_key.replace(/\\n/g, "\\n").replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\s/g, "");
   const raw = Uint8Array.from(atob(pem), c => c.charCodeAt(0));
   const key = await crypto.subtle.importKey("pkcs8", raw, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["sign"]);
   const signature = new Uint8Array(await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, new TextEncoder().encode(unsigned)));
@@ -87,7 +87,7 @@ Deno.serve(async request => {
   if (!expectedAppId || text(body.appId) !== expectedAppId || (action !== "register" && action !== "unregister")) {
     return json({ error: "unsupported_app_platform_or_action" }, 400);
   }
-  if (token.length < 100 || token.length > MAX_TOKEN_LENGTH || /\\s/.test(token)) {
+  if (token.length < 100 || token.length > MAX_TOKEN_LENGTH || /\s/.test(token)) {
     return json({ error: "invalid_fcm_token" }, 400);
   }
 
