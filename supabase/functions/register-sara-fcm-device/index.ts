@@ -4,7 +4,7 @@ const ANDROID_APP_ID = "com.omnistudio.omnistudioFlutterPrototype";
 const IOS_APP_ID = "com.omnistudio.omnistudioF";
 const MAX_TOKEN_LENGTH = 4096;
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
-const GOOGLE_SCOPE = "https://www.googleapis.com/auth/firebase.database";
+const GOOGLE_SCOPE = "https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/firebase.database";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
