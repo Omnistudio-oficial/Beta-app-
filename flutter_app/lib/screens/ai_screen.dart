@@ -100,6 +100,49 @@ class _AIScreenState extends State<AIScreen> {
     }
   }
 
+  Future<void> _approveSaraAction(int index) async {
+    if (index < 0 || index >= _saraGeneralChat.length || _connecting) return;
+    final pending = _saraGeneralChat[index]['pendingAction'];
+    if (pending is! AiAgentPendingAction) return;
+    setState(() => _connecting = true);
+    try {
+      final result = await _aiAgent.executePendingAction(pending);
+      if (!mounted) return;
+      final url = result['html_url'];
+      final sent = result['sent'] == true;
+      final message = url is String && url.startsWith('https://')
+          ? 'Repositorio creado correctamente: $url'
+          : sent
+              ? 'Mensaje enviado correctamente a Slack.'
+              : 'Acción ejecutada correctamente.';
+      setState(() {
+        _saraGeneralChat[index]['text'] = message;
+        _saraGeneralChat[index]['pendingAction'] = null;
+        _saraGeneralChat[index]['actionStatus'] = 'executed';
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _saraGeneralChat[index]['text'] =
+            'No se pudo completar la acción. Puede que la aprobación haya vencido; vuelve a solicitarla.';
+        _saraGeneralChat[index]['pendingAction'] = null;
+        _saraGeneralChat[index]['actionStatus'] = 'failed';
+      });
+    } finally {
+      if (mounted) setState(() => _connecting = false);
+    }
+  }
+
+  void _rejectSaraAction(int index) {
+    if (index < 0 || index >= _saraGeneralChat.length) return;
+    setState(() {
+      _saraGeneralChat[index]['pendingAction'] = null;
+      _saraGeneralChat[index]['actionStatus'] = 'rejected';
+      _saraGeneralChat[index]['text'] =
+          'Acción cancelada. No se realizó ningún cambio en GitHub ni Slack.';
+    });
+  }
+
   Future<void> _sendSaraMessage() async {
     final text = _saraChatInput.text.trim();
     if (text.isEmpty || _connecting) return;
@@ -132,6 +175,8 @@ class _AIScreenState extends State<AIScreen> {
               .map((source) => {'title': source.title, 'url': source.url})
               .toList(),
           'webSearchUsed': response.usedWebSearch,
+          'pendingAction': response.pendingAction,
+          'actionStatus': response.requiresApproval ? 'pending' : 'none',
         }));
       }
     } catch (error) {
@@ -209,48 +254,90 @@ class _AIScreenState extends State<AIScreen> {
                   const SizedBox(height: 8),
                   const Text('Los mensajes normales se envían automáticamente al AI Agent Ultimate. Si activas Google Workspace, se usa su integración independiente de solo lectura.'),
                   const SizedBox(height: 8),
-                  SizedBox(height: 230, child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                    if (_saraGeneralChat.isEmpty)
-                      const Text('Conversa con Sara sobre cualquier tema. Si activas el contexto de Google, podrá interpretar preguntas y consultar tus datos autorizados en modo de solo lectura.'),
-                    for (final entry in _saraGeneralChat.take(4))
-                      Align(
-                        alignment: entry['role'] == 'user'
-                            ? Alignment.centerRight
-                            : Alignment.centerLeft,
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(vertical: 4),
-                          padding: const EdgeInsets.all(10),
-                          constraints: const BoxConstraints(maxWidth: 440),
-                          decoration: BoxDecoration(
-                            color: entry['role'] == 'user'
-                                ? Theme.of(context).colorScheme.primaryContainer
-                                : Theme.of(context).colorScheme.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              SelectableText(entry['text'] ?? ''),
-                              if ((entry['sources'] as List? ?? []).isNotEmpty) ...[
-                                const Divider(),
-                                const Text('Fuentes web', style: TextStyle(fontWeight: FontWeight.w600)),
-                                for (final source in (entry['sources'] as List).take(5))
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 4),
-                                    child: SelectableText(
-                                      '${source['title']}\n${source['url']}',
-                                      style: TextStyle(
-                                        color: Theme.of(context).colorScheme.primary,
-                                        fontSize: 12,
-                                      ),
+                  SizedBox(
+                    height: 320,
+                    child: ListView(
+                      children: [
+                        if (_saraGeneralChat.isEmpty)
+                          const Text('Conversa con Sara sobre cualquier tema. Si activas el contexto de Google, podrá interpretar preguntas y consultar tus datos autorizados en modo de solo lectura.'),
+                        for (final entry in _saraGeneralChat.skip(_saraGeneralChat.length > 4 ? _saraGeneralChat.length - 4 : 0))
+                          Align(
+                            alignment: entry['role'] == 'user'
+                                ? Alignment.centerRight
+                                : Alignment.centerLeft,
+                            child: Container(
+                              margin: const EdgeInsets.symmetric(vertical: 4),
+                              padding: const EdgeInsets.all(10),
+                              constraints: const BoxConstraints(maxWidth: 440),
+                              decoration: BoxDecoration(
+                                color: entry['role'] == 'user'
+                                    ? Theme.of(context).colorScheme.primaryContainer
+                                    : Theme.of(context).colorScheme.surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  SelectableText(entry['text'] ?? ''),
+                                  if (entry['pendingAction'] is AiAgentPendingAction) ...[
+                                    const Divider(),
+                                    Text(
+                                      entry['pendingAction'].provider == 'github'
+                                          ? (entry['pendingAction'].details['private'] == true
+                                              ? 'Crear repositorio privado en GitHub'
+                                              : 'Crear repositorio público en GitHub')
+                                          : 'Enviar mensaje a Slack',
+                                      style: const TextStyle(fontWeight: FontWeight.w600),
                                     ),
-                                  ),
-                              ],
-                            ],
+                                    if (entry['pendingAction'].provider == 'github')
+                                      Text('Nombre: ${entry['pendingAction'].details['name']}'),
+                                    if (entry['pendingAction'].provider == 'slack') ...[
+                                      Text('Canal: ${entry['pendingAction'].details['channel']}'),
+                                      Text('Mensaje: ${entry['pendingAction'].details['text']}'),
+                                    ],
+                                    const SizedBox(height: 8),
+                                    Wrap(
+                                      spacing: 8,
+                                      children: [
+                                        FilledButton(
+                                          key: const Key('sara-approve-provider-action'),
+                                          onPressed: _connecting
+                                              ? null
+                                              : () => _approveSaraAction(_saraGeneralChat.indexOf(entry)),
+                                          child: const Text('Confirmar y ejecutar'),
+                                        ),
+                                        OutlinedButton(
+                                          key: const Key('sara-reject-provider-action'),
+                                          onPressed: _connecting
+                                              ? null
+                                              : () => _rejectSaraAction(_saraGeneralChat.indexOf(entry)),
+                                          child: const Text('Cancelar'),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                  if ((entry['sources'] as List? ?? []).isNotEmpty) ...[
+                                    const Divider(),
+                                    const Text('Fuentes web', style: TextStyle(fontWeight: FontWeight.w600)),
+                                    for (final source in (entry['sources'] as List).take(5))
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 4),
+                                        child: SelectableText(
+                                          '${source['title']}\\n${source['url']}',
+                                          style: TextStyle(
+                                            color: Theme.of(context).colorScheme.primary,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ],
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                  ])),
+                      ],
+                    ),
+                  ),
                   const SizedBox(height: 4),
                   SwitchListTile(
                     key: const Key('sara-web-search'),

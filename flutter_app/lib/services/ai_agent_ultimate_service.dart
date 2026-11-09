@@ -25,31 +25,76 @@ class AiAgentWebSource {
   }
 }
 
+class AiAgentPendingAction {
+  const AiAgentPendingAction({
+    required this.provider,
+    required this.action,
+    required this.details,
+    required this.approvalId,
+    required this.idempotencyKey,
+    required this.expiresAt,
+  });
+
+  final String provider;
+  final String action;
+  final Map<String, dynamic> details;
+  final String approvalId;
+  final String idempotencyKey;
+  final String expiresAt;
+
+  factory AiAgentPendingAction.fromJson(Map<String, dynamic> json) {
+    final details = json['details'];
+    return AiAgentPendingAction(
+      provider: json['provider'] is String ? json['provider'] as String : '',
+      action: json['action'] is String ? json['action'] as String : '',
+      details: details is Map<String, dynamic> ? details : const {},
+      approvalId: json['approval_id'] is String ? json['approval_id'] as String : '',
+      idempotencyKey: json['idempotency_key'] is String ? json['idempotency_key'] as String : '',
+      expiresAt: json['expires_at'] is String ? json['expires_at'] as String : '',
+    );
+  }
+
+  Map<String, dynamic> toExecuteJson() => {
+        'provider': provider,
+        'details': details,
+        'approval_id': approvalId,
+        'idempotency_key': idempotencyKey,
+      };
+}
+
 class AiAgentChatResponse {
   const AiAgentChatResponse({
     required this.answer,
     required this.conversationId,
     required this.webSearchStatus,
     required this.webSources,
+    this.pendingAction,
   });
 
   final String answer;
   final String? conversationId;
   final String webSearchStatus;
   final List<AiAgentWebSource> webSources;
+  final AiAgentPendingAction? pendingAction;
 
+  bool get requiresApproval => pendingAction != null;
   bool get usedWebSearch => webSearchStatus == 'searched';
 }
 
-/// Sends authenticated chat messages to the production AI Agent Ultimate Worker.
+/// Sends authenticated chat messages to the configured AI Agent Ultimate Worker (production by default).
 /// Firebase ID tokens remain in memory and are never logged or persisted.
 /// Conversation IDs are non-secret and are stored separately for each Firebase UID.
 class AiAgentUltimateService {
   AiAgentUltimateService({http.Client? client})
       : _client = client ?? http.Client();
 
-  static const String endpoint =
-      'https://ai-agent-ultimate.gonzalez24029.workers.dev/v1/chat';
+  static const String endpoint = String.fromEnvironment(
+    'AI_AGENT_ULTIMATE_URL',
+    defaultValue: 'https://ai-agent-ultimate.gonzalez24029.workers.dev/v1/chat',
+  );
+
+  Uri get _chatUri => Uri.parse(endpoint);
+  Uri get _executeUri => _chatUri.replace(path: '/v1/chat/actions/execute');
 
   final http.Client _client;
 
@@ -85,7 +130,7 @@ class AiAgentUltimateService {
 
     final response = await _client
         .post(
-          Uri.parse(endpoint),
+          _chatUri,
           headers: {
             'Authorization': 'Bearer $idToken',
             'Content-Type': 'application/json',
@@ -104,6 +149,22 @@ class AiAgentUltimateService {
     }
 
     if (response.statusCode == 202) {
+      final pending = data['pending_action'];
+      if (data['status'] == 'approval_required' && pending is Map<String, dynamic>) {
+        final action = AiAgentPendingAction.fromJson(pending);
+        if (action.provider.isNotEmpty && action.approvalId.isNotEmpty &&
+            action.idempotencyKey.isNotEmpty && action.details.isNotEmpty) {
+          return AiAgentChatResponse(
+            answer: data['answer'] is String
+                ? data['answer'] as String
+                : 'Revisa la acción y confirma si deseas ejecutarla.',
+            conversationId: null,
+            webSearchStatus: 'not_requested',
+            webSources: const [],
+            pendingAction: action,
+          );
+        }
+      }
       throw StateError(
         'Esta solicitud requiere autorización. No se ejecutó ninguna acción.',
       );
@@ -176,6 +237,49 @@ class AiAgentUltimateService {
           : 'not_requested',
       webSources: sources,
     );
+  }
+
+  Future<Map<String, dynamic>> executePendingAction(
+    AiAgentPendingAction action,
+  ) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw StateError('Inicia sesión en OmniStudio para autorizar esta acción.');
+    }
+    final idToken = await user.getIdToken();
+    if (idToken == null || idToken.isEmpty) {
+      throw StateError('No se pudo obtener la autenticación de Firebase.');
+    }
+    final response = await _client
+        .post(
+          _executeUri,
+          headers: {
+            'Authorization': 'Bearer $idToken',
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: jsonEncode(action.toExecuteJson()),
+        )
+        .timeout(const Duration(seconds: 45));
+    Map<String, dynamic> data = {};
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) data = decoded;
+    } on FormatException {
+      // Never expose provider response bodies or credentials in UI errors.
+    }
+    if (response.statusCode != 200) {
+      final error = data['error'] is String ? data['error'] as String : '';
+      if (error == 'valid_one_time_approval_required') {
+        throw StateError('La autorización venció o ya fue utilizada. Solicita la acción de nuevo.');
+      }
+      throw StateError('El proveedor no pudo completar la acción. Código HTTP: ${response.statusCode}.');
+    }
+    final result = data['result'];
+    if (result is! Map<String, dynamic>) {
+      throw StateError('El servidor no confirmó el resultado de la acción.');
+    }
+    return result;
   }
 
   Future<void> startNewConversation() async {
