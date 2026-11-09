@@ -283,7 +283,9 @@ class _AIScreenState extends State<AIScreen> {
                                     const Divider(),
                                     Text(
                                       entry['pendingAction'].provider == 'github'
-                                          ? 'Crear repositorio privado en GitHub'
+                                          ? (entry['pendingAction'].details['private'] == true
+                                              ? 'Crear repositorio privado en GitHub'
+                                              : 'Crear repositorio público en GitHub')
                                           : 'Enviar mensaje a Slack',
                                       style: const TextStyle(fontWeight: FontWeight.w600),
                                     ),
