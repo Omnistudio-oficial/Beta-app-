@@ -81,7 +81,7 @@ class AiAgentChatResponse {
   bool get usedWebSearch => webSearchStatus == 'searched';
 }
 
-/// Sends authenticated chat messages to the production AI Agent Ultimate Worker.
+/// Sends authenticated chat messages to the configured AI Agent Ultimate Worker (production by default).
 /// Firebase ID tokens remain in memory and are never logged or persisted.
 /// Conversation IDs are non-secret and are stored separately for each Firebase UID.
 class AiAgentUltimateService {
