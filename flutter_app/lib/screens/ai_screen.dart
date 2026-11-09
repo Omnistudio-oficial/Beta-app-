@@ -260,7 +260,7 @@ class _AIScreenState extends State<AIScreen> {
                       children: [
                         if (_saraGeneralChat.isEmpty)
                           const Text('Conversa con Sara sobre cualquier tema. Si activas el contexto de Google, podrá interpretar preguntas y consultar tus datos autorizados en modo de solo lectura.'),
-                        for (final entry in _saraGeneralChat.take(4))
+                        for (final entry in _saraGeneralChat.skip(_saraGeneralChat.length > 4 ? _saraGeneralChat.length - 4 : 0))
                           Align(
                             alignment: entry['role'] == 'user'
                                 ? Alignment.centerRight
